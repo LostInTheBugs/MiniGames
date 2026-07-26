@@ -1,0 +1,2281 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CatAdventure 🐱</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background:#1a1a2e;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  height:100vh;
+  overflow:hidden;
+  font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;
+}
+#container {
+  position:relative;
+  width:960px;
+  height:540px;
+  transform: scale(var(--scale, 1));
+  transform-origin: center center;
+}
+canvas {
+  display:block;
+  width:960px;
+  height:540px;
+  image-rendering:auto;
+}
+#ui-overlay {
+  position:absolute;
+  top:0;left:0;right:0;
+  pointer-events:none;
+  padding:10px 16px;
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+}
+.hud-item {
+  color:#fff;
+  font-size:14px;
+  font-weight:700;
+  text-shadow:2px 2px 0 rgba(0,0,0,0.6);
+  background:rgba(0,0,0,0.45);
+  padding:4px 10px;
+  border-radius:12px;
+  margin:2px 0;
+}
+.hud-left { text-align:left; }
+.hud-right { text-align:right; }
+.xp-bar-outer {
+  width:140px;
+  height:8px;
+  background:rgba(0,0,0,0.5);
+  border-radius:4px;
+  margin-top:3px;
+  overflow:hidden;
+}
+.xp-bar-inner {
+  height:100%;
+  background:linear-gradient(90deg,#f9a825,#ff6f00);
+  border-radius:4px;
+  transition:width 0.3s;
+}
+.health-hearts {
+  font-size:18px;
+  letter-spacing:2px;
+}
+</style>
+</head>
+<body>
+<div id="container">
+  <canvas id="game"></canvas>
+  <div id="ui-overlay">
+    <div class="hud-left">
+      <div class="hud-item" id="hud-city">🏘️ Quartier Calme</div>
+      <div class="hud-item" id="hud-level">⭐ Niv.1</div>
+      <div class="xp-bar-outer"><div class="xp-bar-inner" id="xp-bar" style="width:0%"></div></div>
+    </div>
+    <div class="hud-right">
+      <div class="hud-item health-hearts" id="hud-hearts">❤️❤️❤️❤️❤️</div>
+      <div class="hud-item" id="hud-score">🐟 0</div>
+    </div>
+  </div>
+  <div id="message-popup" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.85);color:#fff;padding:16px 28px;border-radius:14px;font-size:17px;text-align:center;border:2px solid #ffd700;z-index:100;pointer-events:none;font-family:'Segoe UI',sans-serif;"></div>
+  <div id="pause-screen" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.7);z-index:200;justify-content:center;align-items:center;color:#fff;font-size:42px;font-weight:bold;font-family:'Segoe UI',sans-serif;text-shadow:0 0 20px rgba(255,215,0,0.5);">⏸️ PAUSE</div>
+  <div id="score-form" style="display:none;position:absolute;bottom:80px;left:50%;transform:translateX(-50%);z-index:300;text-align:center;font-family:'Segoe UI',sans-serif;">
+    <input id="score-name" type="text" maxlength="12" placeholder="Ton nom" style="padding:8px 14px;font-size:16px;border-radius:8px;border:2px solid #ffd700;background:#1a1a2e;color:#fff;text-align:center;width:180px;">
+    <button id="score-save-btn" style="margin-left:8px;padding:8px 18px;font-size:16px;border-radius:8px;border:none;background:#ffd700;color:#000;font-weight:bold;cursor:pointer;">💾 Sauver</button>
+    <div id="score-list" style="margin-top:8px;color:#ffd700;font-size:13px;text-shadow:1px 1px 2px #000;"></div>
+  </div>
+  <div class="touch-controls">
+    <button class="touch-btn" id="btn-left"  style="left:10px;bottom:90px;">◀</button>
+    <button class="touch-btn" id="btn-right" style="left:80px;bottom:90px;">▶</button>
+    <button class="touch-btn" id="btn-jump"  style="right:80px;bottom:90px;">▲</button>
+    <button class="touch-btn" id="btn-down"  style="right:10px;bottom:90px;">▼</button>
+  </div>
+</div>
+
+<style>
+.touch-controls { display:none; }
+@media (pointer:coarse) {
+  .touch-controls { display:block; position:absolute; bottom:0; left:0; right:0; height:140px; pointer-events:none; z-index:50; }
+  .touch-btn {
+    position:absolute; width:60px; height:60px; border-radius:50%;
+    background:rgba(255,255,255,0.2); border:2px solid rgba(255,255,255,0.4);
+    color:#fff; font-size:28px; pointer-events:auto; touch-action:none;
+    display:flex; align-items:center; justify-content:center;
+    -webkit-tap-highlight-color:transparent; user-select:none;
+  }
+  .touch-btn:active { background:rgba(255,255,255,0.45); }
+}
+</style>
+
+<script>
+// ============================================================
+//  CatAdventure - Jeu de plateforme 2D
+// ============================================================
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+canvas.width = 960;
+canvas.height = 540;
+
+// DOM HUD elements
+const hudCity = document.getElementById('hud-city');
+const hudLevel = document.getElementById('hud-level');
+const hudHearts = document.getElementById('hud-hearts');
+const hudScore = document.getElementById('hud-score');
+const xpBar = document.getElementById('xp-bar');
+
+// --- CONSTANTS ---
+const GRAVITY = 0.55;
+const FRICTION = 0.82;
+const PLAYER_SPEED = 4.5;
+const JUMP_FORCE = -11.5;
+const CHUNK_WIDTH = 900;
+const GROUND_Y = 435;
+
+// --- INPUT ---
+const keys = {};
+window.addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'ArrowDown') {
+    e.preventDefault();
+  }
+});
+window.addEventListener('keyup', e => { keys[e.code] = false; });
+
+// Click/tap on canvas to start from title screen (P5 fix)
+canvas.addEventListener('click', () => {
+  if (state === 'TITLE') { resetGame(); }
+});
+canvas.addEventListener('touchstart', (e) => {
+  if (state === 'TITLE') { e.preventDefault(); resetGame(); }
+}, { passive: false });
+
+// C3 — Score save button
+document.getElementById('score-save-btn').addEventListener('click', () => {
+  if (scoreSaved) return;
+  const name = document.getElementById('score-name').value.trim() || 'Anonyme';
+  saveScore(name, score);
+  scoreSaved = true;
+  document.getElementById('score-name').disabled = true;
+  document.getElementById('score-save-btn').textContent = '✅ Sauvé !';
+  updateScoreList();
+});
+function updateScoreList() {
+  const list = loadScores();
+  const el = document.getElementById('score-list');
+  el.innerHTML = list.length ? '🏆 ' + list.map((s, i) => (i + 1) + '. ' + s.name + ' — ' + s.score).join(' | ') : '';
+}
+
+// P2 — Touch button bindings (only active on coarse-pointer devices)
+function bindTouch(id, code) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const set = (v) => (e) => { e.preventDefault(); keys[code] = v; };
+  el.addEventListener('touchstart', set(true), { passive: false });
+  el.addEventListener('touchend', set(false), { passive: false });
+  el.addEventListener('touchcancel', set(false), { passive: false });
+}
+bindTouch('btn-left', 'ArrowLeft');
+bindTouch('btn-right', 'ArrowRight');
+bindTouch('btn-jump', 'Space');
+bindTouch('btn-down', 'ArrowDown');
+
+// P4 — WebAudio synth for sound effects
+let audioCtx = null;
+function initAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+function playSound(freq, type, duration, vol = 0.15, bend = 0) {
+  if (!audioCtx) return;
+  const t = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, t);
+  if (bend) osc.frequency.linearRampToValueAtTime(freq + bend, t + duration);
+  gain.gain.setValueAtTime(vol, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start(t);
+  osc.stop(t + duration);
+}
+function sfxJump()     { initAudio(); playSound(300, 'square', 0.1, 0.08, 400); }
+function sfxCollect()  { initAudio(); playSound(880, 'sine', 0.15, 0.1); playSound(1320, 'sine', 0.1, 0.1, -200); }
+function sfxPurr() {
+  // Realistic purr: low carrier (~28 Hz triangle) with amplitude modulation at ~25 Hz
+  initAudio();
+  const t = audioCtx.currentTime, dur = 0.6;
+  const osc = audioCtx.createOscillator();
+  osc.type = 'triangle'; osc.frequency.value = 28;
+  const lfo = audioCtx.createOscillator();
+  lfo.frequency.value = 25;
+  const lfoGain = audioCtx.createGain(); lfoGain.gain.value = 0.15;
+  const gain = audioCtx.createGain();
+  gain.gain.setValueAtTime(0.0001, t);
+  gain.gain.exponentialRampToValueAtTime(0.25, t + 0.05);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  lfo.connect(lfoGain).connect(gain.gain);
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start(t); lfo.start(t);
+  osc.stop(t + dur); lfo.stop(t + dur);
+}
+function sfxDamage()   { initAudio(); playSound(120, 'sawtooth', 0.2, 0.15, -40); }
+function sfxGameOver() { initAudio(); playSound(200, 'triangle', 0.5, 0.12, -150); playSound(100, 'triangle', 0.4, 0.2, -80); }
+
+// C3 — Scoreboard (localStorage top 10)
+function loadScores() { try { return JSON.parse(localStorage.getItem('catadv_scores') || '[]'); } catch(e) { return []; } }
+function saveScore(name, score) {
+  const list = loadScores();
+  list.push({ name: (name || 'Anonyme').slice(0, 12), score, date: Date.now() });
+  list.sort((a, b) => b.score - a.score);
+  localStorage.setItem('catadv_scores', JSON.stringify(list.slice(0, 10)));
+}
+let scoreSaved = false;
+
+// --- GAME STATE ---
+let state = 'TITLE'; // TITLE | PLAYING | LEVELUP | GAMEOVER | PAUSED
+let score = 0;
+let highScore = parseInt(localStorage.getItem('catadv_highscore') || '0');
+let difficulty = 1;
+let cityName = 'Quartier Calme';
+let cityIndex = 0;
+let levelUpTimer = 0;
+let tutorialTimer = 180; // 3 second tutorial at start
+let titlePulse = 0;
+let screenShake = 0;
+let sewerTransition = 0; // 0=surface, 1=sewer, in-between values for transition
+let messageTimeout = null;
+let gameOverReason = '';
+let petsReceived = 0;
+let fishesCollected = 0;
+let obstaclesAvoided = 0;
+let worldWidth = 5000; // level endpoint
+
+const CITY_NAMES = [
+  'Quartier Calme', 'Petite Bourgade', 'Centre-Ville',
+  'Faubourg Animé', 'Ville Portuaire', 'Zone Industrielle',
+  'Grande Métropole', 'Cité Mythique'
+];
+
+// --- PARTICLES ---
+let particles = [];
+
+function spawnParticles(x, y, count, color, spread, life) {
+  for (let i = 0; i < count; i++) {
+    particles.push({
+      x, y,
+      vx: (Math.random() - 0.5) * spread,
+      vy: (Math.random() - 0.7) * spread,
+      life: life + Math.random() * life * 0.5,
+      maxLife: life * 1.5,
+      color,
+      size: 1.5 + Math.random() * 2.5
+    });
+  }
+}
+
+function showMessage(text, duration = 2000) {
+  const popup = document.getElementById('message-popup');
+  popup.textContent = text;
+  popup.style.display = 'block';
+  if (messageTimeout) clearTimeout(messageTimeout);
+  messageTimeout = setTimeout(() => { popup.style.display = 'none'; }, duration);
+}
+
+// --- PLAYER ---
+let player = {
+  x: 200, y: GROUND_Y - 26,
+  vx: 0, vy: 0,
+  width: 30, height: 26,
+  onGround: false,
+  jumpsLeft: 1,
+  maxJumps: 1,
+  health: 5,
+  maxHealth: 5,
+  xp: 0,
+  xpToNext: 80,
+  level: 1,
+  invulnTimer: 0,
+  facing: 1,
+  animFrame: 0,
+  animTimer: 0,
+  inSewer: false,
+  sewerY: GROUND_Y + 60, // y-position when in sewer
+  isPetting: false,
+  petTimer: 0,
+  earWiggle: 0,
+};
+
+// --- WORLD ---
+let platforms = [];
+let npcs = [];
+let items = [];
+let hazards = [];
+let manholes = [];    // {x, y, width}
+let sewerExits = [];  // {x, y} - ladders back up
+let decorations = []; // buildings, trees, signs etc
+let groundSegments = []; // {x0, x1} — solid ground intervals (gaps between them = holes to jump)
+let lastGeneratedX = 0;
+let worldSeed = Math.random() * 10000;
+
+// Simple seeded random
+function seededRandom(x) {
+  let n = Math.sin(x * 127.1 + worldSeed) * 43758.5453;
+  return n - Math.floor(n);
+}
+
+// --- CAMERA ---
+let camera = { x: 0, y: 0, targetY: 0 };
+
+// ============================================================
+//  DRAWING FUNCTIONS
+// ============================================================
+
+function drawCat(x, y, facing, frame, inSewer) {
+  ctx.save();
+  const FOOT_OFFSET = 16; // bottom of collision box (26) − drawn paws bottom (~10)
+  ctx.translate(x, y + FOOT_OFFSET);
+  if (facing === -1) ctx.scale(-1, 1);
+
+  const bob = Math.sin(frame * 0.5) * 1.5;
+  const bodyColor = inSewer ? '#9b7b5e' : '#FF9F43';
+  const outlineColor = inSewer ? '#4A3728' : '#5D3A1A';
+
+  // Tail
+  ctx.strokeStyle = inSewer ? '#7a5c3e' : '#E8852E';
+  ctx.lineWidth = 5;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(-10, 2 + bob);
+  ctx.quadraticCurveTo(-18, -4 + Math.sin(frame * 0.7) * 5, -16 + Math.sin(frame * 0.6) * 3, -10 + Math.cos(frame * 0.7) * 4);
+  ctx.stroke();
+  // Tail outline
+  ctx.strokeStyle = outlineColor;
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(-10, 2 + bob);
+  ctx.quadraticCurveTo(-18, -4 + Math.sin(frame * 0.7) * 5, -16 + Math.sin(frame * 0.6) * 3, -10 + Math.cos(frame * 0.7) * 4);
+  ctx.stroke();
+  // Tail tip
+  ctx.strokeStyle = inSewer ? '#d4a574' : '#F4C080';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(-16 + Math.sin(frame * 0.6) * 3, -10 + Math.cos(frame * 0.7) * 4);
+  ctx.lineTo(-18 + Math.sin(frame * 0.6) * 3.5, -14 + Math.cos(frame * 0.7) * 4.5);
+  ctx.stroke();
+
+  // Body
+  ctx.fillStyle = bodyColor;
+  ctx.strokeStyle = outlineColor;
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.ellipse(0, -2 + bob, 11, 8, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Stripes on body
+  if (!inSewer) {
+    ctx.strokeStyle = '#B8450F';
+    ctx.lineWidth = 2;
+    for (let s = -1; s <= 1; s++) {
+      ctx.beginPath();
+      ctx.moveTo(s * 3, -8 + bob);
+      ctx.lineTo(s * 4, -1 + bob);
+      ctx.stroke();
+    }
+  }
+
+  // Head
+  ctx.fillStyle = bodyColor;
+  ctx.strokeStyle = outlineColor;
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.arc(12, -10 + bob, 8, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Ears
+  ctx.fillStyle = bodyColor;
+  ctx.strokeStyle = outlineColor;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(7, -17 + bob);
+  ctx.lineTo(4, -27 + bob);
+  ctx.lineTo(12, -20 + bob);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(14, -17 + bob);
+  ctx.lineTo(19, -25 + bob);
+  ctx.lineTo(18, -18 + bob);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Inner ear
+  ctx.fillStyle = '#FFB6C1';
+  ctx.beginPath();
+  ctx.moveTo(6, -18 + bob);
+  ctx.lineTo(5, -24 + bob);
+  ctx.lineTo(10, -19.5 + bob);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(15, -17.5 + bob);
+  ctx.lineTo(18, -23 + bob);
+  ctx.lineTo(17, -18 + bob);
+  ctx.fill();
+
+  // Eyes
+  ctx.fillStyle = '#4CAF50';
+  ctx.beginPath();
+  ctx.arc(9, -11 + bob, 2.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(16, -11 + bob, 2.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#000';
+  ctx.beginPath();
+  ctx.arc(10, -11 + bob, 1.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(17, -11 + bob, 1.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(10.3, -11.8 + bob, 0.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(17.3, -11.8 + bob, 0.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Nose
+  ctx.fillStyle = '#FF69B4';
+  ctx.beginPath();
+  ctx.moveTo(12.5, -8 + bob);
+  ctx.lineTo(11.5, -6.5 + bob);
+  ctx.lineTo(13.5, -6.5 + bob);
+  ctx.closePath();
+  ctx.fill();
+
+  // Mouth
+  ctx.strokeStyle = '#5D3A1A';
+  ctx.lineWidth = 0.8;
+  ctx.beginPath();
+  ctx.moveTo(12.5, -6.5 + bob);
+  ctx.lineTo(11, -5 + bob);
+  ctx.moveTo(12.5, -6.5 + bob);
+  ctx.lineTo(14, -5 + bob);
+  ctx.stroke();
+
+  // Whiskers
+  ctx.strokeStyle = '#888';
+  ctx.lineWidth = 0.5;
+  for (let w = -1; w <= 1; w += 2) {
+    for (let i = 0; i < 2; i++) {
+      ctx.beginPath();
+      ctx.moveTo(12, -7.5 + bob);
+      ctx.lineTo(12 + w * (8 + i * 3), -9 + bob + i * 2 * w);
+      ctx.stroke();
+    }
+  }
+
+  // Legs
+  ctx.fillStyle = bodyColor;
+  const legOffset = Math.sin(frame * 0.8) * 2;
+  ctx.fillRect(-8, 4 + bob, 5, 6 + legOffset * 0.5);
+  ctx.fillRect(4, 4 + bob, 5, 6 - legOffset * 0.5);
+  // Front paws
+  ctx.fillRect(10, 5 + bob - legOffset * 0.3, 4, 4 + legOffset * 0.4);
+  ctx.fillRect(15, 5 + bob + legOffset * 0.3, 4, 4 - legOffset * 0.4);
+
+  // Collar + bell
+  ctx.strokeStyle = '#e94560';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(3, -2 + bob, 8, 0.4, 2.7);
+  ctx.stroke();
+  ctx.fillStyle = '#ffd700';
+  ctx.beginPath();
+  ctx.arc(-3, 5 + bob, 3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#e94560';
+  ctx.beginPath();
+  ctx.arc(-3, 5 + bob, 1.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawElderly(x, y, frame) {
+  ctx.save();
+  ctx.translate(x, y);
+  const bob = Math.sin(frame * 0.03) * 0.5;
+
+  // Body
+  ctx.fillStyle = '#5D8AA8';
+  ctx.fillRect(-6, -5 + bob, 12, 14);
+
+  // Head
+  ctx.fillStyle = '#FDBCB4';
+  ctx.beginPath();
+  ctx.arc(0, -9 + bob, 6, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Hair (white)
+  ctx.fillStyle = '#E8E8E8';
+  ctx.beginPath();
+  ctx.arc(0, -10 + bob, 6.5, Math.PI, Math.PI * 2);
+  ctx.fill();
+  ctx.fillRect(-7, -11 + bob, 14, 3);
+
+  // Glasses
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(-2, -9 + bob, 2.5, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(3, -9 + bob, 2.5, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(0, -9 + bob);
+  ctx.lineTo(1, -9 + bob);
+  ctx.stroke();
+
+  // Smile
+  ctx.strokeStyle = '#333';
+  ctx.beginPath();
+  ctx.arc(0, -7 + bob, 2, 0.1, Math.PI - 0.1);
+  ctx.stroke();
+
+  // Cane
+  ctx.strokeStyle = '#8B4513';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(7, -3 + bob);
+  ctx.lineTo(10, 10);
+  ctx.stroke();
+
+  // Legs
+  ctx.fillStyle = '#444';
+  ctx.fillRect(-4, 9 + bob, 4, 8);
+  ctx.fillRect(1, 9 + bob, 4, 8);
+
+  // ❤️ indicator
+  ctx.fillStyle = '#FF6B6B';
+  ctx.font = '8px sans-serif';
+  ctx.fillText('❤️', -14, -16 + bob);
+
+  // Speech bubble when petted
+  // Note: speechTimer/petted accessed via the NPC object in render, not here directly
+  // We draw it in the render loop instead
+
+  ctx.restore();
+}
+
+function drawChild(x, y, aggressive, frame) {
+  ctx.save();
+  ctx.translate(x, y);
+  const bob = Math.sin(frame * 0.06) * 1;
+
+  // Body
+  ctx.fillStyle = aggressive ? '#E74C3C' : '#3498DB';
+  ctx.fillRect(-4, -3 + bob, 8, 10);
+
+  // Head
+  ctx.fillStyle = '#FDBCB4';
+  ctx.beginPath();
+  ctx.arc(0, -7 + bob, 5, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Hair
+  ctx.fillStyle = aggressive ? '#8B0000' : '#6B4226';
+  ctx.beginPath();
+  ctx.arc(0, -8 + bob, 5.5, Math.PI, Math.PI * 2);
+  ctx.fill();
+
+  // Eyes
+  if (aggressive) {
+    ctx.fillStyle = '#FF0000';
+    ctx.beginPath();
+    ctx.arc(-1.5, -7 + bob, 1, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(2, -7 + bob, 1, 0, Math.PI * 2);
+    ctx.fill();
+    // Angry eyebrows
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-3, -9.5 + bob);
+    ctx.lineTo(-0.5, -8.5 + bob);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(3, -9.5 + bob);
+    ctx.lineTo(0.5, -8.5 + bob);
+    ctx.stroke();
+  } else {
+    ctx.fillStyle = '#333';
+    ctx.beginPath();
+    ctx.arc(-1.5, -7.5 + bob, 0.8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(2, -7.5 + bob, 0.8, 0, Math.PI * 2);
+    ctx.fill();
+    // Smile
+    ctx.strokeStyle = '#333';
+    ctx.beginPath();
+    ctx.arc(0, -5.5 + bob, 1.5, 0.1, Math.PI - 0.1);
+    ctx.stroke();
+  }
+
+  // Legs
+  ctx.fillStyle = '#444';
+  ctx.fillRect(-3, 7 + bob, 3, 6);
+  ctx.fillRect(1, 7 + bob, 3, 6);
+
+  // ⚠️ or 🙂 indicator
+  ctx.fillStyle = aggressive ? '#FF4444' : '#4CAF50';
+  ctx.font = '7px sans-serif';
+  ctx.fillText(aggressive ? '⚠️' : '🙂', -10, -13 + bob);
+
+  ctx.restore();
+}
+
+function drawDogcatcher(x, y, frame) {
+  ctx.save();
+  ctx.translate(x, y);
+
+  // Van body (simplified)
+  ctx.fillStyle = '#546E7A';
+  ctx.fillRect(-14, -16, 28, 22);
+  // Cabin
+  ctx.fillStyle = '#78909C';
+  ctx.fillRect(-6, -22, 14, 8);
+  // Wheels
+  ctx.fillStyle = '#222';
+  ctx.beginPath();
+  ctx.arc(-8, 8, 4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(8, 8, 4, 0, Math.PI * 2);
+  ctx.fill();
+  // Net on top
+  ctx.strokeStyle = '#8D6E63';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(10, -16);
+  ctx.lineTo(10, -28);
+  ctx.quadraticCurveTo(18, -28, 18, -20);
+  ctx.stroke();
+  // Label
+  ctx.fillStyle = '#FFF';
+  ctx.font = '6px sans-serif';
+  ctx.fillText('FOURRIÈRE', -12, -18);
+
+  // ⚠️ indicator
+  ctx.fillStyle = '#FF4444';
+  ctx.font = '9px sans-serif';
+  ctx.fillText('⚠️', -17, -26);
+
+  ctx.restore();
+}
+
+function drawCar(x, y, direction, frame, colorIdx) {
+  ctx.save();
+  ctx.translate(x, y);
+
+  // Body
+  const colors = ['#E74C3C', '#3498DB', '#2ECC71', '#F39C12', '#9B59B6', '#1ABC9C'];
+  ctx.fillStyle = colors[colorIdx % colors.length];
+  ctx.fillRect(-20, -8, 40, 14);
+  // Roof
+  ctx.fillStyle = colors[colorIdx % colors.length];
+  ctx.globalAlpha = 0.7;
+  ctx.fillRect(-10, -14, 20, 8);
+  ctx.globalAlpha = 1;
+  // Windows
+  ctx.fillStyle = '#B0D4F1';
+  ctx.fillRect(-8, -12, 7, 5);
+  ctx.fillRect(1, -12, 7, 5);
+  // Wheels
+  ctx.fillStyle = '#222';
+  ctx.beginPath();
+  ctx.arc(-10, 7, 4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(10, 7, 4, 0, Math.PI * 2);
+  ctx.fill();
+  // Headlights
+  ctx.fillStyle = '#FFF9C4';
+  ctx.fillRect(17, -5, 5, 4);
+  ctx.fillRect(-22, -5, 5, 4);
+
+  ctx.restore();
+}
+
+function drawFish(x, y, frame) {
+  ctx.save();
+  ctx.translate(x, y);
+  const bob = Math.sin(frame * 0.08) * 1.5;
+
+  ctx.fillStyle = '#FF8C00';
+  ctx.beginPath();
+  ctx.ellipse(0, bob, 7, 3.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Tail
+  ctx.beginPath();
+  ctx.moveTo(-6, bob);
+  ctx.lineTo(-10, -4 + bob);
+  ctx.lineTo(-10, 4 + bob);
+  ctx.closePath();
+  ctx.fill();
+  // Eye
+  ctx.fillStyle = '#FFF';
+  ctx.beginPath();
+  ctx.arc(3, -1 + bob, 1.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#000';
+  ctx.beginPath();
+  ctx.arc(3.3, -1 + bob, 0.7, 0, Math.PI * 2);
+  ctx.fill();
+  // Sparkle
+  ctx.fillStyle = '#FFF';
+  ctx.font = '8px sans-serif';
+  ctx.fillText('✨', 8, -8 + bob);
+
+  ctx.restore();
+}
+
+function drawYarn(x, y, frame) {
+  ctx.save();
+  ctx.translate(x, y);
+  const spin = (frame * 0.04) % (Math.PI * 2);
+
+  ctx.fillStyle = '#E91E63';
+  ctx.beginPath();
+  ctx.arc(0, 0, 6, 0, Math.PI * 2);
+  ctx.fill();
+  // Yarn lines
+  ctx.strokeStyle = '#F48FB1';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 3; i++) {
+    const a = spin + (i * Math.PI * 2) / 3;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a) * 3, Math.sin(a) * 3);
+    ctx.quadraticCurveTo(Math.cos(a) * 7, Math.sin(a) * 7, Math.cos(a + 0.8) * 6, Math.sin(a + 0.8) * 6);
+    ctx.stroke();
+  }
+  ctx.fillStyle = '#C51162';
+  ctx.beginPath();
+  ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawHeartPickup(x, y, frame) {
+  ctx.save();
+  ctx.translate(x, y);
+  const scale = 1 + Math.sin(frame * 0.1) * 0.15;
+  ctx.scale(scale, scale);
+
+  ctx.fillStyle = '#FF4444';
+  ctx.beginPath();
+  ctx.moveTo(0, 3);
+  ctx.quadraticCurveTo(-6, -1, 0, -6);
+  ctx.quadraticCurveTo(6, -1, 0, 3);
+  ctx.fill();
+  // Shine
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.beginPath();
+  ctx.arc(-1.5, -1.5, 1.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawBuilding(x, y, w, h, absX) {
+  // Main body — warm golden sand facade
+  const facadeColors = ['#E8C878', '#D7A34D', '#E2B860', '#CC9A40'];
+  const ci = Math.floor(Math.abs(absX) / 100) % facadeColors.length;
+  ctx.fillStyle = facadeColors[ci];
+  ctx.fillRect(x, y, w, h);
+
+  // Terracotta roof — zigzag tile edge
+  ctx.fillStyle = '#E77E44';
+  ctx.fillRect(x - 4, y - 4, w + 8, 10);
+  // Roof tiles (triangular)
+  ctx.fillStyle = '#D06830';
+  for (let rx = x - 2; rx < x + w + 2; rx += 16) {
+    ctx.beginPath();
+    ctx.moveTo(rx, y - 4);
+    ctx.lineTo(rx + 8, y - 14);
+    ctx.lineTo(rx + 16, y - 4);
+    ctx.fill();
+    ctx.strokeStyle = '#B85020';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  // Windows with teal shutters — sparse, ~1 per "block"
+  const winW = 20, winH = 26, gapX = 80, gapY = 90;
+  for (let wy = y + 18; wy < y + h - 35; wy += gapY) {
+    for (let wx = x + 14; wx < x + w - 20; wx += gapX) {
+      const lit = ((Math.floor(wx / gapX) + Math.floor(wy / gapY)) % 3) !== 0;
+      // Window glass
+      ctx.fillStyle = lit ? '#FFE082' : '#B8E5E3';
+      ctx.fillRect(wx, wy, winW, winH);
+      // Window frame
+      ctx.strokeStyle = '#5D4037';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(wx, wy, winW, winH);
+      // Shutters (teal)
+      ctx.fillStyle = '#219595';
+      ctx.fillRect(wx - 4, wy + 1, 4, winH - 2);
+      ctx.fillRect(wx + winW, wy + 1, 4, winH - 2);
+      // Cross
+      ctx.strokeStyle = '#8B6B4A';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(wx + winW/2, wy);
+      ctx.lineTo(wx + winW/2, wy + winH);
+      ctx.moveTo(wx, wy + winH/2);
+      ctx.lineTo(wx + winW, wy + winH/2);
+      ctx.stroke();
+    }
+  }
+
+  // Arched wooden door
+  ctx.fillStyle = '#5D3A1A';
+  const dw = 20, dh = 30;
+  const dx = x + w / 2 - dw/2;
+  const dy = y + h - dh - 4;
+  ctx.fillRect(dx, dy + 8, dw, dh - 8);
+  ctx.beginPath();
+  ctx.arc(dx + dw/2, dy + 8, dw/2, Math.PI, 0);
+  ctx.fill();
+  // Door knob
+  ctx.fillStyle = '#FFD54F';
+  ctx.beginPath();
+  ctx.arc(dx + dw - 5, dy + dh/2, 2.5, 0, Math.PI * 2);
+  ctx.fill();
+  // Door panels
+  ctx.strokeStyle = '#3D1F0A';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(dx + 3, dy + 12, dw/2 - 4, dh/2 - 4);
+  ctx.strokeRect(dx + dw/2 + 1, dy + 12, dw/2 - 4, dh/2 - 4);
+}
+
+function drawManhole(x, y) {
+  ctx.fillStyle = '#444';
+  ctx.fillRect(x - 10, y - 2, 20, 4);
+  ctx.fillStyle = '#333';
+  ctx.beginPath();
+  ctx.ellipse(x, y, 12, 4, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#555';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.ellipse(x, y, 12, 4, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  // Lines on manhole
+  ctx.strokeStyle = '#555';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x - 8, y);
+  ctx.lineTo(x + 8, y);
+  ctx.moveTo(x, y - 3);
+  ctx.lineTo(x, y + 3);
+  ctx.stroke();
+  // Indicator
+  ctx.fillStyle = '#FFD700';
+  ctx.font = 'bold 10px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('⏬ ÉGOUTS', x, y - 14);
+  ctx.textAlign = 'start';
+}
+
+function drawSewerLadder(x, y) {
+  ctx.strokeStyle = '#8D6E63';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(x - 4, y - 50);
+  ctx.lineTo(x - 4, y);
+  ctx.moveTo(x + 4, y - 50);
+  ctx.lineTo(x + 4, y);
+  ctx.stroke();
+  for (let ly = y - 45; ly < y; ly += 8) {
+    ctx.beginPath();
+    ctx.moveTo(x - 4, ly);
+    ctx.lineTo(x + 4, ly);
+    ctx.stroke();
+  }
+  // Arrow up
+  ctx.fillStyle = '#4CAF50';
+  ctx.font = 'bold 12px sans-serif';
+  ctx.fillText('⬆', x - 5, y - 55);
+  // Label
+  ctx.fillStyle = '#FFD700';
+  ctx.font = 'bold 10px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('⬆️ SURFACE', x, y - 60);
+  ctx.textAlign = 'start';
+}
+
+function drawBackground(cameraX, sewerLevel) {
+  // Sky gradient
+  if (sewerLevel < 0.5) {
+    const alpha = 1 - sewerLevel * 2;
+    ctx.globalAlpha = alpha;
+    const grad = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
+    grad.addColorStop(0, '#87CEEB');
+    grad.addColorStop(0.6, '#B0E0FF');
+    grad.addColorStop(1, '#E0F0FF');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, canvas.width, GROUND_Y);
+
+    // Clouds
+    ctx.fillStyle = 'rgba(255,255,255,0.8)';
+    const cloudBase = (cameraX * 0.2) % canvas.width;
+    for (let i = -1; i < 3; i++) {
+      const cx = i * 300 + (100 - cloudBase);
+      const cy = 40 + (i % 2) * 30;
+      drawCloud(cx, cy);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // Sewer background
+  if (sewerLevel > 0) {
+    const alpha = Math.min(sewerLevel * 2, 1);
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = '#1a1410';
+    ctx.fillRect(0, canvas.height * 0.7, canvas.width, canvas.height * 0.3);
+
+    // Sewer walls
+    ctx.fillStyle = '#2D1F1A';
+    ctx.fillRect(0, canvas.height * 0.72, canvas.width, canvas.height * 0.28);
+
+    // Bricks
+    ctx.strokeStyle = '#3D2B24';
+    ctx.lineWidth = 1;
+    for (let by = canvas.height * 0.73; by < canvas.height; by += 20) {
+      const offset = (Math.floor(by / 20) % 2) * 25;
+      for (let bx = offset - 50; bx < canvas.width + 50; bx += 50) {
+        ctx.strokeRect(bx - cameraX * 0.1 % 50, by, 50, 18);
+      }
+    }
+
+    // Water at bottom
+    ctx.fillStyle = '#1B3A2D';
+    ctx.fillRect(0, canvas.height - 15, canvas.width, 15);
+    ctx.fillStyle = 'rgba(30, 60, 40, 0.5)';
+    for (let wx = 0; wx < canvas.width; wx += 40) {
+      ctx.fillRect(wx + Math.sin((cameraX + wx) * 0.05) * 5, canvas.height - 12, 35, 4);
+    }
+
+    ctx.globalAlpha = 1;
+  }
+
+  // Ground line
+  ctx.strokeStyle = '#6B8E5A';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(0, GROUND_Y - camera.y);
+  ctx.lineTo(canvas.width, GROUND_Y - camera.y);
+  ctx.stroke();
+  // Grass strip
+  ctx.fillStyle = '#7BAF5A';
+  ctx.fillRect(0, GROUND_Y - camera.y - 2, canvas.width, 5);
+}
+
+function drawCloud(x, y) {
+  ctx.beginPath();
+  ctx.arc(x, y, 20, 0, Math.PI * 2);
+  ctx.arc(x + 20, y - 8, 25, 0, Math.PI * 2);
+  ctx.arc(x + 45, y, 20, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+// ============================================================
+//  WORLD GENERATION
+// ============================================================
+
+function generateGroundChunk(startX) {
+  const endX = startX + CHUNK_WIDTH;
+  const r = (x) => seededRandom(x * 3.7 + 42);
+
+  // Ground platforms — continuous (R1: gaps removed, jumping over NPCs is enough)
+  let gx = startX;
+  while (gx < endX) {
+    const segLen = 200 + r(gx) * 400;
+    platforms.push({
+      x: gx, y: GROUND_Y,
+      width: segLen,
+      height: 20,
+      type: 'ground'
+    });
+    gx += segLen;
+  }
+
+  // Buildings (decorative + rooftop platforms + balconies) — larger scale
+  let bx = startX;
+  while (bx < endX) {
+    const bw = 110 + r(bx + 100) * 140;
+    const bh = 150 + r(bx + 101) * 200;
+    const by = GROUND_Y - bh;
+    decorations.push({ type: 'building', x: bx, y: by, w: bw, h: bh });
+    // Rooftop = platform
+    platforms.push({
+      x: bx - 4, y: by - 4,
+      width: bw + 8, height: 8,
+      type: 'rooftop'
+    });
+    // Balconies on the building facade
+    const balconyCount = 1 + (r(bx + 200) > 0.5 ? 1 : 0);
+    for (let b = 0; b < balconyCount; b++) {
+      const balcY = by + bh * (0.25 + b * 0.35); // at 25% and 60% of building height
+      const balcW = 40 + r(bx + 300 + b) * (bw * 0.4);
+      const balcX = bx + r(bx + 400 + b) * (bw - balcW - 10);
+      platforms.push({
+        x: balcX, y: balcY,
+        width: balcW, height: 10,
+        type: 'mid'
+      });
+    }
+    bx += bw + 40 + r(bx + 102) * 70;
+  }
+
+  // Manholes
+  for (let i = 0; i < 2; i++) {
+    if (r(startX + i * 500 + 900) < 0.45) {
+      const mx = startX + 100 + r(startX + i * 500 + 901) * (CHUNK_WIDTH - 200);
+      manholes.push({ x: mx, y: GROUND_Y + 3, width: 24 });
+      // Spawn a sewer exit nearby
+      const ex = mx + (r(mx + 1) > 0.5 ? 1 : -1) * (80 + r(mx + 2) * 120);
+      sewerExits.push({ x: ex, y: GROUND_Y + 70 });
+    }
+  }
+}
+
+function generateSewerChunk(startX) {
+  const endX = startX + CHUNK_WIDTH;
+  const r = (x) => seededRandom(x * 5.1 + 99);
+
+  // Sewer floor
+  const sewerFloorY = GROUND_Y + 80;
+  let sx = startX;
+  while (sx < endX) {
+    const segLen = 180 + r(sx) * 350;
+    platforms.push({
+      x: sx, y: sewerFloorY,
+      width: segLen,
+      height: 15,
+      type: 'sewer'
+    });
+    sx += segLen;
+  }
+
+  // Sewer ceiling platforms (pipes you can walk on)
+  for (let i = 0; i < 3; i++) {
+    const px = startX + r(i * 11 + 500) * CHUNK_WIDTH;
+    const pw = 50 + r(i * 11 + 501) * 80;
+    platforms.push({
+      x: px, y: sewerFloorY - 100 - r(i * 11 + 502) * 40,
+      width: pw, height: 6,
+      type: 'sewer-pipe'
+    });
+  }
+
+  // Hazards in sewer
+  for (let i = 0; i < 4; i++) {
+    const hx = startX + r(i * 13 + 600) * CHUNK_WIDTH;
+    hazards.push({
+      x: hx, y: sewerFloorY - 8,
+      width: 14, height: 10,
+      type: 'rat',
+      vx: 0,
+      patrolLeft: hx - 30 - r(hx + 1) * 60,
+      patrolRight: hx + 30 + r(hx + 1) * 60
+    });
+  }
+}
+
+function generateNPCs(startX) {
+  const r = (x) => seededRandom(x * 4.3 + 77);
+  // Fewer NPCs early on, scaling up with distance
+  const chunkIndex = Math.floor(startX / CHUNK_WIDTH);
+  const npcCount = chunkIndex === 0 ? 1 : chunkIndex === 1 ? 2 : chunkIndex < 4 ? 3 : 5;
+
+  for (let i = 0; i < npcCount; i++) {
+    const nx = startX + 50 + r(i * 17 + 100) * (CHUNK_WIDTH - 100);
+    const ny = GROUND_Y - 22;
+    // First chunk: only friendly elderly — no enemies at start
+    const roll = chunkIndex === 0 ? 0.1 : r(i * 17 + 101);
+
+    if (roll < 0.35) {
+      // Elderly - friendly, heals
+      npcs.push({
+        x: nx, y: ny,
+        width: 16, height: 28,
+        type: 'elderly',
+        vx: 0,
+        alive: true,
+        speechTimer: 0,
+        petted: false,
+      });
+    } else if (roll < 0.65) {
+      // Child - may be aggressive (1 in 3 chance)
+      // No aggressive children in chunk 1
+      const aggro = chunkIndex >= 2 && seededRandom(nx * 7.3 + i * 31.7) < 0.33;
+      npcs.push({
+        x: nx, y: ny,
+        width: 12, height: 22,
+        type: 'child',
+        aggressive: aggro,
+        vx: aggro ? (seededRandom(nx + 1) > 0.5 ? 1.5 : -1.5) : 0,
+        patrolLeft: nx - 40 - seededRandom(nx) * 40,
+        patrolRight: nx + 40 + seededRandom(nx) * 40,
+        alive: true
+      });
+    } else {
+      // Dogcatcher van — patrol narrower early, wider later (R2)
+      const patrolRange = 120 + difficulty * 60;
+      if (chunkIndex < 2) break;
+      npcs.push({
+        x: nx, y: ny - 4,
+        width: 34, height: 20,
+        vx: (seededRandom(nx * 31.9) < 0.5 ? 1 : -1) * (1.5 + difficulty * 0.3),
+        vy: 0,
+        type: 'dogcatcher',
+        patrolLeft: nx - patrolRange / 2,
+        patrolRight: nx + patrolRange / 2,
+        captureCooldown: 0,
+        alive: true
+      });
+  }
+}
+}
+
+function generateItems(startX) {
+  const r = (x) => seededRandom(x * 2.9 + 55);
+
+  // Ground-level items
+  for (let i = 0; i < 10; i++) {
+    const ix = startX + 20 + r(i * 23 + 300) * (CHUNK_WIDTH - 40);
+    const iy = GROUND_Y - 30 - r(i * 23 + 301) * 40;
+    const roll = r(i * 23 + 302);
+    let type = 'fish';
+    if (roll < 0.5) type = 'fish';
+    else if (roll < 0.8) type = 'yarn';
+    else type = 'heart';
+
+    items.push({ x: ix, y: iy, type, collected: false });
+  }
+
+  // Rooftop items (higher value)
+  for (let i = 0; i < 6; i++) {
+    const ix = startX + r(i * 29 + 400) * CHUNK_WIDTH;
+    const iy = GROUND_Y - 160 - r(i * 29 + 401) * 200;
+    items.push({
+      x: ix, y: iy,
+      type: r(i * 29 + 402) < 0.5 ? 'yarn' : 'heart',
+      collected: false
+    });
+  }
+}
+
+function generateHazards(startX) {
+  const r = (x) => seededRandom(x * 6.7 + 33);
+  // R3 — Progressive density: 0-2 cars per chunk based on difficulty
+  const maxCars = startX === 0 ? 0 : Math.min(difficulty, 4); // none in first chunk
+  const minSpacing = 250; // minimum px between hazards
+  let lastHazardX = startX - minSpacing; // ensure first hazard has room
+
+  for (let i = 0; i < maxCars; i++) {
+    const hx = startX + 150 + r(i * 31 + 700) * (CHUNK_WIDTH - 300);
+    // Don't spawn too close to previous hazard
+    if (Math.abs(hx - lastHazardX) < minSpacing) continue;
+    if (startX === 0 && hx < 600) continue;
+    
+    const dir = r(hx + 1) > 0.5 ? 1 : -1;
+    hazards.push({
+      x: hx, y: GROUND_Y - 14,
+      width: 40, height: 16,
+      type: 'car',
+      vx: dir * (1.2 + difficulty * 0.3),
+      direction: dir,
+      colorIdx: Math.floor(seededRandom(hx * 3.7) * 6)
+    });
+    lastHazardX = hx;
+  }
+
+  // Spikes — only from difficulty 2+, fewer, with spacing
+  if (difficulty >= 2) {
+    for (let i = 0; i < Math.min(difficulty - 1, 2); i++) {
+      const sx = startX + 100 + r(i * 33 + 801) * (CHUNK_WIDTH - 200);
+      if (Math.abs(sx - lastHazardX) < minSpacing) continue;
+      hazards.push({
+        x: sx, y: GROUND_Y - 4,
+        width: 30, height: 8,
+        type: 'spike',
+        vx: 0
+      });
+      lastHazardX = sx;
+    }
+  }
+}
+
+function generateWorldIfNeeded() {
+  const rightEdge = player.x + canvas.width;
+  while (lastGeneratedX < rightEdge + CHUNK_WIDTH) {
+    generateGroundChunk(lastGeneratedX);
+    generateSewerChunk(lastGeneratedX);
+    generateNPCs(lastGeneratedX);
+    generateItems(lastGeneratedX);
+    generateHazards(lastGeneratedX);
+    lastGeneratedX += CHUNK_WIDTH;
+  }
+}
+
+function cleanupWorld() {
+  const leftEdge = camera.x - 500;
+  platforms = platforms.filter(p => p.x + p.width > leftEdge);
+  npcs = npcs.filter(n => n.x > leftEdge - 100);
+  items = items.filter(i => i.x > leftEdge - 100);
+  hazards = hazards.filter(h => h.x > leftEdge - 100);
+  manholes = manholes.filter(m => m.x > leftEdge - 50);
+  sewerExits = sewerExits.filter(s => s.x > leftEdge - 50);
+  decorations = decorations.filter(d => d.x + (d.w || 0) > leftEdge - 50);
+}
+
+// ============================================================
+//  COLLISION DETECTION
+// ============================================================
+
+function rectCollide(a, b) {
+  return (
+    a.x < b.x + b.width &&
+    a.x + a.width > b.x &&
+    a.y < b.y + b.height &&
+    a.y + a.height > b.y
+  );
+}
+
+// ============================================================
+//  UPDATE
+// ============================================================
+
+function updatePlayer() {
+  // Petting state decay (used by dogcatcher stun in early levels)
+  if (player.isPetting) {
+    player.petTimer--;
+    if (player.petTimer <= 0) player.isPetting = false;
+    player.vx *= 0.7;
+  }
+
+  // Ear wiggle
+  player.earWiggle = Math.sin(performance.now() * 0.005) * 1;
+
+  // Input
+  if (keys['ArrowLeft'] || keys['KeyA']) {
+    player.vx = -PLAYER_SPEED;
+    player.facing = -1;
+  } else if (keys['ArrowRight'] || keys['KeyD']) {
+    player.vx = PLAYER_SPEED;
+    player.facing = 1;
+  } else {
+    player.vx *= FRICTION;
+    if (Math.abs(player.vx) < 0.1) player.vx = 0;
+  }
+
+  // Jump
+  if ((keys['Space'] || keys['ArrowUp'] || keys['KeyW']) && player.jumpsLeft > 0) {
+    player.vy = JUMP_FORCE;
+    player.jumpsLeft--;
+    player.onGround = false;
+    sfxJump();
+  }
+
+  // Manhole interaction (press Down to enter sewer)
+  if (keys['ArrowDown'] || keys['KeyS']) {
+    if (!player.inSewer) {
+      for (const mh of manholes) {
+        if (Math.abs(player.x + player.width / 2 - mh.x) < 20 &&
+            player.y + player.height >= GROUND_Y - 5 &&
+            player.y + player.height <= GROUND_Y + 10) {
+          // Enter sewer
+          player.inSewer = true;
+          player.y = GROUND_Y + 60;
+          player.vy = 0;
+          player.jumpsLeft = player.maxJumps;
+          spawnParticles(player.x, player.y, 8, '#8B7355', 3, 20);
+          break;
+        }
+      }
+    }
+  }
+
+  // Sewer exit (press Up near ladder)
+  if (player.inSewer && (keys['ArrowUp'] || keys['KeyW'] || keys['Space'])) {
+    for (const se of sewerExits) {
+      if (Math.abs(player.x + player.width / 2 - se.x) < 20 &&
+          player.y >= se.y - 40) {
+        player.inSewer = false;
+        player.y = GROUND_Y - player.height;
+        player.vy = 0;
+        player.jumpsLeft = player.maxJumps;
+        spawnParticles(player.x, player.y, 8, '#87CEEB', 3, 20);
+        break;
+      }
+    }
+  }
+
+  // Gravity
+  player.vy += GRAVITY;
+  if (player.vy > 15) player.vy = 15;
+
+  // Move X
+  player.x += player.vx;
+
+  // Collision X
+  for (const p of platforms) {
+    if (!player.inSewer && (p.type === 'sewer' || p.type === 'sewer-pipe')) continue;
+    if (player.inSewer && p.type !== 'sewer' && p.type !== 'sewer-pipe') continue;
+
+    if (rectCollide(player, p)) {
+      if (player.vx > 0) {
+        player.x = p.x - player.width;
+        player.vx = 0;
+      } else if (player.vx < 0) {
+        player.x = p.x + p.width;
+        player.vx = 0;
+      }
+    }
+  }
+
+  // Move Y
+  player.y += player.vy;
+
+  // Collision Y
+  player.onGround = false;
+  for (const p of platforms) {
+    if (!player.inSewer && (p.type === 'sewer' || p.type === 'sewer-pipe')) continue;
+    if (player.inSewer && p.type !== 'sewer' && p.type !== 'sewer-pipe') continue;
+
+    if (rectCollide(player, p)) {
+      if (player.vy > 0) {
+        // Landing on top
+        player.y = p.y - player.height;
+        player.vy = 0;
+        player.onGround = true;
+        player.jumpsLeft = player.maxJumps;
+      } else if (player.vy < 0) {
+        // Hit from below
+        player.y = p.y + p.height;
+        player.vy = 0;
+      }
+    }
+  }
+
+  // R1 — Continuous ground clamp (no gaps — jumping over NPCs is the skill check)
+  if (!player.inSewer && player.y + player.height >= GROUND_Y && player.vy >= 0) {
+    player.y = GROUND_Y - player.height;
+    player.vy = 0;
+    player.onGround = true;
+    player.jumpsLeft = player.maxJumps;
+  }
+
+  // Fall into void (gap or sewer)
+  if (player.y > canvas.height + 200) {
+    player.health = 0;
+    player.y = GROUND_Y - player.height;
+    player.vy = 0;
+    player.x = Math.max(0, player.x);
+    player.inSewer = false;
+  }
+
+  // Animation
+  if (Math.abs(player.vx) > 0.5) {
+    player.animTimer += 0.15;
+    player.animFrame = Math.floor(player.animTimer);
+  } else {
+    player.animTimer = 0;
+    player.animFrame = 0;
+  }
+
+  // Invulnerability
+  if (player.invulnTimer > 0) player.invulnTimer--;
+
+  // Keep in bounds
+  if (player.x < 0) player.x = 0;
+
+  // Level up check
+  if (player.xp >= player.xpToNext) {
+    player.xp -= player.xpToNext;
+    player.level++;
+    player.xpToNext = Math.floor(player.xpToNext * 1.4);
+    player.maxHealth = Math.min(player.maxHealth + 1, 8);
+    player.health = player.maxHealth;
+    levelUpTimer = 120; // 2 seconds
+
+    // New abilities
+    if (player.level >= 3) player.maxJumps = 2;
+    if (player.level >= 6) player.maxJumps = 3;
+
+    // City progression
+    const newCityIdx = Math.floor((player.level - 1) / 2);
+    if (newCityIdx !== cityIndex && newCityIdx < CITY_NAMES.length) {
+      cityIndex = newCityIdx;
+      cityName = CITY_NAMES[cityIndex];
+      difficulty = cityIndex + 1;
+    }
+
+    spawnParticles(player.x, player.y - 10, 30, '#FFD700', 6, 40);
+  }
+
+  // Update sewer transition
+  const target = player.inSewer ? 1 : 0;
+  sewerTransition += (target - sewerTransition) * 0.1;
+}
+
+function updateNPCs() {
+  for (const npc of npcs) {
+    if (!npc.alive) continue;
+
+    // Only update NPCs in same zone as player
+    const npcInSewer = npc.y > GROUND_Y + 40;
+    if (npcInSewer !== player.inSewer) continue;
+
+    switch (npc.type) {
+      case 'elderly':
+        // Stationary, decrement speech timer
+        if (npc.speechTimer > 0) npc.speechTimer--;
+        break;
+
+      case 'child':
+        if (npc.aggressive) {
+          npc.x += npc.vx;
+          if (npc.x < npc.patrolLeft || npc.x > npc.patrolRight) {
+            npc.vx *= -1;
+          }
+        }
+        break;
+
+      case 'dogcatcher':
+        if (npc.captureCooldown > 0) {
+          npc.captureCooldown--;
+          npc.x += npc.vx * 0.3; // slowed after capture
+          break;
+        }
+        // Chase cat if nearby
+        const dx = player.x - npc.x;
+        const dy = player.y - npc.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 250) {
+          npc.vx = (dx / dist) * (2.5 + difficulty * 0.3);
+          npc.x += npc.vx;
+        } else {
+          npc.x += npc.vx;
+          if (npc.x < npc.patrolLeft || npc.x > npc.patrolRight) {
+            npc.vx *= -1;
+          }
+        }
+        break;
+    }
+  }
+}
+
+function updateHazards() {
+  for (const h of hazards) {
+    if (h.type === 'car') {
+      h.x += h.vx;
+      // Wrap around
+      if (h.vx > 0 && h.x > camera.x + canvas.width + 100) {
+        h.x = camera.x - 100;
+      } else if (h.vx < 0 && h.x < camera.x - 200) {
+        h.x = camera.x + canvas.width + 100;
+      }
+    } else if (h.type === 'rat') {
+      const dx = player.x - h.x;
+      if (Math.abs(dx) < 150 && player.inSewer) {
+        h.x += Math.sign(dx) * 1.2;
+      }
+      h.x = Math.max(h.patrolLeft, Math.min(h.patrolRight, h.x));
+    }
+  }
+}
+
+function updateCollisions() {
+  if (player.invulnTimer > 0) return;
+
+  // NPC collisions
+  for (const npc of npcs) {
+    if (!npc.alive) continue;
+    const npcInSewer = npc.y > GROUND_Y + 40;
+    if (npcInSewer !== player.inSewer) continue;
+
+    if (rectCollide(player, npc)) {
+      switch (npc.type) {
+        case 'elderly':
+          // Instant heal on contact (Option A — simpler, robust; dogcatcher is fatal anyway)
+          if (!npc.petted) {
+            npc.petted = true;
+            npc.speechTimer = 80;
+            petsReceived++;
+            if (player.health < player.maxHealth) player.health++;
+            player.xp += 20;
+            sfxPurr();
+            showMessage('😻 Ronron ! +1 ❤️');
+            spawnParticles(player.x + player.width / 2, player.y, 10, '#FF69B4', 4, 20);
+          }
+          break;
+
+        case 'child':
+          if (npc.aggressive) {
+            player.health--;
+            sfxDamage();
+            player.invulnTimer = 60;
+            screenShake = 10;
+            spawnParticles(player.x + player.width / 2, player.y, 6, '#FF4444', 5, 15);
+            // Knockback
+            player.vx = (player.x > npc.x ? 1 : -1) * 6;
+            player.vy = -6;
+          } else {
+            // Friendly child gives small bonus
+            player.xp += 10;
+            npc.alive = false;
+            spawnParticles(npc.x, npc.y, 5, '#4CAF50', 3, 15);
+          }
+          break;
+
+        case 'dogcatcher':
+          // R2 — Telegraph + non-fatal early, fatal from level 3+
+          if (npc.captureCooldown > 0) break;
+          if (player.level <= 2) {
+            // Early levels: heavy damage + stun, not instant death
+            player.health -= 2;
+            player.invulnTimer = 90;
+            player.isPetting = true; // reuse petting as stun (slows movement)
+            player.petTimer = 40;
+            npc.captureCooldown = 120;
+            sfxDamage();
+            screenShake = 10;
+            spawnParticles(player.x + player.width / 2, player.y, 12, '#FF8800', 5, 25);
+            player.vx = (player.x > npc.x ? 1 : -1) * 6;
+            player.vy = -6;
+            showMessage('⚠️ Fourrière ! Esquive en sautant !', 2000);
+          } else {
+            // Level 3+: fatal capture
+            state = 'GAMEOVER';
+            sfxGameOver();
+            gameOverReason = 'Capturé par la fourrière !';
+            screenShake = 15;
+            spawnParticles(player.x + player.width / 2, player.y, 20, '#FF0000', 8, 30);
+            if (score > highScore) {
+              highScore = score;
+              localStorage.setItem('catadv_highscore', highScore);
+            }
+            if (!scoreSaved) {
+              document.getElementById('score-form').style.display = 'block';
+              document.getElementById('score-name').disabled = false;
+              document.getElementById('score-name').value = '';
+              document.getElementById('score-save-btn').textContent = '💾 Sauver';
+              updateScoreList();
+            }
+          }
+          return;
+      }
+      // After any damaging NPC hit, stop processing further collisions this frame
+      if (player.invulnTimer > 0 && npc.type !== 'elderly') return;
+    }
+  }
+
+  // Hazard collisions — P2: cars can be jumped over
+  for (const h of hazards) {
+    if (rectCollide(player, h)) {
+      if (h.type === 'car') {
+        // Only hit by car if on the ground or at car level — jumping over avoids it
+        const atCarLevel = player.y + player.height > h.y - 2;
+        if (!atCarLevel) continue; // jumping over — near miss!
+      }
+      player.health--;
+      sfxDamage();
+      player.invulnTimer = 90;
+      screenShake = 8;
+      spawnParticles(player.x + player.width / 2, player.y, 6, '#FF8800', 4, 15);
+      player.vx = (player.x > h.x ? 1 : -1) * 5;
+      player.vy = -5;
+      return; // Only one hazard hit per frame
+    }
+  }
+
+  // Item collisions
+  for (const item of items) {
+    if (item.collected) continue;
+    const itemBox = { x: item.x - 10, y: item.y - 10, width: 20, height: 20 };
+    if (rectCollide(player, itemBox)) {
+      item.collected = true;
+      sfxCollect();
+      switch (item.type) {
+        case 'fish':
+          score += 100;
+          spawnParticles(item.x, item.y, 5, '#FF8C00', 3, 15);
+          break;
+        case 'yarn':
+          player.xp += 15 + difficulty * 3;
+          spawnParticles(item.x, item.y, 5, '#E91E63', 3, 15);
+          break;
+        case 'heart':
+          if (player.health < player.maxHealth) {
+            player.health++;
+            spawnParticles(item.x, item.y, 8, '#FF4444', 4, 20);
+          }
+          break;
+      }
+    }
+  }
+}
+
+function updateParticles() {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.1;
+    p.life--;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+}
+
+function updateCamera() {
+  // Follow player
+  const targetX = player.x - canvas.width * 0.35;
+  const targetY = player.inSewer ? GROUND_Y + 60 - canvas.height * 0.6 : GROUND_Y - canvas.height * 0.7;
+
+  camera.x += (targetX - camera.x) * 0.1;
+  camera.y += (targetY - camera.y) * 0.08;
+
+  // Clamp camera
+  if (camera.x < 0) camera.x = 0;
+}
+
+function updateHUD() {
+  hudCity.textContent = '🏘️ ' + cityName;
+  hudLevel.textContent = '⭐ Niv.' + player.level;
+  hudHearts.textContent = '❤️'.repeat(Math.max(0, player.health)) + '🖤'.repeat(Math.max(0, player.maxHealth - player.health));
+  hudScore.textContent = '🐟 ' + score;
+  xpBar.style.width = ((player.xp / player.xpToNext) * 100) + '%';
+}
+
+function update() {
+  if (state === 'PAUSED') return;
+  if (state !== 'PLAYING') return;
+
+  // Sewer entry/exit detection
+  const wasInSewer = player.inSewer;
+  generateWorldIfNeeded();
+  updatePlayer();
+  updateNPCs();
+  updateHazards();
+  updateCollisions();
+  updateParticles();
+  updateCamera();
+  cleanupWorld();
+  updateHUD();
+
+  // Sewer transition messages
+  if (player.inSewer && !wasInSewer) {
+    showMessage('🐱 Dans les égouts...');
+  } else if (!player.inSewer && wasInSewer) {
+    showMessage('☀️ De retour à la surface !');
+  }
+
+  if (screenShake > 0) screenShake *= 0.85;
+  if (screenShake < 0.2) screenShake = 0;
+
+  // Level completion (reached right side of world)
+  if (player.x >= worldWidth - 60) {
+    player.xp += 50;
+    showMessage('🏁 Niveau terminé ! +50 XP', 2500);
+    // Level up after a delay
+    if (levelUpTimer <= 0) {
+      // Force enough XP to level up
+      if (player.xp < player.xpToNext) player.xp = player.xpToNext;
+    }
+  }
+
+  if (player.health <= 0) {
+    state = 'GAMEOVER';
+    sfxGameOver();
+    gameOverReason = 'Le chat a succombé à ses blessures...';
+    if (!scoreSaved) {
+      document.getElementById('score-form').style.display = 'block';
+      document.getElementById('score-name').disabled = false;
+      document.getElementById('score-name').value = '';
+      document.getElementById('score-save-btn').textContent = '💾 Sauver';
+      updateScoreList();
+    }
+    if (score > highScore) {
+      highScore = score;
+      localStorage.setItem('catadv_highscore', highScore);
+    }
+  }
+
+  if (levelUpTimer > 0) {
+    levelUpTimer--;
+    if (levelUpTimer === 1) {
+      state = 'PLAYING';
+    }
+  }
+
+  if (tutorialTimer > 0) tutorialTimer--;
+}
+
+// ============================================================
+//  RENDER
+// ============================================================
+
+function drawPlatform(p) {
+  const sx = p.x - camera.x;
+  const sy = p.y - camera.y;
+
+  switch (p.type) {
+    case 'ground':
+      ctx.fillStyle = '#8B8682';
+      ctx.fillRect(sx, sy, p.width, p.height);
+      ctx.fillStyle = '#9E9995';
+      ctx.fillRect(sx, sy, p.width, 3);
+      break;
+    case 'rooftop':
+      ctx.fillStyle = '#E77E44';
+      ctx.fillRect(sx, sy - 1, p.width, p.height + 1);
+      ctx.fillStyle = '#D06830';
+      ctx.fillRect(sx, sy, p.width, 3);
+      // Roof tile zigzag
+      for (let rx = sx; rx < sx + p.width; rx += 12) {
+        ctx.fillStyle = '#C85828';
+        ctx.beginPath();
+        ctx.moveTo(rx, sy);
+        ctx.lineTo(rx + 6, sy - 6);
+        ctx.lineTo(rx + 12, sy);
+        ctx.fill();
+      }
+      break;
+    case 'mid':
+      // Balcony: dark iron railing + floor
+      ctx.fillStyle = '#6D5D4B';
+      ctx.fillRect(sx, sy, p.width, p.height);
+      ctx.fillStyle = '#8B7D6B';
+      ctx.fillRect(sx, sy, p.width, 3);
+      // Railing bars
+      ctx.strokeStyle = '#3D2F1F';
+      ctx.lineWidth = 1.5;
+      for (let rx = sx + 4; rx < sx + p.width - 2; rx += 10) {
+        ctx.beginPath();
+        ctx.moveTo(rx, sy - 8);
+        ctx.lineTo(rx, sy);
+        ctx.stroke();
+      }
+      // Top rail
+      ctx.strokeStyle = '#5D4F3F';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(sx + 2, sy - 8);
+      ctx.lineTo(sx + p.width - 2, sy - 8);
+      ctx.stroke();
+      break;
+    case 'sewer':
+      ctx.fillStyle = '#3D2B24';
+      ctx.fillRect(sx, sy, p.width, p.height);
+      ctx.fillStyle = '#4E342E';
+      ctx.fillRect(sx, sy, p.width, 3);
+      break;
+    case 'sewer-pipe':
+      ctx.fillStyle = '#5D4037';
+      ctx.fillRect(sx, sy - 4, p.width, p.height + 4);
+      ctx.strokeStyle = '#4E342E';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(sx, sy - 4, p.width, p.height + 4);
+      break;
+  }
+}
+
+function drawSpike(x, y) {
+  const sx = x - camera.x;
+  const sy = y - camera.y;
+  ctx.fillStyle = '#9E9E9E';
+  for (let i = 0; i < 5; i++) {
+    ctx.beginPath();
+    ctx.moveTo(sx + i * 6, sy);
+    ctx.lineTo(sx + i * 6 + 3, sy - 10);
+    ctx.lineTo(sx + i * 6 + 6, sy);
+    ctx.fill();
+  }
+}
+
+function render() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Screen shake
+  ctx.save();
+  if (screenShake > 0) {
+    const shakeX = (Math.random() - 0.5) * screenShake * 2;
+    const shakeY = (Math.random() - 0.5) * screenShake * 2;
+    ctx.translate(shakeX, shakeY);
+  }
+
+  if (state === 'TITLE') {
+    drawTitleScreen();
+    ctx.restore();
+    return;
+  }
+
+  // Background
+  drawBackground(camera.x, sewerTransition);
+
+  // Sewer dark vignette
+  if (sewerTransition > 0.01) {
+    ctx.fillStyle = `rgba(0,0,0,${sewerTransition * 0.35})`;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  // Decorations (buildings)
+  for (const d of decorations) {
+    if (d.type === 'building') {
+      const sx = d.x - camera.x;
+      if (sx > -200 && sx < canvas.width + 100) {
+        drawBuilding(sx, d.y - camera.y, d.w, d.h, d.x);
+      }
+    }
+  }
+
+  // Platforms
+  for (const p of platforms) {
+    const sx = p.x - camera.x;
+    if (sx > -p.width && sx < canvas.width + p.width) {
+      // Filter by sewer/surface
+      const isSewerPlatform = p.type === 'sewer' || p.type === 'sewer-pipe';
+      if (player.inSewer === isSewerPlatform || (!player.inSewer && !isSewerPlatform)) {
+        drawPlatform(p);
+      } else if (sewerTransition > 0.01 && sewerTransition < 0.99) {
+        // During transition, draw both with alpha
+        ctx.globalAlpha = isSewerPlatform ? sewerTransition : (1 - sewerTransition);
+        drawPlatform(p);
+        ctx.globalAlpha = 1;
+      }
+    }
+  }
+
+  // Manholes
+  if (!player.inSewer || sewerTransition < 0.99) {
+    for (const mh of manholes) {
+      const sx = mh.x - camera.x;
+      if (sx > -30 && sx < canvas.width + 30) {
+        drawManhole(sx, mh.y - camera.y);
+      }
+    }
+  }
+
+  // Sewer exits
+  if (player.inSewer || sewerTransition > 0.01) {
+    for (const se of sewerExits) {
+      const sx = se.x - camera.x;
+      if (sx > -30 && sx < canvas.width + 30) {
+        drawSewerLadder(sx, se.y - camera.y);
+      }
+    }
+  }
+
+  // Hazards
+  for (const h of hazards) {
+    const sx = h.x - camera.x;
+    if (sx > -60 && sx < canvas.width + 60) {
+      if (h.type === 'car') {
+        drawCar(sx + 20, h.y - camera.y, h.direction, performance.now() / 16, h.colorIdx);
+      } else if (h.type === 'rat') {
+        ctx.fillStyle = '#666';
+        ctx.fillRect(sx, h.y - camera.y, h.width, h.height);
+        ctx.fillStyle = '#FF0000';
+        ctx.font = '7px sans-serif';
+        ctx.fillText('🐀', sx, h.y - camera.y - 8);
+      } else if (h.type === 'spike') {
+        drawSpike(h.x, h.y);
+      }
+    }
+  }
+
+  // Items
+  const now = performance.now() / 16;
+  for (const item of items) {
+    if (item.collected) continue;
+    const sx = item.x - camera.x;
+    if (sx > -20 && sx < canvas.width + 20) {
+      if (item.type === 'fish') drawFish(sx, item.y - camera.y, now);
+      else if (item.type === 'yarn') drawYarn(sx, item.y - camera.y, now);
+      else if (item.type === 'heart') drawHeartPickup(sx, item.y - camera.y, now);
+    }
+  }
+
+  // NPCs
+  for (const npc of npcs) {
+    if (!npc.alive) continue;
+    const sx = npc.x - camera.x;
+    if (sx > -40 && sx < canvas.width + 40) {
+      const npcInSewer = npc.y > GROUND_Y + 40;
+      if (npcInSewer !== player.inSewer) continue;
+
+      const sy = npc.y - camera.y;
+      if (npc.type === 'elderly') {
+        drawElderly(sx, sy, now);
+        // Speech bubble when petted
+        if (npc.speechTimer > 0) {
+          ctx.fillStyle = 'rgba(255,255,255,0.9)';
+          ctx.font = 'bold 13px monospace';
+          ctx.textAlign = 'center';
+          const text = '~ ronron ~';
+          ctx.fillText(text, sx + 8, sy - 26);
+          ctx.textAlign = 'start';
+        }
+      }
+      else if (npc.type === 'child') drawChild(sx, sy, npc.aggressive, now);
+      else if (npc.type === 'dogcatcher') {
+        drawDogcatcher(sx, sy, now);
+        // R2 — Alert "!" when near player
+        const distToPlayer = Math.abs(npc.x - player.x);
+        if (distToPlayer < 200) {
+          ctx.save();
+          ctx.font = 'bold 16px sans-serif';
+          ctx.fillStyle = '#FF0000';
+          ctx.textAlign = 'center';
+          const bob = Math.sin(performance.now() / 200) * 3;
+          ctx.fillText('⚠️', sx + 17, sy - 26 + bob);
+          ctx.restore();
+        }
+      }
+    }
+  }
+
+  // Player (blinking when invulnerable)
+  if (!(player.invulnTimer > 0 && Math.floor(player.invulnTimer / 4) % 2 === 0)) {
+    const px = player.x + player.width / 2 - camera.x;
+    const py = player.y - camera.y;
+    drawCat(px, py, player.facing, player.animFrame, player.inSewer);
+  }
+
+  // Particles
+  for (const p of particles) {
+    const alpha = p.life / p.maxLife;
+    ctx.fillStyle = p.color.replace(')', `,${alpha})`).replace('rgb', 'rgba');
+    if (p.color.startsWith('#')) {
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = p.color;
+    }
+    ctx.fillRect(p.x - camera.x, p.y - camera.y, p.size, p.size);
+  }
+  ctx.globalAlpha = 1;
+
+  // Level up overlay
+  if (levelUpTimer > 0) {
+    const alpha = levelUpTimer < 30 ? levelUpTimer / 30 : 1;
+    ctx.fillStyle = `rgba(0,0,0,${alpha * 0.5})`;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = `rgba(255,215,0,${alpha})`;
+    ctx.font = 'bold 36px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('🎉 NIVEAU ' + player.level + ' ! 🎉', canvas.width / 2, canvas.height / 2 - 20);
+    ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+    ctx.font = '18px sans-serif';
+    ctx.fillText('Nouvelles capacités débloquées !', canvas.width / 2, canvas.height / 2 + 25);
+    if (player.level === 3) {
+      ctx.fillText('🐾 Double saut !', canvas.width / 2, canvas.height / 2 + 50);
+    }
+    ctx.textAlign = 'start';
+  }
+
+  // Tutorial hint
+  if (tutorialTimer > 0) {
+    const alpha = tutorialTimer < 30 ? tutorialTimer / 30 : 1;
+    ctx.fillStyle = `rgba(0,0,0,${alpha * 0.6})`;
+    const tw = 360, th = 80, tx = canvas.width / 2 - tw / 2, ty = 10;
+    ctx.fillRect(tx, ty, tw, th);
+    ctx.strokeStyle = `rgba(255,215,0,${alpha})`;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(tx, ty, tw, th);
+    ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+    ctx.font = 'bold 14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('🎮 Flèches ← → : Bouger | Espace : Sauter', canvas.width / 2, ty + 24);
+    ctx.fillText('⬇️ Flèche bas sur une bouche d\'égout : Égouts', canvas.width / 2, ty + 48);
+    ctx.fillText('🧓 Les aînés te caressent | ⚠️ Enfants agités & Fourrière !', canvas.width / 2, ty + 72);
+    ctx.textAlign = 'start';
+  }
+
+  // Game over overlay
+  if (state === 'GAMEOVER') {
+    ctx.fillStyle = 'rgba(0,0,0,0.75)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#FF4444';
+    ctx.font = 'bold 42px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2 - 50);
+    ctx.fillStyle = '#E8A0A0';
+    ctx.font = '17px sans-serif';
+    ctx.fillText(gameOverReason, canvas.width / 2, canvas.height / 2 - 15);
+    ctx.fillStyle = '#FFF';
+    ctx.font = '18px sans-serif';
+    ctx.fillText('Score: ' + score + ' 🐟 | Caresses: ' + petsReceived + ' | Niv. ' + player.level, canvas.width / 2, canvas.height / 2 + 25);
+    ctx.fillStyle = '#FFD700';
+    ctx.font = '16px sans-serif';
+    ctx.fillText('Appuie sur ENTRÉE pour rejouer', canvas.width / 2, canvas.height / 2 + 60);
+    ctx.textAlign = 'start';
+  }
+
+  ctx.restore();
+}
+
+// ============================================================
+//  TITLE SCREEN
+// ============================================================
+
+function drawTitleScreen() {
+  titlePulse += 0.03;
+
+  // Background
+  const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  grad.addColorStop(0, '#1a1a3e');
+  grad.addColorStop(0.5, '#2d1b4e');
+  grad.addColorStop(1, '#1a2a1a');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Stars
+  ctx.fillStyle = '#FFF';
+  for (let i = 0; i < 60; i++) {
+    const sx = (i * 157 + 42) % canvas.width;
+    const sy = (i * 83 + 17) % (canvas.height * 0.6);
+    const twinkle = Math.sin(titlePulse * 2 + i) * 0.3 + 0.7;
+    ctx.globalAlpha = twinkle;
+    ctx.fillRect(sx, sy, 2, 2);
+  }
+  ctx.globalAlpha = 1;
+
+  // Floating city silhouette
+  ctx.fillStyle = '#2a1a3e';
+  for (let i = 0; i < 8; i++) {
+    const bx = 50 + i * 115;
+    const bh = 80 + Math.sin(i * 1.7) * 40;
+    ctx.fillRect(bx, 350 - bh, 90, bh);
+    // Windows
+    ctx.fillStyle = '#FFE082';
+    for (let wy = 360 - bh; wy < 340; wy += 18) {
+      for (let wx = bx + 12; wx < bx + 78; wx += 20) {
+        if (Math.random() > 0.3) ctx.fillRect(wx, wy, 10, 10);
+      }
+    }
+    ctx.fillStyle = '#2a1a3e';
+  }
+
+  // Ground
+  ctx.fillStyle = '#1a2a1a';
+  ctx.fillRect(0, 380, canvas.width, 160);
+
+  // Cat on title
+  const catX = canvas.width / 2 - 15;
+  const catY = 350 + Math.sin(titlePulse) * 5;
+  drawCat(catX, catY, 1, Math.floor(titlePulse * 3), false);
+
+  // Title
+  const titleGrad = ctx.createLinearGradient(0, 80, 0, 160);
+  titleGrad.addColorStop(0, '#FFD700');
+  titleGrad.addColorStop(1, '#FF8C00');
+  ctx.fillStyle = titleGrad;
+  ctx.font = 'bold 56px "Segoe UI", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('CatAdventure', canvas.width / 2, 130);
+
+  // Subtitle
+  ctx.fillStyle = '#E0E0E0';
+  ctx.font = 'italic 18px sans-serif';
+  ctx.fillText('🐱 L\'aventure féline dans la ville 🏙️', canvas.width / 2, 170);
+
+  // Instructions
+  const instructions = [
+    { text: '🎮 Flèches ← → : Se déplacer', y: 230 },
+    { text: '⬆️ Espace / Flèche haut : Sauter', y: 258 },
+    { text: '⬇️ Flèche bas : Entrer dans les égouts', y: 286 },
+    { text: '🧓 Les personnes âgées te caressent (+❤️)', y: 320 },
+    { text: '⚠️ Attention aux enfants agressifs et à la fourrière !', y: 348 },
+  ];
+
+  ctx.fillStyle = '#CCC';
+  ctx.font = '15px sans-serif';
+  for (const inst of instructions) {
+    ctx.fillText(inst.text, canvas.width / 2, inst.y);
+  }
+
+  // Prompt
+  const pulse = Math.sin(titlePulse * 2) * 0.3 + 0.7;
+  ctx.fillStyle = `rgba(255,215,0,${pulse})`;
+  ctx.font = 'bold 22px sans-serif';
+  ctx.fillText('✨ Appuie sur ENTRÉE pour commencer ! ✨', canvas.width / 2, 440);
+
+  // High score
+  if (highScore > 0) {
+    ctx.fillStyle = '#AAA';
+    ctx.font = '14px sans-serif';
+    ctx.fillText('🏆 Meilleur score : ' + highScore, canvas.width / 2, 470);
+  }
+
+  // Controls hint
+  ctx.fillStyle = '#888';
+  ctx.font = '12px sans-serif';
+  ctx.fillText('Pendant le jeu : R pour recommencer | Échap pour menu', canvas.width / 2, 500);
+
+  ctx.textAlign = 'start';
+}
+
+// ============================================================
+//  GAME LOOP
+// ============================================================
+
+function resetGame() {
+  player.x = 200;
+  player.y = GROUND_Y - player.height;
+  player.vx = 0;
+  player.vy = 0;
+  player.onGround = false;
+  player.jumpsLeft = 1;
+  player.maxJumps = 1;
+  player.health = 5;
+  player.maxHealth = 5;
+  player.xp = 0;
+  player.xpToNext = 80;
+  player.level = 1;
+  player.invulnTimer = 0;
+  player.facing = 1;
+  player.animFrame = 0;
+  player.animTimer = 0;
+  player.inSewer = false;
+  player.isPetting = false;
+  player.petTimer = 0;
+  score = 0;
+  difficulty = 1;
+  cityName = CITY_NAMES[0];
+  cityIndex = 0;
+  levelUpTimer = 0;
+  tutorialTimer = 180;
+  screenShake = 0;
+  sewerTransition = 0;
+  gameOverReason = '';
+  petsReceived = 0;
+  fishesCollected = 0;
+  obstaclesAvoided = 0;
+  worldWidth = 5000 + player.level * 1000;
+  platforms = [];
+  npcs = [];
+  items = [];
+  hazards = [];
+  manholes = [];
+  sewerExits = [];
+  decorations = [];
+  groundSegments = [];
+  particles = [];
+  lastGeneratedX = 0;
+  camera.x = 0;
+  camera.y = 0;
+  worldSeed = Math.random() * 10000;
+  state = 'PLAYING';
+  scoreSaved = false;
+  document.getElementById('score-form').style.display = 'none';
+  updateHUD();
+}
+
+// Fixed-timestep accumulator (P1 fix — runs physics at 60 Hz regardless of display refresh rate)
+const PHYSICS_STEP = 1000 / 60;
+let acc = 0;
+let lastFrame = performance.now();
+
+function gameLoop(now) {
+  // Input handling — process once per frame, not per physics step
+  handleInput();
+
+  // Accumulate time, clamped to avoid spiral of death after tab backgrounding
+  acc += now - lastFrame;
+  lastFrame = now;
+  if (acc > 250) acc = 250;
+
+  while (acc >= PHYSICS_STEP) {
+    update();
+    acc -= PHYSICS_STEP;
+  }
+  render();
+
+  requestAnimationFrame(gameLoop);
+}
+
+function handleInput() {
+  // Pause toggle
+  if (keys['KeyP']) {
+    if (state === 'PLAYING') {
+      state = 'PAUSED';
+      document.getElementById('pause-screen').style.display = 'flex';
+    } else if (state === 'PAUSED') {
+      state = 'PLAYING';
+      document.getElementById('pause-screen').style.display = 'none';
+    }
+    keys['KeyP'] = false;
+  }
+
+  // Handle restart keys
+  if (state === 'GAMEOVER' && keys['Enter']) {
+    resetGame();
+    keys['Enter'] = false;
+    document.getElementById('pause-screen').style.display = 'none';
+    document.getElementById('score-form').style.display = 'none';
+  }
+
+  if (keys['KeyR']) {
+    resetGame();
+    keys['KeyR'] = false;
+    document.getElementById('pause-screen').style.display = 'none';
+    document.getElementById('score-form').style.display = 'none';
+  }
+
+  if (keys['Escape']) {
+    state = 'TITLE';
+    keys['Escape'] = false;
+    document.getElementById('pause-screen').style.display = 'none';
+    document.getElementById('score-form').style.display = 'none';
+    updateHUD();
+  }
+
+  if (state === 'TITLE' && keys['Enter']) {
+    resetGame();
+    keys['Enter'] = false;
+    document.getElementById('pause-screen').style.display = 'none';
+  }
+}
+
+// Start
+updateHUD();
+requestAnimationFrame(gameLoop);
+
+// C1 — Responsive scaling via CSS transform (keeps HUD aligned)
+function fitScreen() {
+  const s = Math.min(window.innerWidth / 960, window.innerHeight / 540);
+  document.documentElement.style.setProperty('--scale', s);
+}
+window.addEventListener('resize', fitScreen);
+fitScreen();
+</script>
+</body>
+</html>
