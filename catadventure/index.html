@@ -2324,23 +2324,23 @@ fitScreen();
 #update-modal .update-cmd { margin-top:12px; padding:10px; background:#0d0d1a; border-radius:8px; font-family:monospace; font-size:12px; color:#aaa; word-break:break-all; }
 </style>
 
-<div id="update-toast" onclick="showUpdateModal()">
-  <span class="toast-close" onclick="event.stopPropagation();dismissToast()">&times;</span>
+<div id="update-toast">
+  <span class="toast-close">&times;</span>
   <div class="toast-title">🔄 Mise à jour disponible</div>
   <span id="toast-version"></span>
 </div>
 
-<div id="update-modal-overlay" onclick="if(event.target===this)closeUpdateModal()">
+<div id="update-modal-overlay">
   <div id="update-modal">
     <h3>🔄 Mise à jour disponible</h3>
     <div class="modal-version" id="modal-version-text"></div>
     <div class="changelog-body" id="modal-changelog"></div>
     <div class="modal-actions">
-      <button class="btn-update" onclick="triggerUpdate()">Mettre à jour maintenant</button>
-      <button class="btn-later" onclick="closeUpdateModal()">Plus tard</button>
+      <button class="btn-update">Mettre à jour maintenant</button>
+      <button class="btn-later">Plus tard</button>
     </div>
     <label class="auto-label">
-      <input type="checkbox" id="auto-update-cb" onchange="toggleAutoUpdate(this.checked)">
+      <input type="checkbox" id="auto-update-cb">
       Mises à jour automatiques
     </label>
     <div class="update-cmd" id="update-cmd-block" style="display:none"></div>
@@ -2418,7 +2418,7 @@ fitScreen();
       .then(function(data) { APP_VERSION = data.version; })
       .catch(function() {
         // Fallback: try meta tag or hardcoded
-        APP_VERSION = '2026.08.002';
+        APP_VERSION = '2026.08.002-c1';
       });
   }
 
@@ -2563,7 +2563,34 @@ fitScreen();
     });
   }
 
+  // --- Wire up UI events (handlers are closure-scoped, not global) ---
+  function setupEventListeners() {
+    var toast = document.getElementById('update-toast');
+    var overlay = document.getElementById('update-modal-overlay');
+    var btnUpdate = overlay.querySelector('.btn-update');
+    var btnLater = overlay.querySelector('.btn-later');
+    var autoCb = document.getElementById('auto-update-cb');
+
+    // Clic sur le toast -> ouvre la modale de changelog
+    toast.addEventListener('click', showUpdateModal);
+    // Fermeture du toast (stopPropagation pour ne pas ouvrir la modale)
+    toast.querySelector('.toast-close').addEventListener('click', function(e) {
+      e.stopPropagation();
+      dismissToast();
+    });
+    // Clic sur le fond de l'overlay -> ferme la modale
+    overlay.addEventListener('click', function(e) {
+      if (e.target === overlay) closeUpdateModal();
+    });
+    btnUpdate.addEventListener('click', triggerUpdate);
+    btnLater.addEventListener('click', closeUpdateModal);
+    autoCb.addEventListener('change', function() {
+      toggleAutoUpdate(this.checked);
+    });
+  }
+
   // Run after a short delay so the page is ready
+  setupEventListeners();
   setTimeout(checkForUpdates, 2000);
 })();
 </script>

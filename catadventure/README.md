@@ -4,7 +4,7 @@ Jeu de plateforme 2D dans lequel un chat explore une ville, collecte des poisson
 
 ## Version
 
-Version courante : **2026.08.002**
+Version courante : **2026.08.002-c1**
 
 [Voir toutes les releases sur GitHub](https://github.com/LostInTheBugs/CatAdventure/releases)
 

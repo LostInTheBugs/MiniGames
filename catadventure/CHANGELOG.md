@@ -5,6 +5,11 @@ Tous les changements notables de ce projet sont documentés ici.
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/),
 et le versionnement suit le schéma ANNEE.MM.NNN.
 
+## [2026.08.002-c1] — 2026-08-01
+
+### Corrigé
+- Le clic sur la notification et les boutons de la modale de mise à jour ne fonctionnaient pas (handlers inline hors de portée de la closure). Les attributs `onclick`/`onchange` inline ont été remplacés par des `addEventListener` câblés à l'intérieur de la closure : toast → ouverture de la modale, croix de fermeture du toast, clic sur le fond de l'overlay, boutons « Mettre à jour maintenant » / « Plus tard », case « Mises à jour automatiques ».
+
 ## [2026.08.002] — 2026-08-01
 
 ### Ajouté
