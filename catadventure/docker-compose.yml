@@ -5,6 +5,8 @@ services:
     restart: unless-stopped
     networks:
       - traefik-public
+    environment:
+      - PORT=${PORT:-8004}
     labels:
       - "traefik.enable=true"
       # HTTP → HTTPS redirect
@@ -17,8 +19,8 @@ services:
       - "traefik.http.routers.catadv-web-secure.tls=true"
       - "traefik.http.routers.catadv-web-secure.tls.certresolver=letsencrypt"
       - "traefik.http.routers.catadv-web-secure.service=catadv-web"
-      # Service
-      - "traefik.http.services.catadv-web.loadbalancer.server.port=80"
+      # Service — le port est injecté via variable d'environnement
+      - "traefik.http.services.catadv-web.loadbalancer.server.port=${PORT:-8004}"
 
 networks:
   traefik-public:
