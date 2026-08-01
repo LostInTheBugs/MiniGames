@@ -5,6 +5,13 @@ Tous les changements notables de ce projet sont documentés ici.
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/),
 et le versionnement suit le schéma ANNEE.MM.NNN.
 
+## [2026.08.002-c2] — 2026-08-01
+
+### Ajouté
+- Vérifications de mise à jour horaires (setInterval toutes les heures) en plus du check initial à 2 s après chargement
+- TTL du cache localStorage aligné sur 1 h : le check horaire refetch réellement les releases GitHub (1 requête/heure, très en dessous de la limite de 60 req/h), le cache déduplique toujours les rechargements rapides dans l'heure
+- Le toast se ré-affiche si une nouvelle version apparaît entre deux checks (une version déjà fermée ne re-nag pas, une version différente oui)
+
 ## [2026.08.002-c1] — 2026-08-01
 
 ### Corrigé

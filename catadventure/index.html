@@ -2356,12 +2356,13 @@ fitScreen();
 
   const GITHUB_API = 'https://api.github.com/repos/LostInTheBugs/CatAdventure/releases?per_page=20';
   const CACHE_KEY = 'catadv_releases_cache';
-  const CACHE_TTL = 6 * 60 * 60 * 1000; // 6 heures
+  const CACHE_TTL = 60 * 60 * 1000; // 1 heure (~ aligné sur le check horaire)
   const AUTO_UPDATE_KEY = 'catadv_auto_update';
 
   let APP_VERSION = null;
   let latestRelease = null;
   let newerReleases = [];
+  let dismissedVersion = null;  // dernière version dont le toast a été fermé
 
   // --- Version comparator (YEAR.MONTH.NNN with optional -cX) ---
   function parseVersion(v) {
@@ -2418,7 +2419,7 @@ fitScreen();
       .then(function(data) { APP_VERSION = data.version; })
       .catch(function() {
         // Fallback: try meta tag or hardcoded
-        APP_VERSION = '2026.08.002-c1';
+        APP_VERSION = '2026.08.002-c2';
       });
   }
 
@@ -2494,6 +2495,8 @@ fitScreen();
 
   function dismissToast() {
     document.getElementById('update-toast').style.display = 'none';
+    // Mémorise la version affichée : une version DIFFÉRENTE ré-affichera le toast
+    dismissedVersion = latestRelease ? latestRelease.tag_name.replace(/^v/, '') : null;
   }
 
   function showUpdateModal() {
@@ -2557,7 +2560,12 @@ fitScreen();
       newerReleases = computeUpdates(releases);
       if (newerReleases.length > 0) {
         latestRelease = newerReleases[0];
-        showToast(latestRelease.tag_name.replace(/^v/, ''));
+        var latestTag = latestRelease.tag_name.replace(/^v/, '');
+        // Ne pas ré-afficher le toast pour la même version déjà fermée,
+        // mais le ré-afficher si une version différente apparaît.
+        if (latestTag !== dismissedVersion) {
+          showToast(latestTag);
+        }
       }
       loadAutoUpdatePref();
     });
@@ -2591,7 +2599,8 @@ fitScreen();
 
   // Run after a short delay so the page is ready
   setupEventListeners();
-  setTimeout(checkForUpdates, 2000);
+  setTimeout(checkForUpdates, 2000);            // check initial au chargement
+  setInterval(checkForUpdates, 3600 * 1000);    // re-vérification toutes les heures
 })();
 </script>
 
