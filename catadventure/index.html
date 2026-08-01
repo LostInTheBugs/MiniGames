@@ -2277,5 +2277,296 @@ function fitScreen() {
 window.addEventListener('resize', fitScreen);
 fitScreen();
 </script>
+
+<!-- ============================================================
+     Update checker — compare deployed version to GitHub releases
+     ============================================================ -->
+<style>
+#update-toast {
+  display:none; position:fixed; bottom:16px; right:16px; z-index:9999;
+  background:#1a1a2e; color:#fff; border:2px solid #ffd700; border-radius:12px;
+  padding:12px 18px; font-family:'Segoe UI',sans-serif; font-size:14px;
+  box-shadow:0 4px 20px rgba(0,0,0,0.5); cursor:pointer; max-width:360px;
+  animation:slideIn 0.3s ease-out;
+}
+#update-toast:hover { background:#25254a; }
+#update-toast .toast-title { font-weight:700; color:#ffd700; margin-bottom:4px; }
+#update-toast .toast-close { position:absolute; top:4px; right:10px; font-size:18px; opacity:0.6; cursor:pointer; }
+#update-toast .toast-close:hover { opacity:1; }
+@keyframes slideIn { from { transform:translateY(80px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+
+#update-modal-overlay {
+  display:none; position:fixed; inset:0; z-index:10000;
+  background:rgba(0,0,0,0.75); justify-content:center; align-items:center;
+}
+#update-modal-overlay.active { display:flex; }
+#update-modal {
+  background:#1a1a2e; color:#e0e0e0; border:2px solid #ffd700; border-radius:16px;
+  padding:24px 28px; max-width:560px; width:90%; max-height:80vh; overflow-y:auto;
+  font-family:'Segoe UI',sans-serif; font-size:14px; box-shadow:0 8px 40px rgba(0,0,0,0.6);
+}
+#update-modal h3 { color:#ffd700; margin:0 0 8px 0; font-size:20px; }
+#update-modal .modal-version { color:#f9a825; font-weight:700; margin-bottom:14px; }
+#update-modal .changelog-body { font-size:13px; line-height:1.5; margin-bottom:18px; max-height:300px; overflow-y:auto; }
+#update-modal .changelog-body h4 { color:#ffd700; margin:10px 0 4px 0; }
+#update-modal .changelog-body ul { margin:4px 0; padding-left:18px; }
+#update-modal .changelog-body li { margin:2px 0; }
+#update-modal .modal-actions { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+#update-modal button {
+  padding:8px 18px; border-radius:8px; border:none; font-size:14px; font-weight:700; cursor:pointer;
+}
+#update-modal .btn-update { background:#ffd700; color:#000; }
+#update-modal .btn-update:hover { background:#ffed4a; }
+#update-modal .btn-later { background:#444; color:#ccc; }
+#update-modal .btn-later:hover { background:#555; }
+#update-modal .auto-label { display:flex; align-items:center; gap:6px; font-size:13px; color:#aaa; cursor:pointer; margin-top:6px; }
+#update-modal .auto-label input { cursor:pointer; }
+#update-modal .update-cmd { margin-top:12px; padding:10px; background:#0d0d1a; border-radius:8px; font-family:monospace; font-size:12px; color:#aaa; word-break:break-all; }
+</style>
+
+<div id="update-toast" onclick="showUpdateModal()">
+  <span class="toast-close" onclick="event.stopPropagation();dismissToast()">&times;</span>
+  <div class="toast-title">🔄 Mise à jour disponible</div>
+  <span id="toast-version"></span>
+</div>
+
+<div id="update-modal-overlay" onclick="if(event.target===this)closeUpdateModal()">
+  <div id="update-modal">
+    <h3>🔄 Mise à jour disponible</h3>
+    <div class="modal-version" id="modal-version-text"></div>
+    <div class="changelog-body" id="modal-changelog"></div>
+    <div class="modal-actions">
+      <button class="btn-update" onclick="triggerUpdate()">Mettre à jour maintenant</button>
+      <button class="btn-later" onclick="closeUpdateModal()">Plus tard</button>
+    </div>
+    <label class="auto-label">
+      <input type="checkbox" id="auto-update-cb" onchange="toggleAutoUpdate(this.checked)">
+      Mises à jour automatiques
+    </label>
+    <div class="update-cmd" id="update-cmd-block" style="display:none"></div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  CatAdventure — Update Checker
+// ============================================================
+(function() {
+  'use strict';
+
+  const GITHUB_API = 'https://api.github.com/repos/LostInTheBugs/CatAdventure/releases?per_page=20';
+  const CACHE_KEY = 'catadv_releases_cache';
+  const CACHE_TTL = 6 * 60 * 60 * 1000; // 6 heures
+  const AUTO_UPDATE_KEY = 'catadv_auto_update';
+
+  let APP_VERSION = null;
+  let latestRelease = null;
+  let newerReleases = [];
+
+  // --- Version comparator (YEAR.MONTH.NNN with optional -cX) ---
+  function parseVersion(v) {
+    // Remove leading 'v' if present
+    v = v.replace(/^v/, '');
+    // Split base and correction suffix
+    var m = v.match(/^(\d{4})\.(\d{2})\.(\d{3})(?:-c(\d+))?$/);
+    if (!m) return null;
+    return {
+      year:   parseInt(m[1], 10),
+      month:  parseInt(m[2], 10),
+      patch:  parseInt(m[3], 10),
+      corr:   m[4] ? parseInt(m[4], 10) : -1  // -1 = no correction (base is before any -cX)
+    };
+  }
+
+  function compareVersions(a, b) {
+    // Returns positive if a > b, negative if a < b, 0 if equal
+    var pa = parseVersion(a), pb = parseVersion(b);
+    if (!pa || !pb) return 0;
+    if (pa.year !== pb.year) return pa.year - pb.year;
+    if (pa.month !== pb.month) return pa.month - pb.month;
+    if (pa.patch !== pb.patch) return pa.patch - pb.patch;
+    // Correction: -1 (base) is BEFORE any -cX, but AFTER lower patch
+    if (pa.corr !== pb.corr) return pa.corr - pb.corr;
+    return 0;
+  }
+
+  function isNewer(candidate, installed) {
+    return compareVersions(candidate, installed) > 0;
+  }
+
+  // --- Cache management ---
+  function getCache() {
+    try {
+      var raw = localStorage.getItem(CACHE_KEY);
+      if (!raw) return null;
+      var data = JSON.parse(raw);
+      if (Date.now() - data.ts > CACHE_TTL) return null; // expired
+      return data.releases;
+    } catch(e) { return null; }
+  }
+
+  function setCache(releases) {
+    try {
+      localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), releases: releases }));
+    } catch(e) { /* localStorage full or disabled */ }
+  }
+
+  // --- Fetch version.json ---
+  function fetchAppVersion() {
+    return fetch('/version.json?' + Date.now())
+      .then(function(r) { return r.json(); })
+      .then(function(data) { APP_VERSION = data.version; })
+      .catch(function() {
+        // Fallback: try meta tag or hardcoded
+        APP_VERSION = '2026.08.002';
+      });
+  }
+
+  // --- Fetch releases from GitHub ---
+  function fetchReleases() {
+    var cached = getCache();
+    if (cached) return Promise.resolve(cached);
+
+    return fetch(GITHUB_API)
+      .then(function(r) {
+        if (!r.ok) throw new Error('GitHub API returned ' + r.status);
+        return r.json();
+      })
+      .then(function(releases) {
+        setCache(releases);
+        return releases;
+      })
+      .catch(function(err) {
+        console.warn('CatAdventure: unable to fetch releases:', err.message);
+        return null;
+      });
+  }
+
+  // --- Compute newer releases and cumulative changelog ---
+  function computeUpdates(releases) {
+    if (!releases || !releases.length || !APP_VERSION) return [];
+    var newer = [];
+    for (var i = 0; i < releases.length; i++) {
+      var tag = releases[i].tag_name.replace(/^v/, '');
+      if (isNewer(tag, APP_VERSION)) {
+        newer.push(releases[i]);
+      }
+    }
+    // Sort newest first
+    newer.sort(function(a, b) { return compareVersions(b.tag_name, a.tag_name); });
+    return newer;
+  }
+
+  function buildChangelogHtml(releases) {
+    if (!releases.length) return '<p>Aucune information de version disponible.</p>';
+    var html = '';
+    for (var i = 0; i < releases.length; i++) {
+      var r = releases[i];
+      var tag = r.tag_name.replace(/^v/, '');
+      var body = (r.body || '').trim();
+      var date = r.published_at ? new Date(r.published_at).toLocaleDateString('fr-FR') : '';
+      html += '<h4>' + tag + (date ? ' (' + date + ')' : '') + '</h4>';
+      if (body) {
+        // Convert markdown-like body to simple HTML
+        var escaped = body
+          .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        // Headers
+        escaped = escaped.replace(/^### (.+)$/gm, '<strong>$1</strong>');
+        escaped = escaped.replace(/^## (.+)$/gm, '<strong>$1</strong>');
+        // Bullet points
+        escaped = escaped.replace(/^- (.+)$/gm, '<li>$1</li>');
+        // Wrap consecutive <li> in <ul>
+        escaped = escaped.replace(/((?:<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>');
+        html += '<div>' + escaped + '</div>';
+      } else {
+        html += '<p><em>Pas de notes de version.</em></p>';
+      }
+    }
+    return html;
+  }
+
+  // --- UI functions ---
+  function showToast(version) {
+    var toast = document.getElementById('update-toast');
+    document.getElementById('toast-version').textContent = 'Version ' + version + ' disponible !';
+    toast.style.display = 'block';
+  }
+
+  function dismissToast() {
+    document.getElementById('update-toast').style.display = 'none';
+  }
+
+  function showUpdateModal() {
+    if (!newerReleases.length) return;
+    var overlay = document.getElementById('update-modal-overlay');
+    document.getElementById('modal-version-text').textContent =
+      'Version installée : ' + APP_VERSION + ' → Dernière : ' + newerReleases[0].tag_name.replace(/^v/, '');
+    document.getElementById('modal-changelog').innerHTML = buildChangelogHtml(newerReleases);
+    overlay.classList.add('active');
+  }
+
+  function closeUpdateModal() {
+    document.getElementById('update-modal-overlay').classList.remove('active');
+  }
+
+  function triggerUpdate() {
+    var cmdBlock = document.getElementById('update-cmd-block');
+    cmdBlock.style.display = 'block';
+    cmdBlock.textContent = 'Exécutez sur le serveur : cd /opt/catadventure && bash update.sh';
+    // If an auto-update mechanism is in place, the update will be picked up.
+    // Poll for new version after a delay.
+    setTimeout(function() {
+      fetch('/version.json?' + Date.now())
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (compareVersions(data.version, APP_VERSION) > 0) {
+            closeUpdateModal();
+            dismissToast();
+            location.reload();
+          }
+        })
+        .catch(function() {});
+    }, 5000);
+  }
+
+  function toggleAutoUpdate(enabled) {
+    try { localStorage.setItem(AUTO_UPDATE_KEY, enabled ? '1' : '0'); } catch(e) {}
+    // Try to POST to auto-update endpoint if available
+    try {
+      fetch('/api/auto-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: enabled })
+      }).catch(function() {});
+    } catch(e) {}
+  }
+
+  function loadAutoUpdatePref() {
+    try {
+      var val = localStorage.getItem(AUTO_UPDATE_KEY);
+      document.getElementById('auto-update-cb').checked = (val === '1');
+    } catch(e) {}
+  }
+
+  // --- Main check flow ---
+  function checkForUpdates() {
+    fetchAppVersion().then(function() {
+      return fetchReleases();
+    }).then(function(releases) {
+      if (!releases) return;
+      newerReleases = computeUpdates(releases);
+      if (newerReleases.length > 0) {
+        latestRelease = newerReleases[0];
+        showToast(latestRelease.tag_name.replace(/^v/, ''));
+      }
+      loadAutoUpdatePref();
+    });
+  }
+
+  // Run after a short delay so the page is ready
+  setTimeout(checkForUpdates, 2000);
+})();
+</script>
+
 </body>
 </html>
