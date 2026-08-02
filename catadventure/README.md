@@ -1,108 +1,123 @@
 # CatAdventure 🐱
 
-Jeu de plateforme 2D dans lequel un chat explore une ville, collecte des poissons, évite des obstacles et progresse à travers différents quartiers. Entièrement en HTML5 Canvas vanilla — aucun framework, aucun build step.
+2D platformer game where a cat explores a city, collects fish, avoids obstacles and progresses through different districts. Pure HTML5 Canvas — no framework, no build step.
 
 ## Version
 
-Version courante : **2026.08.002-c2**
+Current version: **2026.08.002-c2**
 
-[Voir toutes les releases sur GitHub](https://github.com/LostInTheBugs/CatAdventure/releases)
+[See all releases on GitHub](https://github.com/LostInTheBugs/CatAdventure/releases)
 
-## Installation et déploiement
+## Installation and deployment
 
-### Prérequis
+### Prerequisites
 
-- Docker et Docker Compose
-- Un reverse proxy Traefik avec un réseau `traefik-public` (pour le déploiement en production)
+- Docker and Docker Compose
+- A Traefik reverse proxy with a `traefik-public` network (for production deployment)
 
-### Lancement local
+### Local launch
 
 ```bash
 docker compose up -d
 ```
 
-Le jeu est servi par Nginx sur le port **8004** (surchargeable via la variable d'environnement `PORT`).
+The game is served by Nginx on port **8004** (overridable via the `PORT` environment variable).
 
-### Déploiement production
+### Production deployment
 
-Le `docker-compose.yml` est préconfiguré pour Traefik avec Let's Encrypt sur le domaine `catadventure.cloudfr.net`. Ajustez le domaine dans les labels Traefik si nécessaire.
+The `docker-compose.yml` is preconfigured for Traefik with Let's Encrypt on the `catadventure.cloudfr.net` domain. Adjust the domain in the Traefik labels if needed.
 
 ```bash
-# Surcharger le port si besoin
+# Override the port if needed
 PORT=8080 docker compose up -d
 ```
 
 ## Configuration
 
-| Variable   | Valeur par défaut | Description                |
-|------------|-------------------|----------------------------|
-| `PORT`     | `8004`            | Port d'écoute de Nginx     |
+| Variable   | Default value | Description                |
+|------------|---------------|----------------------------|
+| `PORT`     | `8004`        | Nginx listen port          |
 
-Fichier `.env.example` fourni — copiez-le en `.env` pour personnaliser.
+A `.env.example` file is provided — copy it to `.env` to customize.
 
-### Dépendances
+### Dependencies
 
-Aucune dépendance externe. L'image Docker est basée sur `nginx:alpine`. Le jeu tourne dans le navigateur côté client (Canvas + JavaScript).
+No external dependency. The Docker image is based on `nginx:alpine`. The game runs in the browser on the client side (Canvas + JavaScript).
 
-## Utilisation
+## Usage
 
-Ouvrir le navigateur sur `http://localhost:8004`. Commandes :
+Open your browser at `http://localhost:8004`. Controls:
 
-- **Flèches gauche/droite** ou **A/D** : se déplacer
-- **Flèche haut**, **W** ou **Espace** : sauter
-- **P** ou **Échap** : pause
-- Sur mobile, boutons tactiles affichés automatiquement
+- **Left/right arrows** or **A/D**: move
+- **Up arrow**, **W** or **Space**: jump
+- **P** or **Esc**: pause
+- On mobile, touch buttons are shown automatically
 
-Objectif : collecter des poissons, monter en niveau, explorer la ville et ses égouts.
+Goal: collect fish, level up, explore the city and its sewers.
 
-## Mise à jour
+## Update
 
-Le jeu intègre un client de mise à jour dans le navigateur : au chargement, il compare la version déployée (`version.json`, généré au build Docker à partir du fichier `VERSION`) à la dernière release GitHub. Si une version plus récente existe, une notification toast s'affiche, et une modale présente le changelog cumulé de toutes les versions intermédiaires.
+The game embeds a browser-side update client: on load, it compares the deployed version (`version.json`, generated at Docker build time from the `VERSION` file) with the latest GitHub release. If a newer version exists, a toast notification appears and a modal shows the cumulative changelog of all intermediate versions.
 
-Les résultats de l'API GitHub sont mis en cache dans le navigateur (localStorage, TTL 6h) pour respecter la limite de 60 requêtes par heure.
+GitHub API results are cached in the browser (localStorage, 6h TTL) to respect the 60 requests per hour limit.
 
-### Mise à jour manuelle (serveur)
+### Manual update (server)
 
 ```bash
-cd /opt/catadventure   # ou le répertoire d'installation
+cd /opt/catadventure   # or the installation directory
 bash update.sh
 ```
 
-Le script :
-1. Récupère les tags distants (`git fetch --tags`)
-2. Trouve le dernier tag au format `ANNEE.MOIS.NNN`
-3. Fait le checkout du tag
-4. Rebuild et redémarre le conteneur (`docker compose up -d --build`)
+The script:
+1. Fetches remote tags (`git fetch --tags`)
+2. Finds the latest tag in `YEAR.MONTH.NNN` format
+3. Checks out the tag
+4. Rebuilds and restarts the container (`docker compose up -d --build`)
 
-Mode vérification seule :
+Check-only mode:
 
 ```bash
-bash update.sh --check   # exit 0 = mise à jour disponible, exit 1 = déjà à jour
+bash update.sh --check   # exit 0 = update available, exit 1 = already up to date
 ```
 
-### Mise à jour automatique (Watchtower)
+### Automatic update (Watchtower)
 
-Pour activer Watchtower (surveille l'image et met à jour automatiquement) :
+To enable Watchtower (watches the image and updates automatically):
 
 ```bash
 ln -sf docker-compose.watchtower.yml docker-compose.override.yml
 docker compose up -d
 ```
 
-Pour désactiver :
+To disable:
 
 ```bash
 rm docker-compose.override.yml
 docker compose down watchtower
 ```
 
-### Alternative cron
+### Cron alternative
 
 ```bash
-# Vérification toutes les heures, mise à jour si nécessaire
+# Check every hour, update if needed
 0 * * * * cd /opt/catadventure && bash update.sh --check && bash update.sh
 ```
 
-## Licence
+## Development cost (LLM)
 
-Projet personnel — tous droits réservés.
+This project was built entirely through AI-assisted sessions (Hermes Agent, deepseek-v4-pro / deepseek-v4-flash). Usage so far (cumulative as of 2026-08-02):
+
+| Metric | Value |
+|---|---|
+| Input tokens | 1 112 571 |
+| Output tokens | 480 273 |
+| **Total (input + output)** | **1 592 844** |
+| Cache read (reused at reduced price) | 141 952 256 |
+| API calls | 804 |
+| **Estimated cost** | **≈ 1.35 USD** |
+
+Full breakdown: [TOKENS.md](TOKENS.md).
+
+## License
+
+Personal project — all rights reserved.
