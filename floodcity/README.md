@@ -121,6 +121,11 @@ The seed controls the layout of the city, buildings, street furniture and beach.
 
 ## 📋 Release notes
 
+### 2026.09.001
+- Update client reworked: newer versions are read from GitHub Releases, with a detail modal listing the intermediate release notes, and `version.json` kept as an offline fallback
+- New optional "auto-update" toggle: the game reloads by itself when a new version is out, but only from the home screen or after a game over — never mid-wave
+- The project now lives in the `MiniGames` monorepo, in the `floodcity/` folder
+
 ### 2026.08.002
 - Island completely reworked: much larger, irregular coastline, countryside around the city
 - Fixed island ground rendering, which could fail to appear

@@ -2,6 +2,20 @@
 
 All notable changes to Flood City are documented in this file.
 
+## [2026.09.001] — 2026-09-13
+
+### Added
+- Banner "Détails" button: a modal lists every intermediate release and its notes
+- Optional "mise à jour automatique" toggle (persisted in localStorage): the game reloads on its own, but only from the home screen or after a game over — never mid-wave
+
+### Changed
+- Update client reworked: newer versions are now read from GitHub Releases (tags prefixed `floodcity-` in the MiniGames repository) instead of only polling `version.json`
+- `version.json` kept as a fallback when the GitHub API is unreachable
+- The project moved into the `MiniGames` monorepo (`LostInTheBugs/MiniGames`, `floodcity/` folder); full git history preserved
+
+### Fixed
+- The update banner was rendered behind the home screen (stacking order) — it is now always visible on top of it
+
 ## [2026.08.002] — 2026-08-01
 
 ### Changed
