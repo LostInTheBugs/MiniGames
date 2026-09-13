@@ -1,0 +1,24 @@
+# ============================================================
+#  CatAdventure — Activation Watchtower (mise à jour automatique)
+#
+#  Usage :
+#    Activation   : ln -sf docker-compose.watchtower.yml docker-compose.override.yml
+#                   docker compose up -d
+#    Désactivation : rm docker-compose.override.yml
+#                    docker compose down watchtower
+# ============================================================
+services:
+  # Watchtower surveille l'image du conteneur catadventure et le met à jour
+  # quand un nouveau tag est poussé sur le registry.
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: catadventure-watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_POLL_INTERVAL=300        # vérifie toutes les 5 minutes
+      - WATCHTOWER_NOTIFICATIONS=none       # pas de notif externe
+      - WATCHTOWER_LABEL_ENABLE=true        # ne surveille que les conteneurs avec le label
+    command: --interval 300 catadventure
