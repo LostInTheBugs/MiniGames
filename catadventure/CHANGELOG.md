@@ -10,6 +10,7 @@ et le versionnement suit le schéma ANNEE.MM.NNN.
 ### Changed
 - The project moved into the `MiniGames` monorepo (`LostInTheBugs/MiniGames`, `catadventure/` folder); full git history preserved
 - The update client now reads releases from this repository and only considers tags prefixed with `catadventure-` (e.g. `catadventure-2026.09.001`)
+- `update.sh` now looks for the monorepo `catadventure-*` release tags
 
 ## [2026.08.002-c2] — 2026-08-01
 
