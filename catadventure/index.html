@@ -2354,7 +2354,8 @@ fitScreen();
 (function() {
   'use strict';
 
-  const GITHUB_API = 'https://api.github.com/repos/LostInTheBugs/CatAdventure/releases?per_page=20';
+  const GITHUB_API = 'https://api.github.com/repos/LostInTheBugs/MiniGames/releases?per_page=50';
+  const TAG_PREFIX = 'catadventure-'; // releases of this game are tagged <game>-<version>
   const CACHE_KEY = 'catadv_releases_cache';
   const CACHE_TTL = 60 * 60 * 1000; // 1 heure (~ aligné sur le check horaire)
   const AUTO_UPDATE_KEY = 'catadv_auto_update';
@@ -2419,7 +2420,7 @@ fitScreen();
       .then(function(data) { APP_VERSION = data.version; })
       .catch(function() {
         // Fallback: try meta tag or hardcoded
-        APP_VERSION = '2026.08.002-c2';
+        APP_VERSION = '2026.09.001';
       });
   }
 
@@ -2443,18 +2444,25 @@ fitScreen();
       });
   }
 
+  // --- Monorepo tag helper: 'catadventure-2026.09.001' -> '2026.09.001' ---
+  function stripTag(tagName) {
+    return String(tagName || '').replace(/^v/, '').replace(TAG_PREFIX, '');
+  }
+
   // --- Compute newer releases and cumulative changelog ---
   function computeUpdates(releases) {
     if (!releases || !releases.length || !APP_VERSION) return [];
     var newer = [];
     for (var i = 0; i < releases.length; i++) {
-      var tag = releases[i].tag_name.replace(/^v/, '');
+      var rawTag = releases[i].tag_name.replace(/^v/, '');
+      if (rawTag.indexOf(TAG_PREFIX) !== 0) continue; // release of another game in the monorepo
+      var tag = rawTag.slice(TAG_PREFIX.length);
       if (isNewer(tag, APP_VERSION)) {
         newer.push(releases[i]);
       }
     }
     // Sort newest first
-    newer.sort(function(a, b) { return compareVersions(b.tag_name, a.tag_name); });
+    newer.sort(function(a, b) { return compareVersions(stripTag(b.tag_name), stripTag(a.tag_name)); });
     return newer;
   }
 
@@ -2463,7 +2471,7 @@ fitScreen();
     var html = '';
     for (var i = 0; i < releases.length; i++) {
       var r = releases[i];
-      var tag = r.tag_name.replace(/^v/, '');
+      var tag = stripTag(r.tag_name);
       var body = (r.body || '').trim();
       var date = r.published_at ? new Date(r.published_at).toLocaleDateString('fr-FR') : '';
       html += '<h4>' + tag + (date ? ' (' + date + ')' : '') + '</h4>';
@@ -2496,14 +2504,14 @@ fitScreen();
   function dismissToast() {
     document.getElementById('update-toast').style.display = 'none';
     // Mémorise la version affichée : une version DIFFÉRENTE ré-affichera le toast
-    dismissedVersion = latestRelease ? latestRelease.tag_name.replace(/^v/, '') : null;
+    dismissedVersion = latestRelease ? stripTag(latestRelease.tag_name) : null;
   }
 
   function showUpdateModal() {
     if (!newerReleases.length) return;
     var overlay = document.getElementById('update-modal-overlay');
     document.getElementById('modal-version-text').textContent =
-      'Version installée : ' + APP_VERSION + ' → Dernière : ' + newerReleases[0].tag_name.replace(/^v/, '');
+      'Version installée : ' + APP_VERSION + ' → Dernière : ' + stripTag(newerReleases[0].tag_name);
     document.getElementById('modal-changelog').innerHTML = buildChangelogHtml(newerReleases);
     overlay.classList.add('active');
   }
@@ -2560,7 +2568,7 @@ fitScreen();
       newerReleases = computeUpdates(releases);
       if (newerReleases.length > 0) {
         latestRelease = newerReleases[0];
-        var latestTag = latestRelease.tag_name.replace(/^v/, '');
+        var latestTag = stripTag(latestRelease.tag_name);
         // Ne pas ré-afficher le toast pour la même version déjà fermée,
         // mais le ré-afficher si une version différente apparaît.
         if (latestTag !== dismissedVersion) {

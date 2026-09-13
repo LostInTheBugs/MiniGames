@@ -4,9 +4,11 @@
 
 ## Version
 
-Current version: **2026.08.002-c2**
+Current version: **2026.09.001**
 
-[See all releases on GitHub](https://github.com/LostInTheBugs/CatAdventure/releases)
+This game lives in the [MiniGames](../README.md) repository, in the `catadventure/` folder.
+
+[See all releases on GitHub](https://github.com/LostInTheBugs/MiniGames/releases) (tags prefixed `catadventure-`)
 
 ## Installation and deployment
 

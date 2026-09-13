@@ -5,6 +5,12 @@ Tous les changements notables de ce projet sont documentés ici.
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/),
 et le versionnement suit le schéma ANNEE.MM.NNN.
 
+## [2026.09.001] — 2026-09-13
+
+### Changed
+- The project moved into the `MiniGames` monorepo (`LostInTheBugs/MiniGames`, `catadventure/` folder); full git history preserved
+- The update client now reads releases from this repository and only considers tags prefixed with `catadventure-` (e.g. `catadventure-2026.09.001`)
+
 ## [2026.08.002-c2] — 2026-08-01
 
 ### Ajouté
