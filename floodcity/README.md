@@ -215,4 +215,4 @@ Full breakdown: [TOKENS.md](TOKENS.md).
 
 ## 📝 Repo
 
-https://github.com/LostInTheBugs/FloodCity — [Releases](https://github.com/LostInTheBugs/FloodCity/releases)
+This game lives in the [MiniGames](../README.md) repository, in the `floodcity/` folder — [Releases](https://github.com/LostInTheBugs/MiniGames/releases) (tags prefixed `floodcity-`)

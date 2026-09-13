@@ -29,7 +29,7 @@ npm install
 
 ```bash
 # 1. Serve the game (in another terminal)
-cd /home/administrator/floodcity
+cd floodcity            # from the repository root
 python3 -m http.server 8002
 
 # 2. Run the harness
