@@ -229,30 +229,142 @@
     filter: drop-shadow(0 0 6px rgba(0,0,0,0.7));
   }
 
-  /* ─── Game Over buttons ───────────────────────────────── */
+  /* ─── Game Over overlay & card ─────────────────────────── */
+  #gameover-overlay {
+    position: fixed; inset: 0; z-index: 24;
+    background: rgba(0, 0, 0, 0.45);
+    display: none;
+  }
+  #gameover-overlay.visible { display: block; }
+
   #gameover-panel {
-    position: fixed; top: 50%; left: 50%; transform: translate(-50%, 80px);
-    z-index: 25; display: none; flex-direction: column; gap: 12px;
-    align-items: center;
+    position: fixed; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 25; display: none;
+    flex-direction: column; align-items: center;
+    width: 420px; max-width: 92vw;
+    padding: 28px 24px 22px;
+    background: rgba(10, 15, 30, 0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 18px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+    gap: 0;
   }
   #gameover-panel.visible { display: flex; }
+
+  @keyframes goFadeUp {
+    from { opacity: 0; transform: translate(-50%, -42%); }
+    to   { opacity: 1; transform: translate(-50%, -50%); }
+  }
+  #gameover-panel.visible {
+    animation: goFadeUp 0.4s ease-out both;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #gameover-panel.visible { animation: none; }
+  }
+
+  .go-header { text-align: center; margin-bottom: 14px; }
+  .go-title {
+    color: #e0e8f0; font-size: 1.35em; font-weight: 700;
+    margin: 0 0 4px; line-height: 1.3;
+  }
+  .go-subtitle {
+    color: rgba(200,210,224,0.7); font-size: 0.9em;
+    letter-spacing: 0.3px;
+  }
+
+  .go-score-block {
+    text-align: center; margin-bottom: 10px;
+  }
+  .go-score-val {
+    color: #ffd54f; font-size: 2.6em; font-weight: 800;
+    line-height: 1;
+    text-shadow: 0 0 24px rgba(255,213,79,0.25);
+  }
+  .go-score-label {
+    display: block; color: rgba(200,210,224,0.5);
+    font-size: 0.85em; margin-top: 2px;
+  }
+
+  .go-badges {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 4px; margin-bottom: 14px; min-height: 28px;
+  }
+  .go-badge {
+    font-size: 0.88em; font-weight: 600;
+    padding: 4px 14px; border-radius: 12px;
+  }
+  .go-badge-record {
+    background: rgba(255,213,79,0.15); color: #ffd54f;
+  }
+  .go-badge-best {
+    background: rgba(100,181,246,0.12); color: #90caf9;
+  }
+
+  .go-stats {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 8px 12px; width: 100%; margin-bottom: 16px;
+  }
+  .go-stat {
+    display: flex; flex-direction: column; align-items: center;
+    background: rgba(255,255,255,0.04);
+    border-radius: 10px; padding: 8px 6px;
+  }
+  .go-stat-icon { font-size: 1.2em; }
+  .go-stat-val {
+    color: #e0e8f0; font-size: 1.3em; font-weight: 700;
+    margin: 2px 0 1px;
+  }
+  .go-stat-label {
+    color: rgba(200,210,224,0.6); font-size: 0.75em;
+    text-align: center; line-height: 1.2;
+  }
+
+  .go-actions {
+    display: flex; flex-direction: column; gap: 8px;
+    width: 100%;
+  }
   #gameover-panel button {
-    padding: 14px 40px; font-size: 1.15em;
-    color: white; border: none; border-radius: 10px; cursor: pointer;
-    font-weight: 700;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+    padding: 12px 20px; font-size: 1.05em;
+    color: white; border: none; border-radius: 12px;
+    cursor: pointer; font-weight: 700;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
     transition: transform 0.15s, box-shadow 0.15s;
-    letter-spacing: 0.5px;
-    width: 260px;
+    letter-spacing: 0.3px; width: 100%; box-sizing: border-box;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
   }
-  #gameover-panel button:hover { transform: scale(1.06); }
+  #gameover-panel button:hover { transform: scale(1.03); }
+  .go-key {
+    font-size: 0.75em; color: rgba(255,255,255,0.6);
+    background: rgba(255,255,255,0.15);
+    padding: 2px 6px; border-radius: 4px; margin-left: 4px;
+  }
   #restart-btn {
-    background: linear-gradient(135deg, #ff6b35, #e55d2b);
-    box-shadow: 0 4px 24px rgba(255,107,53,0.5);
+    background: #64b5f6; color: #1a237e;
+    box-shadow: 0 4px 16px rgba(100,181,246,0.4);
   }
+  #restart-btn:hover { background: #90caf9; }
   #menu-btn {
-    background: linear-gradient(135deg, #5c6bc0, #3f51b5);
-    box-shadow: 0 4px 24px rgba(92,107,192,0.5);
+    background: transparent;
+    border: 2px solid rgba(255,255,255,0.25) !important;
+    color: rgba(255,255,255,0.85);
+  }
+  #menu-btn:hover { background: rgba(255,255,255,0.08); }
+
+  /* ─── Game Over responsive ─────────────────────────────── */
+  @media (max-width: 480px) {
+    #gameover-panel {
+      padding: 20px 16px 18px;
+      gap: 0;
+    }
+    .go-title { font-size: 1.15em; }
+    .go-score-val { font-size: 2em; }
+    .go-stats { gap: 6px 8px; }
+    .go-stat { padding: 6px 4px; }
+    .go-stat-icon { font-size: 1em; }
+    .go-stat-val { font-size: 1.1em; }
+    .go-stat-label { font-size: 0.7em; }
   }
 
   /* ─── Home screen ─────────────────────────────────────── */
@@ -480,19 +592,6 @@
     .map-card { width: 100%; max-width: 340px; }
     #home-screen h2 { font-size: 2.4em; }
     #home-screen .subtitle { font-size: 0.95em; margin-bottom: 24px; }
-  }
-
-  #go-score-area {
-    color: #c0c8d8; text-align: center;
-    margin-bottom: 14px; line-height: 1.6;
-    font-size: 0.95em;
-  }
-  #go-score-area .go-line { display: flex; justify-content: center; gap: 6px; }
-  #go-score-area .go-val { color: #ffd54f; font-weight: 700; }
-  #go-score-area .go-record {
-    color: #ffd54f; font-weight: 700; font-size: 1.15em;
-    text-shadow: 0 0 20px rgba(255,213,79,0.3);
-    margin-bottom: 2px;
   }
 
   @keyframes alertFlash {
@@ -828,14 +927,46 @@
   </button>
 </div>
 
+<div id="gameover-overlay"></div>
 <div id="gameover-panel">
-  <div id="go-score-area">
-    <div class="go-line">⭐ Score : <span class="go-val" id="go-score">0</span></div>
-    <div class="go-line" id="go-best-line">🏆 Meilleur : <span class="go-val" id="go-best">—</span></div>
-    <div id="go-new-record" class="go-record" style="display:none">🎉 Nouveau record !</div>
+  <div class="go-header">
+    <h2 id="go-title" class="go-title"></h2>
+    <span id="go-map-name" class="go-subtitle"></span>
   </div>
-  <button id="restart-btn" onclick="restartGame()">🔄 Rejouer</button>
-  <button id="menu-btn" onclick="goToMenu()">🗺️ Changer de carte</button>
+  <div class="go-score-block">
+    <span id="go-score" class="go-score-val">0</span>
+    <span class="go-score-label">points</span>
+  </div>
+  <div class="go-badges">
+    <span id="go-record-badge" class="go-badge go-badge-record" style="display:none">🎉 Nouveau record !</span>
+    <span id="go-best-badge" class="go-badge go-badge-best" style="display:none">🏆 Meilleur : <b id="go-best-val">—</b></span>
+  </div>
+  <div class="go-stats">
+    <div class="go-stat">
+      <span class="go-stat-icon">🌊</span>
+      <span class="go-stat-val" id="go-waves">0</span>
+      <span class="go-stat-label">vagues tenues</span>
+    </div>
+    <div class="go-stat">
+      <span class="go-stat-icon">🏗️</span>
+      <span class="go-stat-val" id="go-buildings-saved">0</span>
+      <span class="go-stat-label">bâtiments sauvés</span>
+    </div>
+    <div class="go-stat">
+      <span class="go-stat-icon">🧱</span>
+      <span class="go-stat-val" id="go-walls">0</span>
+      <span class="go-stat-label">murs construits</span>
+    </div>
+    <div class="go-stat">
+      <span class="go-stat-icon">🕳️</span>
+      <span class="go-stat-val" id="go-trenches">0</span>
+      <span class="go-stat-label">tranchées creusées</span>
+    </div>
+  </div>
+  <div class="go-actions">
+    <button id="restart-btn" onclick="restartGame()">🔄 Rejouer <span class="go-key">R</span></button>
+    <button id="menu-btn" onclick="goToMenu()">🗺️ Changer de carte <span class="go-key">M</span></button>
+  </div>
 </div>
 
 <div id="controls">
@@ -1396,13 +1527,19 @@ const $waveTimer = document.getElementById('wave-timer');
 const $score = document.getElementById('score');
 const $message = document.getElementById('message');
 const $gameoverPanel = document.getElementById('gameover-panel');
+const $goOverlay = document.getElementById('gameover-overlay');
+const $goTitle = document.getElementById('go-title');
+const $goMapName = document.getElementById('go-map-name');
+const $goScore = document.getElementById('go-score');
+const $goBestVal = document.getElementById('go-best-val');
+const $goRecordBadge = document.getElementById('go-record-badge');
+const $goBestBadge = document.getElementById('go-best-badge');
+const $goWaves = document.getElementById('go-waves');
+const $goBuildingsSaved = document.getElementById('go-buildings-saved');
+const $goWalls = document.getElementById('go-walls');
+const $goTrenches = document.getElementById('go-trenches');
 const $restartBtn = document.getElementById('restart-btn');
 const $controls = document.getElementById('controls');
-const $goScoreArea = document.getElementById('go-score-area');
-const $goScore = document.getElementById('go-score');
-const $goBest = document.getElementById('go-best');
-const $goBestLine = document.getElementById('go-best-line');
-const $goNewRecord = document.getElementById('go-new-record');
 const $compass = document.getElementById('compass');
 const $waveBanner = document.getElementById('wave-banner');
 const $wbPill = document.getElementById('wb-pill');
@@ -1760,6 +1897,8 @@ let score = 0;
 let buildings = [];
 let walls = [];
 let trenches = [];
+let wallsBuiltTotal = 0;   // cumulée pour l'écran de fin de partie
+let trenchesBuiltTotal = 0; // idem
 let waves = [];
 let gameOver = false;
 let waveCountdown = 20;
@@ -3548,6 +3687,8 @@ function generateMap(map) {
   waveCountdown = 20;
   waveCountdownMax = 20;
   waveNumber = 0;
+  wallsBuiltTotal = 0;
+  trenchesBuiltTotal = 0;
   currentTier = 1;
   trenchMode = false;
   alertTriggered = false;
@@ -3596,6 +3737,7 @@ function placeWall(worldPos) {
   scene.add(group);
 
   walls.push({ group, x: worldPos.x, z: worldPos.z, hp: tier.hp, maxHp: tier.hp, tier: currentTier });
+  wallsBuiltTotal++;
   resources -= tier.cost;
   updateHUD();
   return true;
@@ -3616,6 +3758,7 @@ function placeTrench(worldPos) {
   scene.add(trenchMesh);
 
   trenches.push({ mesh: trenchMesh, x: worldPos.x, z: worldPos.z, hp: TRENCH_HP, maxHp: TRENCH_HP });
+  trenchesBuiltTotal++;
   resources -= TRENCH_COST;
   updateHUD();
   return true;
@@ -5548,26 +5691,38 @@ function gameLoop() {
     const defeatThresh = currentMap._defeatThreshold;
     if (alive <= defeatThresh) {
       gameOver = true;
-      flashMessage(alive === 0 ? '💀 Ville détruite !' : `🏚️ Seulement ${alive} bâtiments sauvés (seuil: ${defeatThresh})...`, 0);
-      $message.classList.add('show');
 
-      // ── Save score & show game over details ──────────────
-      const best = _getBest(currentMapId);
+      // ── Populate & show game-over card ───────────────────
+      $goTitle.textContent = alive === 0 ? '💀 Ville détruite' : '🌊 La ville est submergée';
+      $goMapName.textContent = currentMap.name;
       $goScore.textContent = score;
-      if (best) {
-        $goBest.textContent = best.score;
-        $goBestLine.style.display = 'flex';
-        if (score > best.score) {
-          $goNewRecord.style.display = 'block';
-        } else {
-          $goNewRecord.style.display = 'none';
-        }
-      } else {
-        $goBestLine.style.display = 'none';
-        $goNewRecord.style.display = 'block';
-      }
+
+      const best = _getBest(currentMapId);
       const saved = _trySaveScore(currentMapId, score, waveNumber);
+      const isNewRecord = score > 0 && (!best || score > best.score); // pas de « record » à 0 point
+      $goRecordBadge.style.display = isNewRecord ? '' : 'none';
+      if (best) {
+        $goBestVal.textContent = best.score;
+        $goBestBadge.style.display = isNewRecord ? 'none' : '';
+      } else {
+        $goBestBadge.style.display = 'none';
+      }
+
+      const pct = totalBuildingsInitial > 0 ? Math.round((alive / totalBuildingsInitial) * 100) : 0;
+      $goWaves.textContent = Math.max(0, waveNumber - 1); // la vague en cours est celle qui a submergé la ville
+      $goBuildingsSaved.textContent = alive + ' (' + pct + '%)';
+      $goWalls.textContent = wallsBuiltTotal;
+      $goTrenches.textContent = trenchesBuiltTotal;
+
+      // Show overlay + panel
+      $goOverlay.classList.add('visible');
       $gameoverPanel.classList.add('visible');
+
+      // Hide HUD elements during game over
+      $message.classList.remove('show');
+      $buildToolbar.classList.remove('visible');
+      $waveBanner.classList.remove('visible');
+
       // Check if auto-update was deferred during gameplay
       _checkDeferredAutoReload();
     }
@@ -5710,6 +5865,9 @@ window.restartGame = function() {
 
   $message.classList.remove('show');
   $gameoverPanel.classList.remove('visible');
+  $goOverlay.classList.remove('visible');
+  $buildToolbar.classList.add('visible');
+  $waveBanner.classList.add('visible');
 
   generateMap(currentMap);
 };
@@ -5793,6 +5951,7 @@ window.goToMenu = function() {
   ghostGroup.visible = false;
   $message.classList.remove('show');
   $gameoverPanel.classList.remove('visible');
+  $goOverlay.classList.remove('visible');
   $hud.classList.remove('visible');
   $controls.classList.remove('visible');
   $compass.classList.remove('visible');
