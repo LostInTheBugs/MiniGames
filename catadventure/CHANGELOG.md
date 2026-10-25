@@ -5,6 +5,24 @@ Tous les changements notables de ce projet sont documentés ici.
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/),
 et le versionnement suit le schéma ANNEE.MM.NNN.
 
+## [2026.09.001-c1] — 2026-10-25
+
+### Fixed
+- Reaching the end of the level no longer grants +50 XP on every frame (the cat jumped from level 1 to 10 in a second-and-a-half and the dog catcher became deadly at once). The bonus is granted once, then the next finish line is placed further away
+- Jumps are triggered on key press instead of while the key is held: the double and triple jumps now need a new press in mid-air instead of being wasted on the very first jump. A short jump buffer accepts a press made just before landing
+- Cars no longer pile up around the camera as the run goes on: each car drives back and forth around its own spawn point
+- Short key taps (Enter, P…) were sometimes missed; presses are now queued until processed
+- Escape now pauses the game as documented (it used to quit to the title screen without confirmation). The pause screen lists P / Esc to resume, R to restart and M for the menu
+- "ÉGOUTS" labels no longer overlap: manholes of the same block are at least 140 px apart
+- Rooftop bonuses are placed above rooftops instead of floating inside building façades
+- The game-over screen shows the number of fish collected (the counter was never updated)
+- The version is read from `version.json` relative to the page, so it also works when the game is served from a sub-folder (games hub); a static `version.json` is shipped for that case
+- `localStorage` access for the high score is protected (private browsing)
+
+### Changed
+- Title screen: instructions on a dark panel, readable over the lit windows; windows no longer flicker
+- Level-up message announces the triple jump at level 6
+
 ## [2026.09.001] — 2026-09-13
 
 ### Changed

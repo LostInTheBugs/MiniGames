@@ -4,7 +4,7 @@
 
 ## Version
 
-Current version: **2026.09.001**
+Current version: **2026.09.001-c1**
 
 This game lives in the [MiniGames](../README.md) repository, in the `catadventure/` folder.
 
@@ -52,7 +52,9 @@ Open your browser at `http://localhost:8004`. Controls:
 
 - **Left/right arrows** or **A/D**: move
 - **Up arrow**, **W** or **Space**: jump
-- **P** or **Esc**: pause
+- **P** or **Esc**: pause / resume
+- **M** (while paused or after a game over): back to the title screen
+- **R**: restart
 - On mobile, touch buttons are shown automatically
 
 Goal: collect fish, level up, explore the city and its sewers.

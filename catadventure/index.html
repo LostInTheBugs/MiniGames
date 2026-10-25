@@ -84,7 +84,7 @@ canvas {
     </div>
   </div>
   <div id="message-popup" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.85);color:#fff;padding:16px 28px;border-radius:14px;font-size:17px;text-align:center;border:2px solid #ffd700;z-index:100;pointer-events:none;font-family:'Segoe UI',sans-serif;"></div>
-  <div id="pause-screen" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.7);z-index:200;justify-content:center;align-items:center;color:#fff;font-size:42px;font-weight:bold;font-family:'Segoe UI',sans-serif;text-shadow:0 0 20px rgba(255,215,0,0.5);">⏸️ PAUSE</div>
+  <div id="pause-screen" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.7);z-index:200;flex-direction:column;justify-content:center;align-items:center;color:#fff;font-size:42px;font-weight:bold;font-family:'Segoe UI',sans-serif;text-shadow:0 0 20px rgba(255,215,0,0.5);">⏸️ PAUSE<div style="font-size:18px;font-weight:normal;margin-top:14px;color:#ddd;text-shadow:none;">P / Échap : reprendre · R : recommencer · M : menu</div></div>
   <div id="score-form" style="display:none;position:absolute;bottom:80px;left:50%;transform:translateX(-50%);z-index:300;text-align:center;font-family:'Segoe UI',sans-serif;">
     <input id="score-name" type="text" maxlength="12" placeholder="Ton nom" style="padding:8px 14px;font-size:16px;border-radius:8px;border:2px solid #ffd700;background:#1a1a2e;color:#fff;text-align:center;width:180px;">
     <button id="score-save-btn" style="margin-left:8px;padding:8px 18px;font-size:16px;border-radius:8px;border:none;background:#ffd700;color:#000;font-weight:bold;cursor:pointer;">💾 Sauver</button>
@@ -140,8 +140,16 @@ const GROUND_Y = 435;
 
 // --- INPUT ---
 const keys = {};
+// Appuis "front montant" : mémorisés jusqu'à leur traitement, même si la touche est relâchée avant l'image suivante
+const pressed = {};
+function consumePress(...codes) {
+  let hit = false;
+  for (const c of codes) if (pressed[c]) { pressed[c] = false; hit = true; }
+  return hit;
+}
 window.addEventListener('keydown', e => {
   keys[e.code] = true;
+  if (!e.repeat) pressed[e.code] = true;
   if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'ArrowDown') {
     e.preventDefault();
   }
@@ -176,7 +184,7 @@ function updateScoreList() {
 function bindTouch(id, code) {
   const el = document.getElementById(id);
   if (!el) return;
-  const set = (v) => (e) => { e.preventDefault(); keys[code] = v; };
+  const set = (v) => (e) => { e.preventDefault(); keys[code] = v; if (v) pressed[code] = true; };
   el.addEventListener('touchstart', set(true), { passive: false });
   el.addEventListener('touchend', set(false), { passive: false });
   el.addEventListener('touchcancel', set(false), { passive: false });
@@ -241,7 +249,8 @@ let scoreSaved = false;
 // --- GAME STATE ---
 let state = 'TITLE'; // TITLE | PLAYING | LEVELUP | GAMEOVER | PAUSED
 let score = 0;
-let highScore = parseInt(localStorage.getItem('catadv_highscore') || '0');
+let highScore = 0;
+try { highScore = parseInt(localStorage.getItem('catadv_highscore') || '0') || 0; } catch (e) {}
 let difficulty = 1;
 let cityName = 'Quartier Calme';
 let cityIndex = 0;
@@ -254,8 +263,8 @@ let messageTimeout = null;
 let gameOverReason = '';
 let petsReceived = 0;
 let fishesCollected = 0;
-let obstaclesAvoided = 0;
-let worldWidth = 5000; // level endpoint
+let worldWidth = 5000; // prochain point d'arrivée de niveau (avance à chaque arrivée)
+let jumpBuffer = 0;    // un appui sur saut reste valable quelques pas (saut juste avant d'atterrir)
 
 const CITY_NAMES = [
   'Quartier Calme', 'Petite Bourgade', 'Centre-Ville',
@@ -1054,10 +1063,13 @@ function generateGroundChunk(startX) {
     bx += bw + 40 + r(bx + 102) * 70;
   }
 
-  // Manholes
+  // Manholes (espacées d'au moins 140 px pour que les panneaux « ÉGOUTS » ne se chevauchent pas)
+  let lastMx = -Infinity;
   for (let i = 0; i < 2; i++) {
     if (r(startX + i * 500 + 900) < 0.45) {
       const mx = startX + 100 + r(startX + i * 500 + 901) * (CHUNK_WIDTH - 200);
+      if (Math.abs(mx - lastMx) < 140) continue;
+      lastMx = mx;
       manholes.push({ x: mx, y: GROUND_Y + 3, width: 24 });
       // Spawn a sewer exit nearby
       const ex = mx + (r(mx + 1) > 0.5 ? 1 : -1) * (80 + r(mx + 2) * 120);
@@ -1181,10 +1193,13 @@ function generateItems(startX) {
     items.push({ x: ix, y: iy, type, collected: false });
   }
 
-  // Rooftop items (higher value)
-  for (let i = 0; i < 6; i++) {
-    const ix = startX + r(i * 29 + 400) * CHUNK_WIDTH;
-    const iy = GROUND_Y - 160 - r(i * 29 + 401) * 200;
+  // Rooftop items (higher value) — posés au-dessus des toits du tronçon, plus de bonus flottant dans les façades
+  const roofs = decorations.filter(d => d.type === 'building' && d.x >= startX && d.x < startX + CHUNK_WIDTH);
+  for (let i = 0; i < Math.min(6, roofs.length); i++) {
+    if (r(i * 29 + 403) < 0.35) continue;
+    const roof = roofs[i];
+    const ix = roof.x + 20 + r(i * 29 + 400) * Math.max(0, roof.w - 40);
+    const iy = roof.y - 26;
     items.push({
       x: ix, y: iy,
       type: r(i * 29 + 402) < 0.5 ? 'yarn' : 'heart',
@@ -1209,6 +1224,7 @@ function generateHazards(startX) {
     const dir = r(hx + 1) > 0.5 ? 1 : -1;
     hazards.push({
       x: hx, y: GROUND_Y - 14,
+      homeX: hx,
       width: 40, height: 16,
       type: 'car',
       vx: dir * (1.2 + difficulty * 0.3),
@@ -1298,11 +1314,19 @@ function updatePlayer() {
   }
 
   // Jump
-  if ((keys['Space'] || keys['ArrowUp'] || keys['KeyW']) && player.jumpsLeft > 0) {
-    player.vy = JUMP_FORCE;
-    player.jumpsLeft--;
-    player.onGround = false;
-    sfxJump();
+  // Saut déclenché à l'appui (et non tant que la touche est maintenue) : chaque appui = un saut,
+  // le double / triple saut demande donc bien un nouvel appui en l'air.
+  if (consumePress('Space', 'ArrowUp', 'KeyW')) jumpBuffer = 6;
+  if (jumpBuffer > 0) {
+    if (player.jumpsLeft > 0) {
+      player.vy = JUMP_FORCE;
+      player.jumpsLeft--;
+      player.onGround = false;
+      jumpBuffer = 0;
+      sfxJump();
+    } else {
+      jumpBuffer--;
+    }
   }
 
   // Manhole interaction (press Down to enter sewer)
@@ -1498,11 +1522,11 @@ function updateHazards() {
   for (const h of hazards) {
     if (h.type === 'car') {
       h.x += h.vx;
-      // Wrap around
-      if (h.vx > 0 && h.x > camera.x + canvas.width + 100) {
-        h.x = camera.x - 100;
-      } else if (h.vx < 0 && h.x < camera.x - 200) {
-        h.x = camera.x + canvas.width + 100;
+      // Va-et-vient autour de son point d'apparition : les voitures restent dans leur tronçon
+      // (auparavant elles « suivaient » la caméra et s'accumulaient à l'écran au fil de la partie)
+      if ((h.vx > 0 && h.x > h.homeX + 350) || (h.vx < 0 && h.x < h.homeX - 350)) {
+        h.vx = -h.vx;
+        h.direction = -h.direction;
       }
     } else if (h.type === 'rat') {
       const dx = player.x - h.x;
@@ -1582,7 +1606,7 @@ function updateCollisions() {
             spawnParticles(player.x + player.width / 2, player.y, 20, '#FF0000', 8, 30);
             if (score > highScore) {
               highScore = score;
-              localStorage.setItem('catadv_highscore', highScore);
+              try { localStorage.setItem('catadv_highscore', highScore); } catch (e) {}
             }
             if (!scoreSaved) {
               document.getElementById('score-form').style.display = 'block';
@@ -1628,6 +1652,7 @@ function updateCollisions() {
       switch (item.type) {
         case 'fish':
           score += 100;
+          fishesCollected++;
           spawnParticles(item.x, item.y, 5, '#FF8C00', 3, 15);
           break;
         case 'yarn':
@@ -1703,14 +1728,12 @@ function update() {
   if (screenShake < 0.2) screenShake = 0;
 
   // Level completion (reached right side of world)
+  // Arrivée de niveau : déclenchée une seule fois par point d'arrivée, qui est ensuite repoussé
+  // (auparavant +50 XP à chaque image une fois la ligne franchie → montée de niveau infinie)
   if (player.x >= worldWidth - 60) {
-    player.xp += 50;
     showMessage('🏁 Niveau terminé ! +50 XP', 2500);
-    // Level up after a delay
-    if (levelUpTimer <= 0) {
-      // Force enough XP to level up
-      if (player.xp < player.xpToNext) player.xp = player.xpToNext;
-    }
+    player.xp = Math.max(player.xp + 50, player.xpToNext); // garantit une montée de niveau
+    worldWidth += 5000 + player.level * 1000;
   }
 
   if (player.health <= 0) {
@@ -1726,7 +1749,7 @@ function update() {
     }
     if (score > highScore) {
       highScore = score;
-      localStorage.setItem('catadv_highscore', highScore);
+      try { localStorage.setItem('catadv_highscore', highScore); } catch (e) {}
     }
   }
 
@@ -1996,7 +2019,9 @@ function render() {
     ctx.font = '18px sans-serif';
     ctx.fillText('Nouvelles capacités débloquées !', canvas.width / 2, canvas.height / 2 + 25);
     if (player.level === 3) {
-      ctx.fillText('🐾 Double saut !', canvas.width / 2, canvas.height / 2 + 50);
+      ctx.fillText('🐾 Double saut ! (appuie à nouveau en l\'air)', canvas.width / 2, canvas.height / 2 + 50);
+    } else if (player.level === 6) {
+      ctx.fillText('🐾 Triple saut !', canvas.width / 2, canvas.height / 2 + 50);
     }
     ctx.textAlign = 'start';
   }
@@ -2032,7 +2057,7 @@ function render() {
     ctx.fillText(gameOverReason, canvas.width / 2, canvas.height / 2 - 15);
     ctx.fillStyle = '#FFF';
     ctx.font = '18px sans-serif';
-    ctx.fillText('Score: ' + score + ' 🐟 | Caresses: ' + petsReceived + ' | Niv. ' + player.level, canvas.width / 2, canvas.height / 2 + 25);
+    ctx.fillText('Score : ' + score + ' | 🐟 ' + fishesCollected + ' | Caresses : ' + petsReceived + ' | Niv. ' + player.level, canvas.width / 2, canvas.height / 2 + 25);
     ctx.fillStyle = '#FFD700';
     ctx.font = '16px sans-serif';
     ctx.fillText('Appuie sur ENTRÉE pour rejouer', canvas.width / 2, canvas.height / 2 + 60);
@@ -2078,7 +2103,7 @@ function drawTitleScreen() {
     ctx.fillStyle = '#FFE082';
     for (let wy = 360 - bh; wy < 340; wy += 18) {
       for (let wx = bx + 12; wx < bx + 78; wx += 20) {
-        if (Math.random() > 0.3) ctx.fillRect(wx, wy, 10, 10);
+        if (seededRandom(i * 131 + wx * 7 + wy * 3) > 0.3) ctx.fillRect(wx, wy, 10, 10); // fenêtres fixes (plus de scintillement)
       }
     }
     ctx.fillStyle = '#2a1a3e';
@@ -2116,7 +2141,12 @@ function drawTitleScreen() {
     { text: '⚠️ Attention aux enfants agressifs et à la fourrière !', y: 348 },
   ];
 
-  ctx.fillStyle = '#CCC';
+  // Panneau sombre derrière les consignes : lisibles même devant les fenêtres éclairées
+  ctx.fillStyle = 'rgba(10, 8, 25, 0.78)';
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(canvas.width / 2 - 270, 206, 540, 158, 14); else ctx.rect(canvas.width / 2 - 270, 206, 540, 158);
+  ctx.fill();
+  ctx.fillStyle = '#EEE';
   ctx.font = '15px sans-serif';
   for (const inst of instructions) {
     ctx.fillText(inst.text, canvas.width / 2, inst.y);
@@ -2138,7 +2168,7 @@ function drawTitleScreen() {
   // Controls hint
   ctx.fillStyle = '#888';
   ctx.font = '12px sans-serif';
-  ctx.fillText('Pendant le jeu : R pour recommencer | Échap pour menu', canvas.width / 2, 500);
+  ctx.fillText('Pendant le jeu : P / Échap pause | R recommencer | M menu (depuis la pause)', canvas.width / 2, 500);
 
   ctx.textAlign = 'start';
 }
@@ -2178,7 +2208,8 @@ function resetGame() {
   gameOverReason = '';
   petsReceived = 0;
   fishesCollected = 0;
-  obstaclesAvoided = 0;
+  jumpBuffer = 0;
+  for (const k in pressed) pressed[k] = false;
   worldWidth = 5000 + player.level * 1000;
   platforms = [];
   npcs = [];
@@ -2224,7 +2255,12 @@ function gameLoop(now) {
 
 function handleInput() {
   // Pause toggle
-  if (keys['KeyP']) {
+  // Le champ de saisie du nom (game over) garde ses touches pour lui
+  const typing = document.activeElement && document.activeElement.tagName === 'INPUT';
+  if (typing) { for (const k in pressed) pressed[k] = false; return; }
+
+  // P ou Échap : pause / reprise (comme annoncé dans le README)
+  if (consumePress('KeyP', 'Escape')) {
     if (state === 'PLAYING') {
       state = 'PAUSED';
       document.getElementById('pause-screen').style.display = 'flex';
@@ -2232,36 +2268,27 @@ function handleInput() {
       state = 'PLAYING';
       document.getElementById('pause-screen').style.display = 'none';
     }
-    keys['KeyP'] = false;
   }
 
-  // Handle restart keys
-  if (state === 'GAMEOVER' && keys['Enter']) {
+  // Entrée : commencer (titre) ou rejouer (game over)
+  if (consumePress('Enter', 'NumpadEnter') && (state === 'TITLE' || state === 'GAMEOVER')) {
     resetGame();
-    keys['Enter'] = false;
     document.getElementById('pause-screen').style.display = 'none';
     document.getElementById('score-form').style.display = 'none';
   }
 
-  if (keys['KeyR']) {
+  if (consumePress('KeyR') && state !== 'TITLE') {
     resetGame();
-    keys['KeyR'] = false;
     document.getElementById('pause-screen').style.display = 'none';
     document.getElementById('score-form').style.display = 'none';
   }
 
-  if (keys['Escape']) {
+  // M : retour au menu (depuis la pause ou le game over uniquement, jamais en pleine partie par erreur)
+  if (consumePress('KeyM') && (state === 'PAUSED' || state === 'GAMEOVER')) {
     state = 'TITLE';
-    keys['Escape'] = false;
     document.getElementById('pause-screen').style.display = 'none';
     document.getElementById('score-form').style.display = 'none';
     updateHUD();
-  }
-
-  if (state === 'TITLE' && keys['Enter']) {
-    resetGame();
-    keys['Enter'] = false;
-    document.getElementById('pause-screen').style.display = 'none';
   }
 }
 
@@ -2415,12 +2442,12 @@ fitScreen();
 
   // --- Fetch version.json ---
   function fetchAppVersion() {
-    return fetch('/version.json?' + Date.now())
+    return fetch('version.json?' + Date.now()) // relatif : marche à la racine (Docker) comme sous /catadventure/ (hub)
       .then(function(r) { return r.json(); })
       .then(function(data) { APP_VERSION = data.version; })
       .catch(function() {
         // Fallback: try meta tag or hardcoded
-        APP_VERSION = '2026.09.001';
+        APP_VERSION = '2026.09.001-c1';
       });
   }
 
