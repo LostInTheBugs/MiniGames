@@ -45,13 +45,117 @@
   }
   #hud .warning { color: #ff8a65 !important; }
 
+  /* ── Building health mini-bar ─────────────────────────── */
+  #hud .stat { flex-wrap: wrap; }
+  #hud .stat .hb-bar-wrap {
+    flex-basis: 100%; /* la jauge prend toute la largeur, sous le libellé */
+    height: 3px; border-radius: 2px; overflow: hidden;
+    background: rgba(255,255,255,0.08); margin-top: 2px;
+  }
+  #hud .stat .hb-bar {
+    height: 100%; border-radius: 2px;
+    background: #4caf50; transition: width .3s, background .3s;
+  }
+  #hud .stat .hb-bar.mid { background: #ff9800; }
+  #hud .stat .hb-bar.low  { background: #f44336; }
+
+  /* ── Wave countdown banner ────────────────────────────── */
+  #wave-banner {
+    position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+    z-index: 15; pointer-events: none;
+    text-align: center; display: none;
+  }
+  #wave-banner.visible { display: block; }
+  #wave-banner .wb-pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(10,15,30,0.75); backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.12); border-radius: 20px;
+    padding: 6px 18px; font-size: 0.95em; font-weight: 600;
+    color: #c0c8d8; white-space: nowrap;
+  }
+  #wave-banner .wb-pill.alert {
+    background: rgba(180,40,20,0.8); border-color: rgba(255,100,50,0.5);
+    color: #ff8a65;
+  }
+  @keyframes wbPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(255,100,50,0.4); }
+    50%      { box-shadow: 0 0 0 8px rgba(255,100,50,0); }
+  }
+  #wave-banner .wb-pill.alert { animation: wbPulse 1.2s ease-in-out infinite; }
+  #wave-banner .wb-prog {
+    position: absolute; bottom: -3px; left: 12px; right: 12px;
+    height: 2px; background: rgba(255,255,255,0.15); border-radius: 1px;
+    overflow: hidden;
+  }
+  #wave-banner .wb-prog-fill {
+    height: 100%; background: #64b5f6; border-radius: 1px;
+    transition: width .2s linear;
+  }
+  #wave-banner .wb-pill.alert .wb-prog-fill { background: #ff8a65; }
+
+  /* ── Build toolbar ────────────────────────────────────── */
+  #build-toolbar {
+    position: fixed; bottom: 104px; left: 50%; transform: translateX(-50%); /* ajusté en JS au-dessus de #controls */
+    z-index: 15; display: none;
+    background: rgba(10,15,30,0.75); backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.12); border-radius: 16px;
+    padding: 6px 8px; gap: 4px;
+    display: none; /* set flex via .visible */
+  }
+  #build-toolbar.visible {
+    display: flex; align-items: center; justify-content: center;
+  }
+  #build-toolbar .bt-btn {
+    display: flex; flex-direction: column; align-items: center;
+    background: rgba(255,255,255,0.04); border: 2px solid transparent;
+    border-radius: 12px; padding: 6px 14px; cursor: pointer;
+    transition: background .15s, border-color .15s, opacity .15s;
+    min-width: 72px; user-select: none;
+  }
+  #build-toolbar .bt-btn:hover { background: rgba(255,255,255,0.08); }
+  #build-toolbar .bt-btn.active {
+    border-color: #64b5f6; background: rgba(100,181,246,0.12);
+    box-shadow: 0 0 12px rgba(100,181,246,0.25);
+  }
+  #build-toolbar .bt-btn[aria-disabled="true"] {
+    opacity: 0.4; cursor: default; pointer-events: none;
+  }
+  #build-toolbar .bt-icon { font-size: 1.4em; line-height: 1; }
+  #build-toolbar .bt-label {
+    font-size: 0.7em; color: rgba(255,255,255,0.65); margin: 2px 0 1px;
+    white-space: nowrap;
+  }
+  #build-toolbar .bt-cost {
+    font-size: 0.72em; font-weight: 700; color: #ffd54f; white-space: nowrap;
+  }
+  #build-toolbar .bt-key {
+    font-size: 0.6em; color: rgba(255,255,255,0.35);
+    background: rgba(255,255,255,0.08); border-radius: 3px;
+    padding: 1px 5px; margin-top: 2px;
+  }
+
+  /* compact: icons + cost only below 900 px */
+  @media (max-width: 899px) {
+    #build-toolbar .bt-label { display: none; }
+    #build-toolbar .bt-btn { min-width: 60px; padding: 6px 10px; }
+  }
+
+  /* reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    #wave-banner .wb-pill.alert { animation: none; }
+  }
+
   #message {
-    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-    color: white; font-size: 2.5em; font-weight: 800; z-index: 20;
+    position: fixed; top: 80px; left: 50%; transform: translateX(-50%);
+    color: white; font-size: 1.3em; font-weight: 700; z-index: 18;
     text-align: center; pointer-events: none;
-    text-shadow: 0 0 40px rgba(0,0,0,0.9), 0 4px 8px rgba(0,0,0,0.6);
+    background: rgba(10,15,30,0.75); backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.12); border-radius: 14px;
+    padding: 6px 18px;
     opacity: 0; transition: opacity 0.4s;
-    letter-spacing: 1px;
   }
   #message.show { opacity: 1; }
 
@@ -676,18 +780,53 @@
 
 <!-- ─── HUD ─────────────────────────────────────────────── -->
 <div id="hud">
-  <h1>🌊 FLOOD CITY</h1>
-  <div class="stat">🏗️ Bâtiments <span id="buildings-count">0</span></div>
+  <div class="stat">🏗️ Bâtiments <span id="buildings-count">0</span>
+    <div class="hb-bar-wrap"><div class="hb-bar" id="buildings-hb"></div></div>
+  </div>
   <div class="stat">💰 Ressources <span id="resources">100</span></div>
   <div class="stat">🧱 Murs <span id="walls-count">0</span></div>
   <div class="stat">🕳️ Tranchées <span id="trenches-count">0</span></div>
-  <div class="stat" style="color:#64b5f6;font-weight:600;margin-top:6px;border-top:1px solid rgba(255,255,255,0.1);padding-top:6px;" id="mode-indicator">🧱 Mode mur · Tier 1</div>
   <div class="stat">⏱️ Prochaine vague <span id="wave-timer">--</span></div>
   <div class="stat">⭐ Score <span id="score">0</span></div>
-  <div class="stat hud-ver-stat">Flood City <span id="hud-version"></span></div>
 </div>
 
 <div id="message"></div>
+
+<!-- ── Wave countdown banner ──────────────────────────────── -->
+<div id="wave-banner">
+  <div class="wb-pill" id="wb-pill">
+    <span id="wb-text">🌊 --</span>
+  </div>
+  <div class="wb-prog"><div class="wb-prog-fill" id="wb-prog-fill" style="width:100%"></div></div>
+</div>
+
+<!-- ── Build toolbar ──────────────────────────────────────── -->
+<div id="build-toolbar">
+  <button class="bt-btn active" data-tool="1" aria-label="Sac de sable">
+    <span class="bt-icon">🧱</span>
+    <span class="bt-label">Sac de sable</span>
+    <span class="bt-cost">12☼</span>
+    <span class="bt-key">1</span>
+  </button>
+  <button class="bt-btn" data-tool="2" aria-label="Renforcé">
+    <span class="bt-icon">🛡️</span>
+    <span class="bt-label">Renforcé</span>
+    <span class="bt-cost">28☼</span>
+    <span class="bt-key">2</span>
+  </button>
+  <button class="bt-btn" data-tool="3" aria-label="Béton">
+    <span class="bt-icon">🏗️</span>
+    <span class="bt-label">Béton</span>
+    <span class="bt-cost">52☼</span>
+    <span class="bt-key">3</span>
+  </button>
+  <button class="bt-btn" data-tool="trench" aria-label="Tranchée">
+    <span class="bt-icon">🕳️</span>
+    <span class="bt-label">Tranchée</span>
+    <span class="bt-cost">6☼</span>
+    <span class="bt-key">T</span>
+  </button>
+</div>
 
 <div id="gameover-panel">
   <div id="go-score-area">
@@ -779,7 +918,6 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 const GAME_VERSION = "2026.09.001-c2";
 document.querySelector("meta[name=version]").setAttribute("content", GAME_VERSION);
 document.getElementById('home-version').textContent = 'v' + GAME_VERSION;
-document.getElementById('hud-version').textContent = 'v' + GAME_VERSION;
 console.log("Flood City v" + GAME_VERSION);
 
 // ─── Seeded Pseudo‑Random Generator (Mulberry32) ──────────────
@@ -1260,13 +1398,58 @@ const $message = document.getElementById('message');
 const $gameoverPanel = document.getElementById('gameover-panel');
 const $restartBtn = document.getElementById('restart-btn');
 const $controls = document.getElementById('controls');
-const $mode = document.getElementById('mode-indicator');
 const $goScoreArea = document.getElementById('go-score-area');
 const $goScore = document.getElementById('go-score');
 const $goBest = document.getElementById('go-best');
 const $goBestLine = document.getElementById('go-best-line');
 const $goNewRecord = document.getElementById('go-new-record');
 const $compass = document.getElementById('compass');
+const $waveBanner = document.getElementById('wave-banner');
+const $wbPill = document.getElementById('wb-pill');
+const $wbText = document.getElementById('wb-text');
+const $wbProg = document.getElementById('wb-prog-fill');
+const $buildToolbar = document.getElementById('build-toolbar');
+const $buildingsHb = document.getElementById('buildings-hb');
+
+// Barre d'outils toujours juste au-dessus de la barre de raccourcis (#controls), quelle que soit sa hauteur
+function placeBuildToolbar() {
+  const c = document.getElementById('controls');
+  if (!c || !c.offsetHeight) return;
+  const bottom = window.innerHeight - c.getBoundingClientRect().top + 10;
+  $buildToolbar.style.bottom = Math.round(bottom) + 'px';
+}
+window.addEventListener('resize', () => placeBuildToolbar());
+
+// ─── Tool selection (shared by keyboard and toolbar) ─────────
+function selectTool(tool) {
+  if (tool === 'trench') {
+    trenchMode = true;
+    flashMessage('🕳️ Mode tranchée (' + TRENCH_COST + '☼)', 800);
+  } else {
+    currentTier = parseInt(tool, 10);
+    trenchMode = false;
+    const tier = WALL_TIERS[currentTier];
+    flashMessage(tier.name + ' (' + tier.cost + '☼)', 800);
+  }
+  // Update toolbar buttons
+  $buildToolbar.querySelectorAll('.bt-btn').forEach(btn => {
+    const active = btn.dataset.tool === tool;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-disabled', 'false');
+  });
+  updateHUD();
+}
+
+// Build toolbar click handlers (stopPropagation → no wall placement)
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('#build-toolbar .bt-btn');
+  if (btn) {
+    e.preventDefault();
+    e.stopPropagation();
+    selectTool(btn.dataset.tool);
+    return;
+  }
+}, true);
 
 // ─── Three.js setup ─────────────────────────────────────────
 const scene = new THREE.Scene();
@@ -1580,6 +1763,7 @@ let trenches = [];
 let waves = [];
 let gameOver = false;
 let waveCountdown = 20;
+let waveCountdownMax = 20; // durée totale du compte à rebours en cours (barre de progression du bandeau)
 let waveNumber = 0;
 let currentTier = 1;
 let trenchMode = false;
@@ -3362,6 +3546,7 @@ function generateMap(map) {
   score = 0;
   gameOver = false;
   waveCountdown = 20;
+  waveCountdownMax = 20;
   waveNumber = 0;
   currentTier = 1;
   trenchMode = false;
@@ -3371,6 +3556,14 @@ function generateMap(map) {
   nextWaveDir = map.waveDirections[0];
 
   updateHUD();
+  // Set initial toolbar state (no flash message) ; coûts et noms tirés des constantes (jamais codés en dur)
+  $buildToolbar.querySelectorAll('.bt-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tool === '1');
+    const t = btn.dataset.tool;
+    const tier = WALL_TIERS[t];
+    btn.querySelector('.bt-cost').textContent = (t === 'trench' ? TRENCH_COST : tier.cost) + '☼';
+    if (tier) btn.querySelector('.bt-label').textContent = tier.name;
+  });
 }
 
 // ─── Wall placement ─────────────────────────────────────────
@@ -4011,12 +4204,23 @@ function updateHUD() {
   $buildings.textContent = alive + ' / ' + totalBuildingsInitial;
   if (alive <= currentMap._alertThreshold) $buildings.classList.add('warning');
   else $buildings.classList.remove('warning');
+  // Building health bar
+  const pct = totalBuildingsInitial > 0 ? (alive / totalBuildingsInitial) * 100 : 0;
+  $buildingsHb.style.width = pct + '%';
+  // _defeatThreshold est un NOMBRE de bâtiments (défaite à 15 %) : rouge à moins de 2× ce seuil, orange sous 50 %
+  $buildingsHb.className = 'hb-bar' + (alive <= currentMap._defeatThreshold * 2 ? ' low' : pct < 50 ? ' mid' : '');
   $resources.textContent = Math.floor(resources);
   $wallsCount.textContent = walls.length;
   $trenchesCount.textContent = trenches.length;
   $score.textContent = score;
-  const tier = WALL_TIERS[currentTier];
-  $mode.textContent = trenchMode ? '🕳️ Mode tranchée (5☼)' : `🧱 ${tier.name} (${tier.cost}☼)`;
+  // Update toolbar button disabled state
+  $buildToolbar.querySelectorAll('.bt-btn').forEach(btn => {
+    const tool = btn.dataset.tool;
+    const cost = tool === 'trench' ? TRENCH_COST : WALL_TIERS[tool]?.cost;
+    if (cost != null) {
+      btn.setAttribute('aria-disabled', resources < cost ? 'true' : 'false');
+    }
+  });
 }
 
 function flashMessage(text, duration = 2000) {
@@ -4312,8 +4516,6 @@ function gameLoop() {
       alertPanicTime = performance.now() / 1000; // seconds for panic stagger
       const dirs = currentMap.waveDirections;
       nextWaveDir = dirs[Math.floor(Math.random() * dirs.length)];
-      const dirLabel = nextWaveDir === 'north' ? 'NORD' : 'SUD';
-      flashMessage(`⚠️ ALERTE — front ${dirLabel} ⚠️`, 2500);
       document.body.style.animation = 'alertFlash 0.5s ease-in-out 3';
       setTimeout(() => document.body.style.animation = '', 2000);
     }
@@ -4324,6 +4526,7 @@ function gameLoop() {
       // Interval floor raised to 20s; difficulty scales via wave width/height/speed/HP, not interval compression.
       // Decay slope softened from 0.5 to 0.15 so the floor is never hit before wave ~140.
       waveCountdown = Math.max(20, baseInterval - waveNumber * 0.15);
+      waveCountdownMax = waveCountdown;
     }
 
     updateWaves(dt);
@@ -5394,7 +5597,26 @@ function gameLoop() {
     }
 
     updateHUD();
-    $waveTimer.textContent = Math.ceil(Math.max(0, waveCountdown));
+    const cd = Math.ceil(Math.max(0, waveCountdown));
+    $waveTimer.textContent = cd;
+    // Wave banner update
+    if (alertTriggered) {
+      const dirLabel = nextWaveDir === 'north' ? 'NORD' : 'SUD';
+      $wbPill.classList.add('alert');
+      $wbText.textContent = '⚠️ Vague imminente — front ' + dirLabel + ' · ' + cd + ' s';
+      $wbProg.style.width = Math.min(100, Math.max(0, (waveCountdown / waveCountdownMax) * 100)) + '%';
+    } else if (cd > 0 && cd <= 5) {
+      $wbPill.classList.remove('alert');
+      $wbText.textContent = '🌊 Prochaine vague dans ' + cd + ' s';
+      // Progress: 5s countdown = 0% to 20s = 100%
+      const progressPct = Math.min(100, Math.max(0, (waveCountdown / waveCountdownMax) * 100)); // se vide jusqu'à la vague
+      $wbProg.style.width = progressPct + '%';
+    } else if (cd > 5) {
+      $wbPill.classList.remove('alert');
+      $wbText.textContent = '🌊 Prochaine vague dans ' + cd + ' s';
+      const progressPct = Math.min(100, Math.max(0, (waveCountdown / waveCountdownMax) * 100)); // se vide jusqu'à la vague
+      $wbProg.style.width = progressPct + '%';
+    }
   }
 
   controls.update();
@@ -5574,6 +5796,8 @@ window.goToMenu = function() {
   $hud.classList.remove('visible');
   $controls.classList.remove('visible');
   $compass.classList.remove('visible');
+  $waveBanner.classList.remove('visible');
+  $buildToolbar.classList.remove('visible');
   $homeScreen.classList.remove('hidden');
   buildHomeScreen();
   _checkDeferredAutoReload();
@@ -5591,6 +5815,9 @@ function startGame(mapId) {
   $hud.classList.add('visible');
   $controls.classList.add('visible');
   $compass.classList.add('visible');
+  $waveBanner.classList.add('visible');
+  $buildToolbar.classList.add('visible');
+  placeBuildToolbar();
   $gameoverPanel.classList.remove('visible');
   $message.classList.remove('show');
   gameOver = false;
@@ -5691,10 +5918,8 @@ window.addEventListener('keydown', (e) => {
     return;
   }
   if (!currentMap || gameOver) return;
-  if (e.key === '1') { currentTier = 1; trenchMode = false; flashMessage('🧱 Sac de sable (' + WALL_TIERS[1].cost + '☼)', 800); updateHUD(); }
-  if (e.key === '2') { currentTier = 2; trenchMode = false; flashMessage('🛡️ Renforcé (' + WALL_TIERS[2].cost + '☼)', 800); updateHUD(); }
-  if (e.key === '3') { currentTier = 3; trenchMode = false; flashMessage('🧱 Béton (' + WALL_TIERS[3].cost + '☼)', 800); updateHUD(); }
-  if (e.key === 't' || e.key === 'T') { trenchMode = !trenchMode; flashMessage(trenchMode ? '🕳️ Mode tranchée (' + TRENCH_COST + '☼)' : '🧱 Mode mur', 800); updateHUD(); }
+  if (e.key === '1' || e.key === '2' || e.key === '3') { selectTool(e.key); return; }
+  if (e.key === 't' || e.key === 'T') { selectTool('trench'); return; }
   if (e.key === 'n' || e.key === 'N') {
     isNight = !isNight;
     nightTarget = isNight ? 1 : 0;
