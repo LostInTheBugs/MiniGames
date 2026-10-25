@@ -66,6 +66,8 @@
     display: none;
   }
   #controls.visible { display: block; }
+  /* une seule ligne sur écran large (« Jour/Nuit » passait à la ligne en 1280 px) */
+  @media (min-width: 900px) { #controls { white-space: nowrap; } }
   #controls kbd {
     background: rgba(255,255,255,0.1);
     padding: 2px 7px; border-radius: 4px; margin: 0 2px;
@@ -537,7 +539,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 // ─── Version ──────────────────────────────────────────────────
-const GAME_VERSION = "2026.09.001";
+const GAME_VERSION = "2026.09.001-c1";
 document.querySelector("meta[name=version]").setAttribute("content", GAME_VERSION);
 document.getElementById('home-version').textContent = 'v' + GAME_VERSION;
 document.getElementById('hud-version').textContent = 'v' + GAME_VERSION;
@@ -1194,8 +1196,9 @@ const MAPS = {
     // Wave config
     waveDirections: ['south'],
     waveSpawnZ: { south: -20 },
-    // Camera & view settings
-    cameraPos: { x: 22, y: 18, z: 28 },
+    // Camera & view settings — vue de départ côté mer : la plage et le front à défendre au premier plan,
+    // la ville derrière (auparavant la caméra partait côté terre et les tours masquaient le front)
+    cameraPos: { x: 6, y: 22, z: -40 },
     fogNear: 25,
     fogFar: 70,
     camMinDist: 8,
@@ -5403,10 +5406,10 @@ window.addEventListener('keydown', (e) => {
     return;
   }
   if (!currentMap || gameOver) return;
-  if (e.key === '1') { currentTier = 1; trenchMode = false; flashMessage('🧱 Sac de sable (10☼)', 800); updateHUD(); }
-  if (e.key === '2') { currentTier = 2; trenchMode = false; flashMessage('🛡️ Renforcé (25☼)', 800); updateHUD(); }
-  if (e.key === '3') { currentTier = 3; trenchMode = false; flashMessage('🧱 Béton (50☼)', 800); updateHUD(); }
-  if (e.key === 't' || e.key === 'T') { trenchMode = !trenchMode; flashMessage(trenchMode ? '🕳️ Mode tranchée (5☼)' : '🧱 Mode mur', 800); updateHUD(); }
+  if (e.key === '1') { currentTier = 1; trenchMode = false; flashMessage('🧱 Sac de sable (' + WALL_TIERS[1].cost + '☼)', 800); updateHUD(); }
+  if (e.key === '2') { currentTier = 2; trenchMode = false; flashMessage('🛡️ Renforcé (' + WALL_TIERS[2].cost + '☼)', 800); updateHUD(); }
+  if (e.key === '3') { currentTier = 3; trenchMode = false; flashMessage('🧱 Béton (' + WALL_TIERS[3].cost + '☼)', 800); updateHUD(); }
+  if (e.key === 't' || e.key === 'T') { trenchMode = !trenchMode; flashMessage(trenchMode ? '🕳️ Mode tranchée (' + TRENCH_COST + '☼)' : '🧱 Mode mur', 800); updateHUD(); }
   if (e.key === 'n' || e.key === 'N') {
     isNight = !isNight;
     nightTarget = isNight ? 1 : 0;

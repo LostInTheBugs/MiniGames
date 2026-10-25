@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.001",
-  "date": "2026-09-13",
-  "notes": "Update client reworked: GitHub releases, release-notes modal, optional safe auto-update"
+  "version": "2026.09.001-c1",
+  "date": "2026-10-25",
+  "notes": "Littoral camera starts facing the sea front, correct costs in tier messages, docs update"
 }

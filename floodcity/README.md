@@ -2,6 +2,15 @@
 
 3D flood-defense game — build walls, dig trenches and protect your city from destructive waves.
 
+## 🗺️ Maps
+
+| Map | Difficulty | Front |
+|---|---|---|
+| **Littoral** | ⭐ Easy | Coastal city with a wide beach — waves come from the ocean to the south, a single front |
+| **Île** | ⭐⭐ Medium | Large island with an irregular coastline — waves alternate between north and south, two fronts |
+
+Best scores are kept per map and shown on the home screen.
+
 ## 🎮 How to play
 
 | Control | Action |
@@ -11,41 +20,43 @@
 | 🖱️ **Mouse wheel** | Zoom |
 | ⌨️ **1 / 2 / 3** | Choose the wall tier |
 | ⌨️ **T** | Toggle trench mode |
+| ⌨️ **N** | Toggle day / night |
 | ⌨️ **R** | Restart the game |
+| ⌨️ **M** | Back to the map menu |
 
-A **green ghost** appears at the targeted location — red if the placement is invalid (building, existing wall, insufficient resources).
+A **green ghost** appears at the targeted location — red if the placement is invalid (building, road, existing wall, insufficient resources). On Littoral the camera starts on the sea side, with the beach and the front to defend in the foreground.
 
 ## ⚙️ Mechanics
 
 ### Defenses
 | Type | Cost | HP | Key |
 |---|---|---|---|
-| 🧱 Sandbag | 10☼ | 100 | `1` |
-| 🛡️ Reinforced | 25☼ | 300 | `2` |
-| 🏗️ Concrete | 50☼ | 600 | `3` |
-| 🕳️ Trench | 5☼ | 40 | `T` |
+| 🧱 Sandbag | 12☼ | 100 | `1` |
+| 🛡️ Reinforced | 28☼ | 350 | `2` |
+| 🏗️ Concrete | 52☼ | 750 | `3` |
+| 🕳️ Trench | 6☼ | 40 | `T` |
 
-Trenches deal 8 damage/second to waves but wear out on contact. Walls block adjacent wave segments — a continuous levee stops everything, an isolated wall opens a breach.
+Defenses can be built on the whole strip between the city and the sea, beach and waterfront included. Trenches deal 10 damage/second to waves but wear out on contact. Walls block adjacent wave segments — a continuous levee stops everything, an isolated wall opens a breach.
 
 ### Waves
-- Arrive every 8–22 seconds at random horizontal positions
+- Arrive every 14–22 seconds at random horizontal positions; the interval shortens slowly as waves go by
 - Split into 1-meter segments — each segment can be stopped independently
-- Progressive difficulty over 5 waves (width, height, speed, HP)
-- Visual alert 10 seconds before impact
+- Difficulty (width, height, speed, HP) keeps rising without a cap
+- Alert and compass indication of the incoming front before impact; residents, cars and beachgoers flee the threatened area
 
 ### Economy
 - **150 resources** at the start
-- Passive regeneration: **1.0☼/second** (cap: 300)
-- Bonus per survived wave: **15–25☼** + **10–30 points**
-- Cumulative score — only goes up if you defend well
+- Passive regeneration: **0.7☼/second** (cap: 200)
+- Bonus per wave: more resources and points when a wave is fully stopped than when it breaks through
+- Cumulative score
 
 ### Game over
-- If ≤ 5 buildings survive
+- When the surviving buildings fall to 15 % of the initial count (the HUD warns from 25 %)
 
 ## 🛠️ Tech
 
 - [Three.js](https://threejs.org/) r160 (CDN importmap)
-- Single-file HTML (~1400 lines)
+- Single-file HTML (~5 400 lines), no build step
 - Desktop only (WebGL + mouse recommended)
 
 ## 🚀 Run
@@ -120,6 +131,12 @@ https://games.cloudfr.net/floodcity/?seed=42
 The seed controls the layout of the city, buildings, street furniture and beach. Same seed = same map, every time. Without the parameter, a random map is generated as before. Handy for comparing strategies, sharing a configuration or reproducing a bug.
 
 ## 📋 Release notes
+
+### 2026.09.001-c1
+- On Littoral the camera now starts on the sea side: the beach and the front to defend are in the foreground instead of being hidden behind the towers
+- The cost shown when switching wall tier or trench mode now matches the real cost (it still showed the old prices)
+- The controls bar fits on a single line on wide screens
+- Documentation brought up to date (maps, costs, waves, economy, defeat condition)
 
 ### 2026.09.001
 - Update client reworked: newer versions are read from GitHub Releases, with a detail modal listing the intermediate release notes, and `version.json` kept as an offline fallback

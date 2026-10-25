@@ -95,14 +95,15 @@ function patchSample(png, sx, sy, n) {
 
 const ASSERTIONS = {
   Littoral: [
-    { sx: 400, sy: 560, expected: 'grass',  name: 'ouest-interieur' },
-    { sx: 520, sy: 600, expected: 'grass',  name: 'centre-terrain' },
-    { sx: 960, sy: 520, expected: 'grass',  name: 'est-interieur' },
-    { sx: 320, sy: 560, expected: 'grass',  name: 'sud-ouest' },
-    { sx: 530, sy: 520, expected: 'sand',   name: 'plage', n: 3 },
-    { sx: 80,  sy: 560, expected: 'water',  name: 'ocean-ouest' },
-    { sx: 1200,sy: 560, expected: 'water',  name: 'ocean-est' },
-    { sx: 640, sy: 100, expected: 'water',  name: 'ocean-nord' },
+    // Vue de départ côté mer (2026.09.001-c1) : plage et océan au premier plan, ville derrière
+    { sx: 300, sy: 480, expected: 'grass',  name: 'ouest-interieur', n: 6 },
+    { sx: 1000,sy: 430, expected: 'grass',  name: 'est-interieur',   n: 6 },
+    { sx: 340, sy: 590, expected: 'sand',   name: 'plage-ouest',     n: 6 },
+    { sx: 800, sy: 560, expected: 'sand',   name: 'plage-est',       n: 6 },
+    { sx: 700, sy: 525, expected: 'sand',   name: 'plage', n: 3 },
+    { sx: 150, sy: 690, expected: 'water',  name: 'ocean-ouest' },
+    { sx: 1150,sy: 650, expected: 'water',  name: 'ocean-est' },
+    { sx: 640, sy: 100, expected: 'water',  name: 'ciel-nord' },
   ],
   Île: [
     { sx: 430, sy: 450, expected: 'grass',  name: 'ouest-interieur' },

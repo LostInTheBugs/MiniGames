@@ -2,6 +2,17 @@
 
 All notable changes to Flood City are documented in this file.
 
+## [2026.09.001-c1] — 2026-10-25
+
+### Fixed
+- Littoral: the camera now starts on the sea side, with the beach and the front to defend in the foreground (the threatened shore used to be far away, hidden behind the towers)
+- The cost shown when switching wall tier or trench mode matches the real cost (it still showed 10/25/50/5 instead of 12/28/52/6)
+- The controls bar fits on a single line on wide screens
+
+### Changed
+- README brought up to date: maps, controls (N, M), costs and HP, wave intervals, economy, defeat condition
+- Visual harness: Littoral pixel assertions follow the new starting view
+
 ## [2026.09.001] — 2026-09-13
 
 ### Added
