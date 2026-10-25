@@ -66,8 +66,8 @@
     display: none;
   }
   #controls.visible { display: block; }
-  /* une seule ligne sur écran large (« Jour/Nuit » passait à la ligne en 1280 px) */
-  @media (min-width: 900px) { #controls { white-space: nowrap; } }
+  /* une seule ligne sur écran large ; retour à la ligne autorisé en dessous */
+  @media (min-width: 900px) { #controls { white-space: normal; line-height: 1.5; } }
   #controls kbd {
     background: rgba(255,255,255,0.1);
     padding: 2px 7px; border-radius: 4px; margin: 0 2px;
@@ -437,6 +437,72 @@
     font-size: 0.72em; color: rgba(255,255,255,0.3);
     flex: 1; text-align: left;
   }
+
+  /* ─── Help panel ──────────────────────────────────────────── */
+  #help-overlay {
+    position: fixed; inset: 0; z-index: 40;
+    background: rgba(0,0,0,0.45);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    display: none;
+  }
+  #help-overlay.visible { display: flex; align-items: center; justify-content: center; }
+  #help-panel {
+    background: rgba(10,15,30,0.92);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 16px;
+    padding: 24px;
+    max-width: 640px; width: 92vw;
+    max-height: 80vh; overflow-y: auto;
+    box-shadow: 0 12px 48px rgba(0,0,0,0.6);
+    color: #c0c8d8; font-size: 0.9em; line-height: 1.6;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.1) transparent;
+    position: relative;
+  }
+  #help-panel::-webkit-scrollbar { width: 6px; }
+  #help-panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }
+  #help-panel::-webkit-scrollbar-track { background: transparent; }
+  #help-panel .help-close {
+    position: absolute; top: 14px; right: 16px;
+    background: none; border: none;
+    color: rgba(255,255,255,0.4); font-size: 1.4em;
+    cursor: pointer; padding: 4px 8px;
+    transition: color 0.2s;
+  }
+  #help-panel .help-close:hover { color: #fff; }
+  #help-panel h2 {
+    font-size: 1.3em; font-weight: 700; color: #64b5f6;
+    margin: 0 0 14px; padding-right: 30px;
+  }
+  #help-panel h3 {
+    font-size: 1em; font-weight: 700; color: #ffd54f;
+    margin: 14px 0 6px;
+  }
+  #help-panel table {
+    width: 100%; border-collapse: collapse; margin: 6px 0 10px;
+    font-size: 0.88em;
+  }
+  #help-panel th, #help-panel td {
+    padding: 5px 10px; text-align: left;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  #help-panel th { color: #64b5f6; font-weight: 600; }
+  #help-panel kbd {
+    background: rgba(255,255,255,0.1);
+    padding: 1px 6px; border-radius: 4px;
+    border: 1px solid rgba(255,255,255,0.15);
+    font-size: 0.9em;
+  }
+  #help-panel .hint-note {
+    margin-top: 10px; padding: 10px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 8px;
+    font-size: 0.85em;
+    color: rgba(255,255,255,0.5);
+  }
 </style>
 </head>
 <body>
@@ -475,12 +541,15 @@
 </div>
 
 <div id="controls">
-  🖱️ <kbd>Clic</kbd> Placer &nbsp;|&nbsp;
-  ⌨️ <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> Tier &nbsp;|&nbsp;
-  <kbd>T</kbd> Tranchée &nbsp;|&nbsp;
-  <kbd>R</kbd> Recommencer &nbsp;|&nbsp;
-  <kbd>N</kbd> Jour/Nuit &nbsp;|&nbsp;
-  <kbd>M</kbd> Menu
+🖱️ <kbd>Clic</kbd> Placer &nbsp;|&nbsp;
+<kbd>Clic droit</kbd> + glisser Caméra &nbsp;|&nbsp;
+<kbd>Molette</kbd> Zoom &nbsp;|&nbsp;
+<kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> Tier &nbsp;|&nbsp;
+<kbd>T</kbd> Tranchée &nbsp;|&nbsp;
+<kbd>N</kbd> Jour/Nuit &nbsp;|&nbsp;
+<kbd>H</kbd><kbd>?</kbd> Aide &nbsp;|&nbsp;
+<kbd>R</kbd> Recommencer &nbsp;|&nbsp;
+<kbd>M</kbd> Menu
 </div>
 
 <!-- ─── Compass ─────────────────────────────────────────── -->
@@ -525,6 +594,15 @@
   </div>
 </div>
 
+<!-- ─── Help panel ─────────────────────────────────────────── -->
+<div id="help-overlay">
+  <div id="help-panel">
+    <button class="help-close">✕</button>
+    <h2>🌊 Aide — Flood City</h2>
+    <div id="help-content"></div>
+  </div>
+</div>
+
 <script type="importmap">
 {
   "imports": {
@@ -539,7 +617,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 // ─── Version ──────────────────────────────────────────────────
-const GAME_VERSION = "2026.09.001-c1";
+const GAME_VERSION = "2026.09.001-c2";
 document.querySelector("meta[name=version]").setAttribute("content", GAME_VERSION);
 document.getElementById('home-version').textContent = 'v' + GAME_VERSION;
 document.getElementById('hud-version').textContent = 'v' + GAME_VERSION;
@@ -5359,6 +5437,14 @@ function startGame(mapId) {
   gameOver = false;
 
   generateMap(map);
+
+  // First-launch help hint (once per browser)
+  try {
+    if (!localStorage.getItem('floodcity_help_hint_shown')) {
+      localStorage.setItem('floodcity_help_hint_shown', '1');
+      setTimeout(() => flashMessage('Appuie sur H pour l\'aide', 4000), 1500);
+    }
+  } catch (_) { /* localStorage unavailable */ }
 }
 
 // ─── Build home screen cards ────────────────────────────────
@@ -5397,6 +5483,18 @@ window.addEventListener('resize', () => {
 
 // ─── Keyboard shortcuts ─────────────────────────────────────
 window.addEventListener('keydown', (e) => {
+  // Help panel: open/close takes priority
+  if (helpOpen) {
+    if (e.key === 'Escape' || e.key === 'h' || e.key === 'H' || e.key === '?') {
+      toggleHelp(false);
+      return;
+    }
+    return; // ignore other keys while help is open
+  }
+  if (e.key === 'h' || e.key === 'H' || e.key === '?') {
+    if (currentMap && !gameOver) toggleHelp(true);
+    return;
+  }
   if (e.key === 'r' || e.key === 'R') {
     if (currentMap) restartGame();
     return;
@@ -5415,6 +5513,59 @@ window.addEventListener('keydown', (e) => {
     nightTarget = isNight ? 1 : 0;
     flashMessage(isNight ? '🌙 Mode nuit' : '☀️ Mode jour', 1200);
   }
+});
+
+// ─── Help panel ────────────────────────────────────────────
+let helpOpen = false;
+
+function buildHelpContent() {
+  const el = document.getElementById('help-content');
+  if (!el) return;
+  const t1 = WALL_TIERS[1], t2 = WALL_TIERS[2], t3 = WALL_TIERS[3];
+  el.innerHTML =
+    '<h3 style="color:#64b5f6;margin-bottom:8px">🎯 Objectif</h3>' +
+    '<p>Protéger la ville des vagues destructrices. Défaite quand le nombre de bâtiments survivants tombe à <strong>15 %</strong> du total initial.</p>' +
+    '<h3 style="color:#64b5f6;margin:12px 0 8px">🧱 Défenses</h3>' +
+    '<table style="width:100%;border-collapse:collapse;margin:8px 0">' +
+    '<tr style="border-bottom:1px solid rgba(255,255,255,0.1)"><th style="text-align:left;padding:4px">Type</th><th>Coût ☼</th><th>PV</th><th>Touche</th></tr>' +
+    '<tr style="border-bottom:1px solid rgba(255,255,255,0.05)"><td style="padding:4px">' + t1.name + '</td><td>' + t1.cost + '</td><td>' + t1.hp + '</td><td><kbd>1</kbd></td></tr>' +
+    '<tr style="border-bottom:1px solid rgba(255,255,255,0.05)"><td style="padding:4px">' + t2.name + '</td><td>' + t2.cost + '</td><td>' + t2.hp + '</td><td><kbd>2</kbd></td></tr>' +
+    '<tr style="border-bottom:1px solid rgba(255,255,255,0.05)"><td style="padding:4px">' + t3.name + '</td><td>' + t3.cost + '</td><td>' + t3.hp + '</td><td><kbd>3</kbd></td></tr>' +
+    '<tr><td style="padding:4px">Tranchée</td><td>' + TRENCH_COST + '</td><td>' + TRENCH_HP + '</td><td><kbd>T</kbd></td></tr>' +
+    '</table>' +
+    '<p>Une levée continue arrête toute la vague. Un mur isolé laisse une brèche. Les tranchées infligent <strong>' + TRENCH_DAMAGE + ' dégâts/s</strong> aux vagues mais s\'usent (PV : ' + TRENCH_HP + ').</p>' +
+    '<h3 style="color:#64b5f6;margin:12px 0 8px">📍 Placement</h3>' +
+    '<p>Constructible sur toute la bande entre la ville et la mer, plage comprise. Le <strong>fantôme vert</strong> indique un placement valide, <strong>rouge</strong> si invalide (bâtiment, route, mur existant ou ressources insuffisantes).</p>' +
+    '<h3 style="color:#64b5f6;margin:12px 0 8px">🌊 Vagues</h3>' +
+    '<p>Une alerte sonore et visuelle précède l\'arrivée. La boussole indique le front. Sur l\'Île, les vagues alternent entre le <strong>nord</strong> et le <strong>sud</strong>.</p>' +
+    '<h3 style="color:#64b5f6;margin:12px 0 8px">📷 Caméra</h3>' +
+    '<p><kbd>Clic droit</kbd> + glisser pour tourner, <kbd>Molette</kbd> pour zoomer.</p>' +
+    '<h3 style="color:#64b5f6;margin:12px 0 8px">⚡ Ressources</h3>' +
+    '<p>Recharge passive de <strong>' + RESOURCE_REGEN + ' ☼/s</strong>, plafond <strong>' + RESOURCE_CAP + '</strong>. Bonus de ressources après chaque vague stoppée.</p>' +
+    '<h3 style="color:#64b5f6;margin:12px 0 8px">⌨️ Touches</h3>' +
+    '<p><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> Tier mur · <kbd>T</kbd> Tranchée · <kbd>N</kbd> Jour/Nuit · <kbd>H</kbd>/<kbd>?</kbd> Aide · <kbd>R</kbd> Recommencer · <kbd>M</kbd> Menu</p>';
+}
+
+function toggleHelp(show) {
+  const overlay = document.getElementById('help-overlay');
+  if (!overlay) return;
+  if (show === undefined) show = !helpOpen;
+  helpOpen = show;
+  if (show) {
+    buildHelpContent();
+    overlay.classList.add('visible');
+  } else {
+    overlay.classList.remove('visible');
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const overlay = document.getElementById('help-overlay');
+  const closeBtn = document.querySelector('.help-close');
+  if (closeBtn) closeBtn.addEventListener('click', () => toggleHelp(false));
+  if (overlay) overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) toggleHelp(false);
+  });
 });
 
 // ─── Start ──────────────────────────────────────────────────

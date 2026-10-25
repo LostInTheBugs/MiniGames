@@ -2,6 +2,15 @@
 
 All notable changes to Flood City are documented in this file.
 
+## [2026.09.001-c2] — 2026-10-25
+
+### Added
+- In-game help panel accessible with **H** or **?** key, closed with **Échap**, button ✕, or clicking the overlay background
+- First-launch hint: `flashMessage("Appuie sur H pour l'aide")` shown ~1.5 s after game starts (once per browser)
+
+### Changed
+- Controls bar: corrected "Clic droit + glisser Caméra", added **H / ?** Aide and **M** Menu entries
+
 ## [2026.09.001-c1] — 2026-10-25
 
 ### Fixed

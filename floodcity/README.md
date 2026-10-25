@@ -23,6 +23,7 @@ Best scores are kept per map and shown on the home screen.
 | ⌨️ **N** | Toggle day / night |
 | ⌨️ **R** | Restart the game |
 | ⌨️ **M** | Back to the map menu |
+| ⌨️ **H / ?** | Show / hide the in-game help |
 
 A **green ghost** appears at the targeted location — red if the placement is invalid (building, road, existing wall, insufficient resources). On Littoral the camera starts on the sea side, with the beach and the front to defend in the foreground.
 
@@ -131,6 +132,11 @@ https://games.cloudfr.net/floodcity/?seed=42
 The seed controls the layout of the city, buildings, street furniture and beach. Same seed = same map, every time. Without the parameter, a random map is generated as before. Handy for comparing strategies, sharing a configuration or reproducing a bug.
 
 ## 📋 Release notes
+
+### 2026.09.001-c2
+- In-game help panel accessible with **H** or **?** key (closed with **Échap**, button ✕, or overlay click)
+- First-launch hint: "Appuie sur H pour l'aide" shown ~1.5 s after game starts (once per browser)
+- Controls bar corrected and enriched: camera/zoom/aide entries
 
 ### 2026.09.001-c1
 - On Littoral the camera now starts on the sea side: the beach and the front to defend are in the foreground instead of being hidden behind the towers

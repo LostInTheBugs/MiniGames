@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.001-c1",
+  "version": "2026.09.001-c2",
   "date": "2026-10-25",
-  "notes": "Littoral camera starts facing the sea front, correct costs in tier messages, docs update"
+  "notes": "In-game help panel (H/?), camera and zoom in controls bar"
 }
