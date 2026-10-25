@@ -95,6 +95,8 @@ grep "const GAME_VERSION" index.html && cat version.json
 
 The `version` field (in `version.json`) and `GAME_VERSION` (in `index.html`) must be identical.
 
+**⚠️ Assets:** the `assets/` directory (map preview images) must be copied alongside `index.html` — the home screen references `assets/map-littoral.jpg` and `assets/map-ile.jpg` at runtime.
+
 ## 🔬 Visual verification harness
 
 The project includes an automated test harness in `visual-harness/`. It runs the game in a headless browser, places defenses, captures day and night screenshots, measures performance and detects z-fighting flicker. See [`visual-harness/README.md`](visual-harness/README.md) for installation and usage.

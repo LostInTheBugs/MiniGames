@@ -157,67 +157,225 @@
     z-index: 50;
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
-    background: rgba(5,8,20,0.85);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    background: linear-gradient(180deg, #0b1a2e 0%, #123a5c 100%);
+    /* défilement vertical si l'écran est trop bas (mobile) ; « safe » évite de couper le titre */
+    overflow-x: hidden; overflow-y: auto;
+    justify-content: safe center;
+    padding: 24px 0;
   }
   #home-screen.hidden { display: none; }
+
+  /* ── Animated wave layers ────────────────────────────── */
+  #home-screen::before,
+  #home-screen::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0;
+    width: 200%;
+    height: 120px;
+    pointer-events: none;
+    opacity: 0.25;
+    background-repeat: repeat-x;
+    background-position: bottom center;
+    background-size: 50% 100%;
+  }
+  #home-screen::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 120' preserveAspectRatio='none'%3E%3Cpath d='M0 60 Q 150 30 300 60 T 600 60 T 900 60 T 1200 60 V 120 H 0 Z' fill='rgba(100,181,246,0.6)'/%3E%3C/svg%3E");
+    animation: waveDrift1 18s linear infinite;
+  }
+  #home-screen::after {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 100' preserveAspectRatio='none'%3E%3Cpath d='M0 50 Q 150 28 300 50 T 600 50 T 900 50 T 1200 50 V 100 H 0 Z' fill='rgba(77,208,225,0.5)'/%3E%3C/svg%3E");
+    animation: waveDrift2 24s linear infinite;
+    height: 100px;
+    opacity: 0.18;
+  }
+  .wave-layer-3 {
+    position: absolute;
+    bottom: 0; left: 0;
+    width: 200%;
+    height: 80px;
+    pointer-events: none;
+    opacity: 0.15;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 80' preserveAspectRatio='none'%3E%3Cpath d='M0 40 Q 150 24 300 40 T 600 40 T 900 40 T 1200 40 V 80 H 0 Z' fill='rgba(66,165,245,0.4)'/%3E%3C/svg%3E");
+    background-repeat: repeat-x;
+    background-position: bottom center;
+    background-size: 50% 100%;
+    animation: waveDrift3 30s linear infinite;
+  }
+
+  @keyframes waveDrift1 { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+  @keyframes waveDrift2 { from { transform: translateX(-50%); } to { transform: translateX(0); } }
+  @keyframes waveDrift3 { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+  @media (prefers-reduced-motion: reduce) {
+    #home-screen::before,
+    #home-screen::after,
+    .wave-layer-3 {
+      animation: none !important;
+      opacity: 0.1;
+    }
+  }
+
+  /* ── Title ───────────────────────────────────────────── */
   #home-screen h2 {
-    font-size: 3em; font-weight: 800; margin-bottom: 8px;
-    letter-spacing: 2px;
-    background: linear-gradient(135deg, #64b5f6, #42a5f5, #1e88e5);
+    font-size: 3.2em; font-weight: 800; margin-bottom: 6px;
+    letter-spacing: 3px;
+    background: linear-gradient(135deg, #64b5f6, #4dd0e1);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
     text-align: center;
+    filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5));
+    flex-shrink: 0;
   }
   #home-screen .subtitle {
-    color: rgba(255,255,255,0.45); font-size: 1em;
-    margin-bottom: 40px; letter-spacing: 1px;
+    color: rgba(255,255,255,0.55); font-size: 1.05em;
+    margin-bottom: 36px; letter-spacing: 0.5px;
+    text-align: center;
+    flex-shrink: 0;
   }
+
+  /* ── Map cards ───────────────────────────────────────── */
   #map-cards {
-    display: flex; gap: 20px; flex-wrap: wrap;
-    justify-content: center; max-width: 700px;
+    display: flex; gap: 24px; flex-wrap: wrap;
+    justify-content: center; max-width: 720px;
+    align-items: stretch; /* cartes de même hauteur : boutons « Jouer » alignés */
+    padding: 0 16px;
+    z-index: 1;
   }
   .map-card {
-    background: rgba(15,20,40,0.8);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 16px; padding: 28px 24px;
-    width: 280px; cursor: pointer;
-    transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    background: rgba(10,15,30,0.75);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 16px;
+    width: 320px;
+    cursor: pointer;
+    transition: transform 0.25s cubic-bezier(.4,0,.2,1),
+                border-color 0.25s,
+                box-shadow 0.25s;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.35);
+    overflow: hidden;
+    position: relative;
+    display: flex; flex-direction: column;
   }
   .map-card:hover {
     transform: translateY(-4px);
-    border-color: rgba(100,180,255,0.5);
-    box-shadow: 0 12px 40px rgba(0,0,0,0.6), 0 0 30px rgba(66,165,245,0.15);
+    border-color: #64b5f6;
+    box-shadow: 0 8px 36px rgba(0,0,0,0.5), 0 0 24px rgba(100,181,246,0.12);
+  }
+
+  /* ── Map image ───────────────────────────────────────── */
+  .map-card-img {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    border-radius: 16px 16px 0 0;
+    display: block;
+    transition: transform 0.35s cubic-bezier(.4,0,.2,1);
+  }
+  .map-card:hover .map-card-img {
+    transform: scale(1.04);
+  }
+  .map-card-img-wrap {
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* ── Card body ───────────────────────────────────────── */
+  .map-card-body {
+    padding: 18px 20px 20px;
+    flex: 1; display: flex; flex-direction: column;
+  }
+  .map-card-top {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 4px; gap: 8px;
   }
   .map-card h3 {
-    font-size: 1.3em; color: #e0e8f0; margin-bottom: 6px;
-    font-weight: 700;
+    font-size: 1.2em; color: #e0e8f0;
+    font-weight: 700; margin: 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .map-card .diff {
-    font-size: 0.85em; color: #8ab4f8; margin-bottom: 10px;
+  .map-card .diff-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 0.78em;
+    font-weight: 600;
+    color: #fff;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
+  .diff-facile { background: #66bb6a; }
+  .diff-moyen { background: #ffa726; }
+  .diff-difficile { background: #ef5350; }
+
   .map-card .desc {
-    font-size: 0.9em; color: #a0a8b8; line-height: 1.4;
-  }
-  .map-card .hint {
-    margin-top: 12px; font-size: 0.75em; color: rgba(255,255,255,0.3);
-    font-style: italic;
+    font-size: 0.85em; color: #a0a8b8; line-height: 1.45;
+    margin: 8px 0 10px;
   }
   .map-card .best-score {
-    margin-top: 8px; font-size: 0.78em;
-    color: rgba(255,255,255,0.45);
-    line-height: 1.4;
+    font-size: 0.88em;
+    line-height: 1.5;
+    margin: 0 0 14px;
+    padding: 6px 0;
+    border-top: 1px solid rgba(255,255,255,0.08);
   }
-  .map-card .best-score .sb-record { color: #ffd54f; }
-  .map-card .best-score .sb-none { color: rgba(255,255,255,0.22); font-style: italic; }
+  .map-card .best-score .sb-record { color: #ffd54f; font-weight: 700; }
+  .map-card .best-score .sb-none { color: rgba(255,255,255,0.28); font-style: italic; }
+
+  /* ── Play button ─────────────────────────────────────── */
+  .map-card-play {
+    display: block;
+    width: 100%;
+    margin-top: auto; /* poussé en bas de la carte : boutons alignés d'une carte à l'autre */
+    padding: 10px 0;
+    border: none;
+    border-radius: 10px;
+    background: #64b5f6;
+    color: #0a0f1e;
+    font-size: 1em;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.15s;
+    text-align: center;
+  }
+  .map-card-play:hover {
+    background: #42a5f5;
+    transform: scale(1.02);
+  }
+
+  /* ── Last-played badge ───────────────────────────────── */
   .map-card.last-played {
-    border-color: rgba(100,180,255,0.25);
-    box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 0 20px rgba(66,165,245,0.06);
+    border-color: rgba(100,181,246,0.35);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.35), 0 0 16px rgba(100,181,246,0.08);
+  }
+  .last-played-badge {
+    position: absolute;
+    top: 10px; right: 10px;
+    background: rgba(10,15,30,0.7);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(100,181,246,0.3);
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 0.7em;
+    color: rgba(255,255,255,0.7);
+    z-index: 2;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .last-played-badge::before {
+    content: '🕒';
+    font-size: 0.85em;
+  }
+
+  /* ── Responsive ──────────────────────────────────────── */
+  @media (max-width: 720px) {
+    #map-cards { flex-direction: column; align-items: center; gap: 16px; }
+    .map-card { width: 100%; max-width: 340px; }
+    #home-screen h2 { font-size: 2.4em; }
+    #home-screen .subtitle { font-size: 0.95em; margin-bottom: 24px; }
   }
 
   #go-score-area {
@@ -512,6 +670,7 @@
   <h2>🌊 FLOOD CITY</h2>
   <div class="subtitle">Protégez la ville de la montée des eaux</div>
   <div id="map-cards"></div>
+  <div class="wave-layer-3"></div>
   <div id="home-version"></div>
 </div>
 
@@ -5454,6 +5613,20 @@ function buildHomeScreen() {
   for (const [id, map] of Object.entries(MAPS)) {
     const card = document.createElement('div');
     card.className = 'map-card' + (id === lastMap ? ' last-played' : '');
+
+    // Map image by id
+    const imgId = id === 'littoral' ? 'map-littoral' : id === 'ile' ? 'map-ile' : null;
+    const imgUrl = imgId ? `assets/${imgId}.jpg` : '';
+    const altText = id === 'littoral' ? 'Carte Littoral — ville côtière avec plage' :
+                    id === 'ile' ? 'Carte Île — île entourée d\'eau' : `Carte ${map.name}`;
+
+    // Difficulty badge class
+    const diffText = map.difficulty.toLowerCase();
+    let diffClass = 'diff-moyen';
+    if (diffText.includes('facile')) diffClass = 'diff-facile';
+    else if (diffText.includes('difficile') || diffText.includes('expert')) diffClass = 'diff-difficile';
+
+    // Best score
     const best = _getBest(id);
     let scoreHtml;
     if (best) {
@@ -5462,13 +5635,27 @@ function buildHomeScreen() {
     } else {
       scoreHtml = `<div class="best-score"><span class="sb-none">Jamais jouée</span></div>`;
     }
+
+    // Last-played badge
+    const lastPlayedBadge = id === lastMap ? `<div class="last-played-badge">Dernière partie</div>` : '';
+
+    // Build card HTML
     card.innerHTML = `
-      <h3>${map.name}</h3>
-      <div class="diff">${map.difficulty}</div>
-      <div class="desc">${map.description}</div>
-      ${scoreHtml}
-      <div class="hint">Cliquez pour jouer</div>
+      ${imgUrl ? `<div class="map-card-img-wrap">
+        <img class="map-card-img" src="${imgUrl}" alt="${altText}" loading="lazy">
+      </div>` : ''}
+      ${lastPlayedBadge}
+      <div class="map-card-body">
+        <div class="map-card-top">
+          <h3>${map.name}</h3>
+          <span class="diff-badge ${diffClass}">${map.difficulty}</span>
+        </div>
+        <div class="desc">${map.description}</div>
+        ${scoreHtml}
+        <button class="map-card-play" aria-label="Jouer ${map.name}">▶ Jouer</button>
+      </div>
     `;
+
     card.addEventListener('click', () => startGame(id));
     $mapCards.appendChild(card);
   }
