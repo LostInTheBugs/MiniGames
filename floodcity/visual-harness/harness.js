@@ -215,7 +215,11 @@ async function main() {
       });
     }
 
+    // Hide central alert (<div id="message">) so it doesn't block the pixel-sample
+    // area during captures used for pixel assertions.
+    await page.evaluate(() => { const m = document.getElementById('message'); if (m) m.style.visibility = 'hidden'; });
     await ss(page, '02-game-day.png', 'Littoral — jour');
+    await page.evaluate(() => { const m = document.getElementById('message'); if (m) m.style.visibility = ''; });
     console.log('\\n🔬 ASSERTIONS PIXELS — Littoral');
     runAssertions(fs.readFileSync(cp('02-game-day.png')), 'Littoral');
 
@@ -329,7 +333,11 @@ async function main() {
       if (isGreen) { groundReady = true; console.log(`  Sol visible après ${attempt + 1}s`); break; }
     }
     if (!groundReady) console.log('  ⚠️  Sol pas encore visible après 30s — capture quand même');
+    // Hide central alert (<div id="message">) so it doesn't block the pixel-sample
+    // area during captures used for pixel assertions.
+    await page.evaluate(() => { const m = document.getElementById('message'); if (m) m.style.visibility = 'hidden'; });
     await ss(page, '12-island-day.png', 'Île — jour');
+    await page.evaluate(() => { const m = document.getElementById('message'); if (m) m.style.visibility = ''; });
     console.log('\n🔬 ASSERTIONS PIXELS — Île');
     runAssertions(fs.readFileSync(cp('12-island-day.png')), 'Île');
 
@@ -369,7 +377,11 @@ async function main() {
       return null;
     });
     console.log(`  Cam pos=(${camState?.px},${camState?.py},${camState?.pz}) target=(${camState?.tx},${camState?.ty},${camState?.tz})`);
+    // Hide central alert (<div id="message">) so it doesn't block the pixel-sample
+    // area during captures used for pixel assertions.
+    await page.evaluate(() => { const m = document.getElementById('message'); if (m) m.style.visibility = 'hidden'; });
     await ss(page, '13-island-topdown.png', 'Île — dessus');
+    await page.evaluate(() => { const m = document.getElementById('message'); if (m) m.style.visibility = ''; });
     // Assert the center region contains grass — camera must be above ground
     const topdownBuf = fs.readFileSync(cp('13-island-topdown.png'));
     const topdownPng = PNG.sync.read(topdownBuf);
