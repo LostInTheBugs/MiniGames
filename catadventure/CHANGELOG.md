@@ -5,6 +5,14 @@ Tous les changements notables de ce projet sont documentés ici.
 Le format suit [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/),
 et le versionnement suit le schéma ANNEE.MM.NNN.
 
+## [2026.09.001-c2] — 2026-10-25
+
+### Fixed
+- Title screen: the instruction panel no longer overlaps the cat — instructions and the dark panel are now compressed above y=320 so the cat is fully visible
+
+### Changed
+- README: license text changed to MIT, matching other games in the repository
+
 ## [2026.09.001-c1] — 2026-10-25
 
 ### Fixed

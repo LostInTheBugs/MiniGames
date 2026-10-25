@@ -2134,20 +2134,20 @@ function drawTitleScreen() {
 
   // Instructions
   const instructions = [
-    { text: '🎮 Flèches ← → : Se déplacer', y: 230 },
-    { text: '⬆️ Espace / Flèche haut : Sauter', y: 258 },
-    { text: '⬇️ Flèche bas : Entrer dans les égouts', y: 286 },
-    { text: '🧓 Les personnes âgées te caressent (+❤️)', y: 320 },
-    { text: '⚠️ Attention aux enfants agressifs et à la fourrière !', y: 348 },
+    { text: '🎮 Flèches ← → : Se déplacer', y: 214 },
+    { text: '⬆️ Espace / Flèche haut : Sauter', y: 238 },
+    { text: '⬇️ Flèche bas : Entrer dans les égouts', y: 262 },
+    { text: '🧓 Les personnes âgées te caressent (+❤️)', y: 286 },
+    { text: '⚠️ Attention aux enfants agressifs et à la fourrière !', y: 310 },
   ];
 
   // Panneau sombre derrière les consignes : lisibles même devant les fenêtres éclairées
   ctx.fillStyle = 'rgba(10, 8, 25, 0.78)';
   ctx.beginPath();
-  if (ctx.roundRect) ctx.roundRect(canvas.width / 2 - 270, 206, 540, 158, 14); else ctx.rect(canvas.width / 2 - 270, 206, 540, 158);
+  if (ctx.roundRect) ctx.roundRect(canvas.width / 2 - 270, 200, 540, 128, 14); else ctx.rect(canvas.width / 2 - 270, 200, 540, 128);
   ctx.fill();
   ctx.fillStyle = '#EEE';
-  ctx.font = '15px sans-serif';
+  ctx.font = '14px sans-serif';
   for (const inst of instructions) {
     ctx.fillText(inst.text, canvas.width / 2, inst.y);
   }
@@ -2447,7 +2447,7 @@ fitScreen();
       .then(function(data) { APP_VERSION = data.version; })
       .catch(function() {
         // Fallback: try meta tag or hardcoded
-        APP_VERSION = '2026.09.001-c1';
+        APP_VERSION = '2026.09.001-c2';
       });
   }
 

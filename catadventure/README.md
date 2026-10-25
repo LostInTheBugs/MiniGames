@@ -4,7 +4,7 @@
 
 ## Version
 
-Current version: **2026.09.001-c1**
+Current version: **2026.09.001-c2**
 
 This game lives in the [MiniGames](../README.md) repository, in the `catadventure/` folder.
 
@@ -124,4 +124,4 @@ Full breakdown: [TOKENS.md](TOKENS.md).
 
 ## License
 
-Personal project — all rights reserved.
+MIT — see the repository [LICENSE](../LICENSE).
