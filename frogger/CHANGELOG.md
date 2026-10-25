@@ -2,6 +2,16 @@
 
 All notable changes to Frogger are documented in this file.
 
+## [2026.09.001-c2] — 2026-10-25
+
+### Fixed
+- No more vertical scroll on any screen size (1280×800, 1366×768, 1920×1080) — canvas and titlebar are now clamped by both viewport width and height
+- Hint text: "4 grenouilles pour gagner" → "4 traversées pour gagner" (HTML + JS mobile hint)
+- Difficulty menu button width: 210px → 250px so the full sub-label fits on one line
+
+### Changed
+- Updated preview image (1280×640, frog + traffic)
+
 ## [2026.09.001-c1] — 2026-10-25
 
 ### Fixed

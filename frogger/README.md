@@ -2,7 +2,7 @@
 
 A self-contained remake of the classic Frogger arcade game — pure HTML5 Canvas, no framework, no dependencies, no build step. The whole game lives in a single `index.html` file.
 
-**Current version: 2026.09.001-c1** — [releases](https://github.com/LostInTheBugs/MiniGames/releases) (tags prefixed `frogger-`)
+**Current version: 2026.09.001-c2** — [releases](https://github.com/LostInTheBugs/MiniGames/releases) (tags prefixed `frogger-`)
 
 ## Gameplay
 
