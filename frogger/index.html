@@ -150,9 +150,10 @@ canvas.width = 440 * SS;
 canvas.height = 350 * SS;
 ctx.scale(SS, SS);
 
-// Zones (lignes) : 0 = maisons, 1-2 herbe haut, 3-4 rivière, 5 médiane, 6-10 route, 11-15 herbe bas
-const RIVER_ROWS = [3, 4];
-const ROAD_ROWS = [6, 7, 8, 9, 10];
+// Zones (lignes) : 0 = maisons, 1 herbe haut, 2-6 rivière, 7 médiane, 8-12 route, 13-15 herbe bas
+const RIVER_ROWS = [2, 3, 4, 5, 6];
+const MEDIAN_ROW = 7;
+const ROAD_ROWS = [8, 9, 10, 11, 12];
 const HOUSE_COLS = [1, 5, 9, 13, 17, 21]; // 6 emplacements
 const TARGETS_NEEDED = 4;
 const W = 440; // largeur logique (le canvas interne est 2× via SS)
@@ -160,7 +161,6 @@ const W = 440; // largeur logique (le canvas interne est 2× via SS)
 // ---------- État ----------
 let frog, score, lives, crossings, timer;
 let cars, logs;
-let carWait, logWait;
 let state; // "menu" | "play" | "dead" | "over"
 let frame = 0;
 let usedHouses = []; // colonnes des maisons déjà occupées
@@ -171,17 +171,21 @@ const CAR_COLORS = ["#e74c3c", "#f1c40f", "#3498db", "#e67e22", "#9b59b6", "#dfe
 
 // ---------- Difficultés ----------
 // VITESSE : multiplicateur de vitesse des voitures/bûches
-// SPAWN   : intervalle (frames) minimum avant une nouvelle voiture
-// TEMPS   : frames par traversée (60 = 1 s)
+// GAP     : intervalle (frames) minimum entre deux voitures d'une même voie
+// TEMPS   : frames par traversée (60 = 1 s) — le chrono repart à chaque grenouille
 const DIFFS = [
-  { name: "FACILE",      sub: "trafic calme · 90 s",  speed: 0.7,  spawn: 120, timerMax: 5400 },
-  { name: "MEDIUM",      sub: "traversée classique",  speed: 1.0,  spawn: 60,  timerMax: 3600 },
-  { name: "DIFFICILE",   sub: "trafic dense · 45 s",  speed: 1.45, spawn: 24,  timerMax: 2700 },
+  { name: "FACILE",      sub: "trafic calme · 90 s",  speed: 0.7,  gap: 150, timerMax: 5400 },
+  { name: "MEDIUM",      sub: "traversée classique · 60 s", speed: 1.0, gap: 95, timerMax: 3600 },
+  { name: "DIFFICILE",   sub: "trafic dense · 45 s",  speed: 1.45, gap: 55,  timerMax: 2700 },
 ];
 let diffIdx = 1;
 let timerMax = DIFFS[diffIdx].timerMax;
 const LANE_SPEEDS = [1.0, 1.3, 1.6, 1.3, 1.0]; // pixels/tick par voie (× vitesse difficulté)
-const LOG_SPEEDS = [1.2, -1.5]; // rivière ligne 3 vers droite, ligne 4 vers gauche
+// une entrée par ligne de rivière (haut → bas) : vitesse (+ = vers la droite) et longueur des bûches (cases)
+const LOG_SPEEDS = [1.1, -1.5, 1.8, -1.2, 1.4];
+const LOG_LENS   = [4, 3, 2, 4, 3];
+const LOGS_PER_ROW = 3;
+function logSpeed(row) { return LOG_SPEEDS[RIVER_ROWS.indexOf(row)]; }
 
 function reset() {
   score = 0; lives = 4; crossings = 0;
@@ -202,20 +206,46 @@ function spawnFrog() {
     y: 15 * CELL,
     onLog: null
   };
+  timer = 0; // le chrono est remis à zéro pour chaque grenouille (nouvelle traversée ou après une mort)
 }
 
 function spawnCarsAndLogs() {
   cars = [];
   logs = [];
-  carWait = 0;
-  logWait = 0;
-  for (const row of RIVER_ROWS) {
-    for (let k = 0; k < 3; k++) {
-      const len = 3 * CELL;
-      const x = Math.random() * (COLS * CELL - len);
+  // une attente par voie : la circulation est répartie régulièrement sur les 5 voies
+  laneWait = ROAD_ROWS.map(() => Math.floor(Math.random() * DIFFS[diffIdx].gap));
+  // bûches régulièrement espacées sur le cycle de défilement : jamais de trou infranchissable
+  RIVER_ROWS.forEach((row, i) => {
+    const len = LOG_LENS[i] * CELL;
+    const cycle = COLS * CELL + 40 + len;
+    const off = Math.random() * cycle;
+    for (let k = 0; k < LOGS_PER_ROW; k++) {
+      const x = ((off + k * cycle / LOGS_PER_ROW) % cycle) - len - 20;
       logs.push({ row, x, len });
     }
+  });
+  // pré-remplit la route pour que la partie ne démarre pas sur une route vide
+  for (let i = 0; i < 600; i++) stepCars();
+}
+
+let laneWait = [];
+function stepCars() {
+  const spd = DIFFS[diffIdx].speed;
+  for (const c of cars) {
+    c.x += LANE_SPEEDS[ROAD_ROWS.indexOf(c.row)] * spd * (c.dir === 0 ? 1 : -1);
   }
+  const gap = DIFFS[diffIdx].gap;
+  ROAD_ROWS.forEach((row, i) => {
+    if (--laneWait[i] > 0) return;
+    laneWait[i] = gap + Math.floor(Math.random() * gap);
+    const dir = laneDir(row);
+    cars.push({
+      row, dir,
+      x: dir === 0 ? -CELL : COLS * CELL,
+      color: CAR_COLORS[Math.floor(Math.random() * CAR_COLORS.length)]
+    });
+  });
+  cars = cars.filter(c => c.x > -CELL * 2 && c.x < COLS * CELL + CELL);
 }
 
 function laneDir(row) { // 0 = vers droite, 1 = vers gauche
@@ -242,9 +272,9 @@ function buildTextures() {
     }
     return c;
   };
-  grassTop = mkGrass(3 * CELL);
+  grassTop = mkGrass(2 * CELL);   // maisons + rive haute
   grassMid = mkGrass(CELL);
-  grassBottom = mkGrass(5 * CELL);
+  grassBottom = mkGrass(3 * CELL);
 
   // Asphalte : base + grain + pointillés entre voies
   const h = 5 * CELL;
@@ -272,17 +302,17 @@ function buildTextures() {
 // ---------- Dessin ----------
 function draw() {
   // herbe haut
-  ctx.drawImage(grassTop, 0, Y_OFF, W, 3 * CELL);
+  ctx.drawImage(grassTop, 0, Y_OFF, W, 2 * CELL);
   // rivière (fond + animation)
   ctx.fillStyle = "#155a8a";
-  ctx.fillRect(0, Y_OFF + 3 * CELL, W, 2 * CELL);
+  ctx.fillRect(0, Y_OFF + RIVER_ROWS[0] * CELL, W, RIVER_ROWS.length * CELL);
   drawWater();
   // médiane
-  ctx.drawImage(grassMid, 0, Y_OFF + 5 * CELL, W, CELL);
+  ctx.drawImage(grassMid, 0, Y_OFF + MEDIAN_ROW * CELL, W, CELL);
   // route
-  ctx.drawImage(asphalt, 0, Y_OFF + 6 * CELL, W, 5 * CELL);
+  ctx.drawImage(asphalt, 0, Y_OFF + ROAD_ROWS[0] * CELL, W, 5 * CELL);
   // herbe bas
-  ctx.drawImage(grassBottom, 0, Y_OFF + 11 * CELL, W, 5 * CELL);
+  ctx.drawImage(grassBottom, 0, Y_OFF + 13 * CELL, W, 3 * CELL);
 
   // maisons / nénuphars
   for (const c of HOUSE_COLS) drawHouse(c, usedHouses.includes(c));
@@ -316,20 +346,21 @@ function draw() {
     const msg = deadReason === "car" ? "Écrasé par une voiture !"
               : deadReason === "water" ? "Tombé à l'eau !"
               : deadReason === "time" ? "Manque de temps !"
+              : deadReason === "miss" ? "Raté le nénuphar !"
               : "";
     ctx.fillText(msg, 8, Y_OFF + 15 * CELL - 7);
   }
 }
 
 function drawWater() {
-  const y0 = Y_OFF + 3 * CELL, hh = 2 * CELL;
+  const y0 = Y_OFF + RIVER_ROWS[0] * CELL, hh = RIVER_ROWS.length * CELL;
   // dégradé sombre en bas
   ctx.fillStyle = "#124f7a";
   ctx.fillRect(0, y0 + hh - 6, W, 6);
   // vagues animées
   ctx.strokeStyle = "rgba(255,255,255,0.16)";
   ctx.lineWidth = 1;
-  for (let w = 0; w < 3; w++) {
+  for (let w = 0; w < Math.floor(hh / 11); w++) {
     ctx.beginPath();
     const baseY = y0 + 5 + w * 11;
     for (let x = 0; x <= W; x += 8) {
@@ -340,7 +371,7 @@ function drawWater() {
   }
   // reflets scintillants
   ctx.fillStyle = "rgba(255,255,255,0.35)";
-  for (let i = 0; i < 26; i++) {
+  for (let i = 0; i < 60; i++) {
     const x = (i * 97) % W;
     const y = y0 + 3 + ((i * 53) % (hh - 6));
     const a = 0.2 + 0.3 * Math.abs(Math.sin(frame * 0.12 + i * 1.7));
@@ -625,8 +656,8 @@ let restartOnKey = false;
 function tryMove(dx, dy) {
   if (state !== "play") return;
   let nx = frog.x, ny = frog.y;
-  if (dx === 1) nx = Math.min(COLS * CELL - 2 * CELL, nx + CELL);
-  if (dx === -1) nx = Math.max(CELL, nx - CELL);
+  if (dx === 1) nx = Math.min(COLS * CELL - CELL, nx + CELL);
+  if (dx === -1) nx = Math.max(0, nx - CELL);
   if (dy === -1) ny = Math.max(0, ny - CELL);
   if (dy === 1) ny = Math.min(15 * CELL, ny + CELL);
   frog.x = nx; frog.y = ny;
@@ -643,6 +674,9 @@ function tryMove(dx, dy) {
       popups.push({ x: col * CELL - 10, y: -14, t: 60, text: "+100" });
       if (crossings >= TARGETS_NEEDED) { win(); return; }
       spawnFrog();
+    } else {
+      // hors d'un nénuphar libre : comme dans l'original, c'est une vie perdue
+      die("miss");
     }
   }
 }
@@ -652,7 +686,7 @@ function win() {
   sfx("win");
   startEndAnim("win", 90, function () {
     showOverlay("VICTOIRE ! 🏆",
-      "Vous avez fait traversé " + TARGETS_NEEDED + " grenouilles sans les écorcher !<br>" +
+      "Vous avez fait traverser " + TARGETS_NEEDED + " grenouilles sans les écorcher !<br>" +
       "Score : " + score + "<br>Touche ou tap pour rejouer.");
     restartOnKey = true;
   });
@@ -667,9 +701,10 @@ function update() {
 
     // bûches
     for (const l of logs) {
-      l.x += LOG_SPEEDS[l.row - 3] * spd;
-      if (l.x > COLS * CELL + 20) l.x = -l.len - 20;
-      if (l.x < -l.len - 20) l.x = COLS * CELL + 20;
+      const cycle = COLS * CELL + 40 + l.len;
+      l.x += logSpeed(l.row) * spd;
+      if (l.x > COLS * CELL + 20) l.x -= cycle;
+      if (l.x < -l.len - 20) l.x += cycle;
     }
 
     // grenouille sur bûche ? sinon noyade
@@ -679,7 +714,7 @@ function update() {
       const onLog = logs.find(l => l.row === row &&
         fCx > l.x && fCx < l.x + l.len);
       if (onLog) {
-        frog.x += LOG_SPEEDS[row - 3] * spd;
+        frog.x += logSpeed(row) * spd;
         if (frog.x < 0) frog.x = 0;
         if (frog.x > COLS * CELL - CELL) frog.x = COLS * CELL - CELL;
       } else {
@@ -689,22 +724,7 @@ function update() {
     }
 
     // voitures
-    for (const c of cars) {
-      c.x += LANE_SPEEDS[ROAD_ROWS.indexOf(c.row)] * spd * (c.dir === 0 ? 1 : -1);
-      if (c.dir === 0 && c.x > COLS * CELL) c.x = -CELL;
-      if (c.dir === 1 && c.x < -CELL) c.x = COLS * CELL;
-    }
-    carWait--;
-    if (carWait <= 0) {
-      carWait = DIFFS[diffIdx].spawn + Math.floor(Math.random() * 60);
-      const row = ROAD_ROWS[Math.floor(Math.random() * ROAD_ROWS.length)];
-      cars.push({
-        row, dir: laneDir(row),
-        x: laneDir(row) === 0 ? -CELL : COLS * CELL,
-        color: CAR_COLORS[Math.floor(Math.random() * CAR_COLORS.length)]
-      });
-    }
-    cars = cars.filter(c => c.x > -CELL * 2 && c.x < COLS * CELL * 2);
+    stepCars();
 
     // collision voiture (même ligne + chevauchement horizontal au contact)
     for (const c of cars) {
@@ -863,11 +883,16 @@ function showMenu() {
 }
 
 // ---------- Boucle ----------
-function tick() {
+// Pas fixe à 60 Hz : la vitesse du jeu et le chrono ne dépendent plus de la fréquence de l'écran
+const STEP = 1000 / 60;
+let acc = 0, last = performance.now();
+function tick(now) {
   if (actx) updateMusic();
-  update();
+  acc += now - last; last = now;
+  if (acc > 250) acc = 250; // onglet en arrière-plan : on ne rattrape pas tout d'un coup
+  while (acc >= STEP) { update(); acc -= STEP; }
   draw();
-  requestAnimationFrame(() => setTimeout(tick, 16));
+  requestAnimationFrame(tick);
 }
 
 // ---------- Clavier ----------
@@ -923,7 +948,7 @@ if (window.matchMedia("(pointer: coarse)").matches || window.innerWidth <= 700) 
 // ---------- Start ----------
 buildTextures();
 showMenu();
-tick();
+requestAnimationFrame(tick);
 </script>
 </body>
 </html>

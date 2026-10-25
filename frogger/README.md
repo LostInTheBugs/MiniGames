@@ -2,11 +2,11 @@
 
 A self-contained remake of the classic Frogger arcade game — pure HTML5 Canvas, no framework, no dependencies, no build step. The whole game lives in a single `index.html` file.
 
-**Current version: 2026.09.001** — [releases](https://github.com/LostInTheBugs/MiniGames/releases) (tags prefixed `frogger-`)
+**Current version: 2026.09.001-c1** — [releases](https://github.com/LostInTheBugs/MiniGames/releases) (tags prefixed `frogger-`)
 
 ## Gameplay
 
-Guide the frog from the bottom bank to the homes at the top: dodge the traffic on five road lanes, ride the logs across the river, and fill **4 of the 6 homes** to win the run. You start with 4 lives — being hit, drowning or letting the timer run out costs one. Each forward crossing adds points; filling a home is worth a bonus.
+Guide the frog from the bottom bank to the homes at the top: dodge the traffic on five road lanes, ride the logs across the river, and fill **4 of the 6 homes** to win the run. You start with 4 lives — being hit, drowning, landing outside a free lily pad or letting the timer run out costs one. The timer restarts for every frog. Each forward crossing adds points; filling a home is worth a bonus.
 
 ## Features
 
