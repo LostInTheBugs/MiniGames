@@ -603,6 +603,56 @@
     font-size: 0.85em;
   }
 
+  /* ── Level picker dots ─────────────────────────────── */
+  .level-dots {
+    display: grid; grid-template-columns: repeat(5, 28px); /* 2 lignes régulières de 5 */
+    justify-content: center;
+    gap: 6px; margin: 10px 0 4px;
+  }
+  .level-dot {
+    width: 28px; height: 28px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.18);
+    background: rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.55);
+    font-size: 0.72em; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all 0.15s;
+    user-select: none; position: relative;
+  }
+  .level-dot:hover:not(.disabled) {
+    border-color: #64b5f6;
+    background: rgba(100,181,246,0.15);
+    color: #e0e8f0;
+  }
+  .level-dot.selected {
+    border-color: #64b5f6;
+    background: #64b5f6;
+    color: #0a0f1e;
+  }
+  .level-dot.selected:hover {
+    background: #42a5f5;
+  }
+  .level-dot.disabled {
+    border-color: rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.03);
+    color: rgba(255,255,255,0.2);
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+  .level-dot { position: relative; }
+  .level-dot.disabled::after {
+    content: '🔒';
+    font-size: 0.55em;
+    position: absolute; right: -3px; bottom: -3px; /* petit cadenas en coin, sans pousser le chiffre */
+  }
+  .level-desc {
+    text-align: center;
+    font-size: 0.78em;
+    color: rgba(255,255,255,0.55);
+    margin: 2px 0 8px;
+    min-height: 1.2em;
+  }
+
   /* ── Responsive ──────────────────────────────────────── */
   @media (max-width: 720px) {
     #map-cards { flex-direction: column; align-items: center; gap: 16px; }
@@ -6218,6 +6268,24 @@ function buildHomeScreen() {
     // Last-played badge
     const lastPlayedBadge = id === lastMap ? `<div class="last-played-badge">Dernière partie</div>` : '';
 
+    // Level picker
+    const unlocked = getUnlockedLevel(id);
+    let sel = unlocked; // par défaut : le plus haut niveau débloqué
+    const cfg = LEVELS[sel - 1];
+    const isEndless = cfg.waves === Infinity;
+    let dotsHtml = '<div class="level-dots">';
+    for (let n = 1; n <= 10; n++) {
+      const cls = n <= unlocked ? (n === sel ? 'selected' : '') : 'disabled';
+      const aria = n > unlocked ? ' aria-disabled="true" title="Terminez le niveau précédent"' : '';
+      const tip = n === 10 ? (n <= unlocked ? ' title="Sans fin"' : '') : '';
+      dotsHtml += `<button class="level-dot ${cls}" data-level="${n}"${aria}${tip}>${n}</button>`;
+    }
+    dotsHtml += '</div>';
+    const levelInfoText = isEndless ? 'Niveau ' + sel + ' · sans fin' : 'Niveau ' + sel + ' · ' + cfg.waves + ' vagues à tenir';
+
+    // Play button text
+    const playLabel = 'Jouer le niveau ' + sel;
+
     // Build card HTML
     card.innerHTML = `
       ${imgUrl ? `<div class="map-card-img-wrap">
@@ -6231,11 +6299,43 @@ function buildHomeScreen() {
         </div>
         <div class="desc">${map.description}</div>
         ${scoreHtml}
-        <button class="map-card-play" aria-label="Jouer ${map.name}">▶ Jouer</button>
+        ${dotsHtml}
+        <div class="level-desc">${levelInfoText}</div>
+        <button class="map-card-play" aria-label="${playLabel}">▶ ${playLabel}</button>
       </div>
     `;
 
-    card.addEventListener('click', () => startGame(id));
+    // Level dot selection (stopPropagation so card click doesn't fire)
+    card.querySelectorAll('.level-dot').forEach(dot => {
+      dot.addEventListener('click', (e) => {
+        const n = parseInt(dot.dataset.level, 10);
+        e.stopPropagation(); // jamais de lancement de partie depuis une pastille (même verrouillée)
+        if (dot.classList.contains('disabled')) return;
+        // Update selection
+        card.querySelectorAll('.level-dot').forEach(d => d.classList.remove('selected'));
+        dot.classList.add('selected');
+        sel = n;
+        // Update description and button
+        const cfg2 = LEVELS[n - 1];
+        const isEndless2 = cfg2.waves === Infinity;
+        const infoEl = card.querySelector('.level-desc');
+        if (infoEl) infoEl.textContent = isEndless2 ? 'Niveau ' + n + ' · sans fin' : 'Niveau ' + n + ' · ' + cfg2.waves + ' vagues à tenir';
+        const playBtn = card.querySelector('.map-card-play');
+        if (playBtn) {
+          playBtn.textContent = '▶ Jouer le niveau ' + n;
+          playBtn.setAttribute('aria-label', 'Jouer le niveau ' + n);
+        }
+      });
+    });
+
+    // Play button click — use selected level
+    card.querySelector('.map-card-play').addEventListener('click', (e) => {
+      e.stopPropagation();
+      startGame(id, sel);
+    });
+
+    // Card click (background) — start game at selected level
+    card.addEventListener('click', () => startGame(id, sel));
     $mapCards.appendChild(card);
   }
 }

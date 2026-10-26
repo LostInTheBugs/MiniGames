@@ -11,6 +11,25 @@
 
 Best scores are kept per map and shown on the home screen.
 
+## 🎯 Levels
+
+Each map has **10 levels**. Progression is saved in the browser — beat a level to unlock the next. Victory requires surviving all waves **and** keeping >15 % of buildings standing. Level 10 is endless.
+
+The level picker on the home screen shows dots (1–10) per map; click to select a different level. The play button updates to « Jouer le niveau N ».
+
+| Niv. | Ville (densité) | Hauteur | Tours | Vagues | Force (×diffMul) | Ressources |
+|---|---|---|---|---|---|---|
+| 1 | 25 % | ×0.45 | ❌ | 3 | ×0.35 | 200 |
+| 2 | 35 % | ×0.55 | ❌ | 4 | ×0.45 | 190 |
+| 3 | 45 % | ×0.65 | ❌ | 4 | ×0.55 | 180 |
+| 4 | 55 % | ×0.75 | ✅ | 5 | ×0.65 | 170 |
+| 5 | 65 % | ×0.85 | ✅ | 5 | ×0.75 | 160 |
+| 6 | 75 % | ×0.90 | ✅ | 6 | ×0.85 | 150 |
+| 7 | 85 % | ×1.00 | ✅ | 6 | ×0.95 | 150 |
+| 8 | 95 % | ×1.00 | ✅ | 7 | ×1.05 | 150 |
+| 9 | 100 % | ×1.05 | ✅ | 8 | ×1.15 | 150 |
+| 10 | 100 % | ×1.10 | ✅ | ∞ | ×1.30 | 150 |
+
 ## 🎮 How to play
 
 | Control | Action |

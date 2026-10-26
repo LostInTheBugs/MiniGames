@@ -2,6 +2,12 @@
 
 All notable changes to Flood City are documented in this file.
 
+## [Unreleased]
+
+### Added
+- **Level system**: 10 levels per map with increasing difficulty (city density, building height, tower availability, wave strength, starting resources). Progression saved in localStorage — beating a level unlocks the next. Victory requires surviving all waves *and* keeping >15 % of buildings standing. Level 10 is endless.
+- **Level picker on home screen**: 10 dots (1–10) per map card; unlocked levels are clickable, locked ones show 🔒. Selected level highlighted with accent color. Play button shows « Jouer le niveau N ». Clicking a dot selects without starting; clicking the card background or the play button starts at the selected level.
+
 ## [2026.10.001] — 2026-10-26
 
 ### Added
