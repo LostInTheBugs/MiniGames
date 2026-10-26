@@ -264,6 +264,23 @@
     #gameover-panel.visible { animation: none; }
   }
 
+  /* Victory panel — same style as gameover */
+  #victory-panel {
+    position: fixed; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 25; display: none;
+    flex-direction: column; align-items: center;
+    width: 420px; max-width: 92vw;
+    padding: 28px 24px 22px;
+    background: rgba(10, 15, 30, 0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 18px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+    gap: 0;
+  }
+  #victory-panel.visible { display: flex; }
+
   .go-header { text-align: center; margin-bottom: 14px; }
   .go-title {
     color: #e0e8f0; font-size: 1.35em; font-weight: 700;
@@ -325,7 +342,7 @@
     display: flex; flex-direction: column; gap: 8px;
     width: 100%;
   }
-  #gameover-panel button {
+  #gameover-panel button, #victory-panel button {
     padding: 12px 20px; font-size: 1.05em;
     color: white; border: none; border-radius: 12px;
     cursor: pointer; font-weight: 700;
@@ -334,23 +351,23 @@
     letter-spacing: 0.3px; width: 100%; box-sizing: border-box;
     display: flex; align-items: center; justify-content: center; gap: 6px;
   }
-  #gameover-panel button:hover { transform: scale(1.03); }
+  #gameover-panel button:hover, #victory-panel button:hover { transform: scale(1.03); }
   .go-key {
     font-size: 0.75em; color: rgba(255,255,255,0.6);
     background: rgba(255,255,255,0.15);
     padding: 2px 6px; border-radius: 4px; margin-left: 4px;
   }
-  #restart-btn {
+  #restart-btn, #victory-next-btn {
     background: #64b5f6; color: #1a237e;
     box-shadow: 0 4px 16px rgba(100,181,246,0.4);
   }
-  #restart-btn:hover { background: #90caf9; }
-  #menu-btn {
+  #restart-btn:hover, #victory-next-btn:hover { background: #90caf9; }
+  #menu-btn, #victory-restart-btn, #victory-menu-btn {
     background: transparent;
     border: 2px solid rgba(255,255,255,0.25) !important;
     color: rgba(255,255,255,0.85);
   }
-  #menu-btn:hover { background: rgba(255,255,255,0.08); }
+  #menu-btn:hover, #victory-restart-btn:hover, #victory-menu-btn:hover { background: rgba(255,255,255,0.08); }
 
   /* ─── Game Over responsive ─────────────────────────────── */
   @media (max-width: 480px) {
@@ -969,6 +986,44 @@
   </div>
 </div>
 
+<div id="victory-panel" class="gameover-panel">
+  <div class="go-header">
+    <h2 id="victory-title" class="go-title"></h2>
+    <span id="victory-map-name" class="go-subtitle"></span>
+  </div>
+  <div class="go-score-block">
+    <span id="victory-score" class="go-score-val">0</span>
+    <span class="go-score-label">points</span>
+  </div>
+  <div class="go-stats">
+    <div class="go-stat">
+      <span class="go-stat-icon">🌊</span>
+      <span class="go-stat-val" id="victory-waves">0</span>
+      <span class="go-stat-label">vagues tenues</span>
+    </div>
+    <div class="go-stat">
+      <span class="go-stat-icon">🏗️</span>
+      <span class="go-stat-val" id="victory-buildings-saved">0</span>
+      <span class="go-stat-label">bâtiments sauvés</span>
+    </div>
+    <div class="go-stat">
+      <span class="go-stat-icon">🧱</span>
+      <span class="go-stat-val" id="victory-walls">0</span>
+      <span class="go-stat-label">murs construits</span>
+    </div>
+    <div class="go-stat">
+      <span class="go-stat-icon">🕳️</span>
+      <span class="go-stat-val" id="victory-trenches">0</span>
+      <span class="go-stat-label">tranchées creusées</span>
+    </div>
+  </div>
+  <div class="go-actions">
+    <button id="victory-next-btn" onclick="victoryNextLevel()">▶ Niveau suivant <span class="go-key">Enter</span></button>
+    <button id="victory-restart-btn" onclick="victoryRestart()">🔄 Rejouer ce niveau <span class="go-key">R</span></button>
+    <button id="victory-menu-btn" onclick="goToMenu()">🗺️ Menu <span class="go-key">M</span></button>
+  </div>
+</div>
+
 <div id="controls">
 🖱️ <kbd>Clic</kbd> Placer &nbsp;|&nbsp;
 <kbd>Clic droit</kbd> + glisser Caméra &nbsp;|&nbsp;
@@ -1531,6 +1586,7 @@ const $waveTimer = document.getElementById('wave-timer');
 const $score = document.getElementById('score');
 const $message = document.getElementById('message');
 const $gameoverPanel = document.getElementById('gameover-panel');
+let $victoryPanel = document.getElementById('victory-panel'); // panneau de victoire de niveau
 const $goOverlay = document.getElementById('gameover-overlay');
 const $goTitle = document.getElementById('go-title');
 const $goMapName = document.getElementById('go-map-name');
@@ -1937,6 +1993,41 @@ const TRENCH_COST = 6;
 const TRENCH_DAMAGE = 10;
 const TRENCH_HP = 40;
 
+// ─── Level system (10 levels per map) ──────────────────────────
+// Paramètres par niveau (communs aux deux cartes). density : part des bâtiments conservés à la génération ;
+// heightMul : multiplicateur de hauteur ; towers : tours du centre-ville (Littoral) ; waves : vagues à tenir ;
+// diffMul : multiplicateur de la difficulté des vagues ; startRes : ressources de départ.
+const LEVELS = [
+  { density: 0.25, heightMul: 0.45, towers: false, waves: 3,  diffMul: 0.35, startRes: 200 },
+  { density: 0.35, heightMul: 0.55, towers: false, waves: 4,  diffMul: 0.45, startRes: 190 },
+  { density: 0.45, heightMul: 0.65, towers: false, waves: 4,  diffMul: 0.55, startRes: 180 },
+  { density: 0.55, heightMul: 0.75, towers: true,  waves: 5,  diffMul: 0.65, startRes: 170 },
+  { density: 0.65, heightMul: 0.85, towers: true,  waves: 5,  diffMul: 0.75, startRes: 160 },
+  { density: 0.75, heightMul: 0.90, towers: true,  waves: 6,  diffMul: 0.85, startRes: 150 },
+  { density: 0.85, heightMul: 1.00, towers: true,  waves: 6,  diffMul: 0.95, startRes: 150 },
+  { density: 0.95, heightMul: 1.00, towers: true,  waves: 7,  diffMul: 1.05, startRes: 150 },
+  { density: 1.00, heightMul: 1.05, towers: true,  waves: 8,  diffMul: 1.15, startRes: 150 },
+  { density: 1.00, heightMul: 1.10, towers: true,  waves: Infinity, diffMul: 1.30, startRes: 150 }, // niveau 10 : sans fin
+];
+
+// ─── Level progression helpers ──────────────────────────────────
+function getUnlockedLevel(mapId) {
+  try {
+    const v = localStorage.getItem('floodcity_level_' + mapId);
+    const n = parseInt(v, 10);
+    return (n >= 1 && n <= 10) ? n : 1;
+  } catch (_) { return 1; }
+}
+function unlockLevel(mapId, n) {
+  try {
+    const cur = getUnlockedLevel(mapId);
+    localStorage.setItem('floodcity_level_' + mapId, String(Math.max(cur, n)));
+  } catch (_) { /* silent */ }
+}
+
+let currentLevel = 1;  // 1..10, 1-based
+let levelCfgGlobal = LEVELS[0];  // configuration du niveau en cours
+
 let currentMap = null;
 let currentMapId = null;
 let resources = 150;
@@ -1948,6 +2039,7 @@ let wallsBuiltTotal = 0;   // cumulée pour l'écran de fin de partie
 let trenchesBuiltTotal = 0; // idem
 let waves = [];
 let gameOver = false;
+let wavesHeld = 0;  // vagues tenues dans le niveau en cours
 let waveCountdown = 20;
 let waveCountdownMax = 20; // durée totale du compte à rebours en cours (barre de progression du bandeau)
 let waveNumber = 0;
@@ -3441,7 +3533,7 @@ function generateMap(map) {
   }
 
   // Downtown cluster for littoral — placed FIRST so it gets priority over road-adjacent
-  if (!map.islandRadius) {
+  if (!map.islandRadius && levelCfgGlobal.towers) {
     for (let i = 0; i < 8; i++) {
       const w = 1.4 + Math.random() * 0.8;
       const d = 1.4 + Math.random() * 0.8;
@@ -3455,7 +3547,8 @@ function generateMap(map) {
         attempts++;
       } while (attempts < 200 && (distToRoad(x, z) < roadClear || tooClose(x, z, 2.5)));
       if (attempts >= 200) continue;
-      const h = 5 + Math.random() * 7;
+      let h = 5 + Math.random() * 7;
+      h = Math.max(1, Math.round(h * levelCfgGlobal.heightMul));
       const color = new THREE.Color().setHSL(0.58 + Math.random() * 0.08, 0.4 + Math.random() * 0.3, 0.35 + Math.random() * 0.25).getHex();
       const building = createBuilding(x, z, w, d, h, color);
       buildings.push(building);
@@ -3495,7 +3588,10 @@ function generateMap(map) {
         const minRoadClear = (map.crossingRoadClear || 0.55) + halfDiag;
         if (distToRoad(bx, bz) < minRoadClear) continue;
 
-        const h = 1.5 + Math.random() * 4.5;
+        if (Math.random() > levelCfgGlobal.density) continue;
+
+        let h = 1.5 + Math.random() * 4.5;
+        h = Math.max(1, Math.round(h * levelCfgGlobal.heightMul));
         const color = BUILDING_COLORS[Math.floor(Math.random() * BUILDING_COLORS.length)];
         const building = createBuilding(bx, bz, w, d, h, color);
         buildings.push(building);
@@ -3524,7 +3620,37 @@ function generateMap(map) {
       !inBuildZone(x, z)
     ));
     if (attempts >= 200) continue;
-    const h = 1.5 + Math.random() * 4.5;
+
+    if (Math.random() > levelCfgGlobal.density) continue;
+
+    let h = 1.5 + Math.random() * 4.5;
+    h = Math.max(1, Math.round(h * levelCfgGlobal.heightMul));
+    const color = BUILDING_COLORS[Math.floor(Math.random() * BUILDING_COLORS.length)];
+    const building = createBuilding(x, z, w, d, h, color);
+    buildings.push(building);
+    placed.push({ x, z });
+  }
+
+  // Ensure minimum 6 buildings: scatter more if needed
+  while (buildings.length < 6) {
+    const w = 0.8 + Math.random() * 1.2;
+    const d = 0.8 + Math.random() * 1.2;
+    const halfDiag = Math.sqrt(w * w + d * d) / 2;
+    const roadClear = 0.55 + 0.55 + halfDiag;
+    let attempts = 0, x, z;
+    do {
+      x = (Math.random() - 0.5) * (map.terrainHalf * 2 - 4);
+      z = (Math.random() - 0.5) * (map.terrainHalf * 2 - 6) + 1;
+      attempts++;
+    } while (attempts < 200 && (
+      tooClose(x, z, 2.5) ||
+      distToRoad(x, z) < roadClear ||
+      distToRoad(x, z) > 12 ||
+      !inBuildZone(x, z)
+    ));
+    if (attempts >= 200) break;
+    let h = 1.5 + Math.random() * 4.5;
+    h = Math.max(1, Math.round(h * levelCfgGlobal.heightMul));
     const color = BUILDING_COLORS[Math.floor(Math.random() * BUILDING_COLORS.length)];
     const building = createBuilding(x, z, w, d, h, color);
     buildings.push(building);
@@ -3728,7 +3854,7 @@ function generateMap(map) {
   map._alertThreshold = Math.max(5, Math.floor(totalBuildingsInitial * alertFrac));
   console.log(`Carte ${map.name}: ${totalBuildingsInitial} bâtiments, défaite ≤${map._defeatThreshold} (${Math.round(defeatFrac*100)}%), alerte ≤${map._alertThreshold} (${Math.round(alertFrac*100)}%)`);
 
-  resources = 150;
+  resources = levelCfgGlobal.startRes; // ressources de départ selon le niveau
   score = 0;
   gameOver = false;
   waveCountdown = 20;
@@ -3923,10 +4049,10 @@ function spawnWave() {
   const dir = nextWaveDir; // 'north' or 'south'
   const dirSign = dir === 'north' ? -1 : 1;
 
-  // Difficulty: linear ramp waves 1-5, then logarithmic growth (no cap)
-  const difficulty = waveNumber <= 5
+  // Difficulty: linear ramp waves 1-5, then logarithmic growth (no cap), scaled by level
+  const difficulty = (waveNumber <= 5
     ? waveNumber / 5
-    : 1 + Math.log2(waveNumber / 5) * 0.8;
+    : 1 + Math.log2(waveNumber / 5) * 0.8) * levelCfgGlobal.diffMul;
   const rawWidth = 6 + Math.random() * (8 + difficulty * 18);
   const waveWidth = Math.min(rawWidth, map.terrainHalf * 2 - 2);
   const waveH = 1.5 + difficulty * 5;
@@ -4198,6 +4324,11 @@ function updateWaves(dt) {
       }
       wave.segMeshes.forEach(m => { scene.remove(m.body); m.body.geometry.dispose(); m.body.material.dispose(); scene.remove(m.foam); m.foam.geometry.dispose(); m.foam.material.dispose(); });
       waves.splice(wi, 1);
+
+      // Count held wave and check for victory (city not in defeat)
+      if (buildings.filter(b => b.alive).length > map._defeatThreshold) {
+        wavesHeld++; // la victoire est testée dans gameLoop()
+      }
     }
   }
 }
@@ -4697,9 +4828,11 @@ function gameLoop() {
   if (!gameOver && currentMap) {
     resources = Math.min(RESOURCE_CAP, resources + RESOURCE_REGEN * dt);
 
-    waveCountdown -= dt;
+    // Niveau : on ne lance que le nombre de vagues prévu ; une fois la dernière lancée, plus de compte à rebours
+    const moreWaves = !isFinite(levelCfgGlobal.waves) || waveNumber < levelCfgGlobal.waves;
+    if (moreWaves) waveCountdown -= dt;
     // Alert at 10s — pick direction then
-    if (!alertTriggered && waveCountdown <= 10 && waveCountdown > 0) {
+    if (moreWaves && !alertTriggered && waveCountdown <= 10 && waveCountdown > 0) {
       alertTriggered = true;
       alertPanicTime = performance.now() / 1000; // seconds for panic stagger
       const dirs = currentMap.waveDirections;
@@ -4707,7 +4840,7 @@ function gameLoop() {
       document.body.style.animation = 'alertFlash 0.5s ease-in-out 3';
       setTimeout(() => document.body.style.animation = '', 2000);
     }
-    if (waveCountdown <= 0) {
+    if (moreWaves && waveCountdown <= 0) {
       spawnWave();
       alertTriggered = false;
       const baseInterval = WAVE_INTERVAL_MIN + Math.random() * (WAVE_INTERVAL_MAX - WAVE_INTERVAL_MIN);
@@ -4718,6 +4851,15 @@ function gameLoop() {
     }
 
     updateWaves(dt);
+
+    // Victoire de niveau : toutes les vagues du niveau ont été lancées et aucune n'est encore en cours
+    // (vérifié à chaque image : sur l'Île, les vagues se chevauchent, un test au seul retrait d'une vague ne suffisait pas)
+    if (!gameOver && isFinite(levelCfgGlobal.waves) && waveNumber >= levelCfgGlobal.waves && waves.length === 0
+        && buildings.filter(b => b.alive).length > currentMap._defeatThreshold) {
+      gameOver = true;
+      unlockLevel(currentMapId, Math.min(10, currentLevel + 1));
+      showEndCard('victory');
+    }
 
     // ── Cars ──────────────────────────────────────────────────
     const nowSec = performance.now() / 1000;
@@ -5760,13 +5902,7 @@ function gameLoop() {
       $goTrenches.textContent = trenchesBuiltTotal;
 
       // Show overlay + panel
-      $goOverlay.classList.add('visible');
-      $gameoverPanel.classList.add('visible');
-
-      // Hide HUD elements during game over
-      $message.classList.remove('show');
-      $buildToolbar.classList.remove('visible');
-      $waveBanner.classList.remove('visible');
+      showEndCard('defeat');
 
       // Check if auto-update was deferred during gameplay
       _checkDeferredAutoReload();
@@ -5800,20 +5936,28 @@ function gameLoop() {
     const cd = Math.ceil(Math.max(0, waveCountdown));
     $waveTimer.textContent = cd;
     // Wave banner update
-    if (alertTriggered) {
+    if (isFinite(levelCfgGlobal.waves) && waveNumber >= levelCfgGlobal.waves) {
+      // toutes les vagues du niveau sont lancées : plus de compte à rebours
+      $wbPill.classList.remove('alert');
+      $wbText.textContent = 'Niv. ' + currentLevel + ' · Vague ' + waveNumber + '/' + levelCfgGlobal.waves + ' · 🌊 Dernière vague — tenez bon !';
+      $wbProg.style.width = '0%';
+    } else if (alertTriggered) {
       const dirLabel = nextWaveDir === 'north' ? 'NORD' : 'SUD';
       $wbPill.classList.add('alert');
-      $wbText.textContent = '⚠️ Vague imminente — front ' + dirLabel + ' · ' + cd + ' s';
+      const waveTotal = levelCfgGlobal.waves === Infinity ? '∞' : levelCfgGlobal.waves;
+      $wbText.textContent = 'Niv. ' + currentLevel + ' · Vague ' + waveNumber + '/' + waveTotal + ' · ⚠️ Vague imminente — front ' + dirLabel + ' · ' + cd + ' s';
       $wbProg.style.width = Math.min(100, Math.max(0, (waveCountdown / waveCountdownMax) * 100)) + '%';
     } else if (cd > 0 && cd <= 5) {
       $wbPill.classList.remove('alert');
-      $wbText.textContent = '🌊 Prochaine vague dans ' + cd + ' s';
+      const waveTotal = levelCfgGlobal.waves === Infinity ? '∞' : levelCfgGlobal.waves;
+      $wbText.textContent = 'Niv. ' + currentLevel + ' · Vague ' + waveNumber + '/' + waveTotal + ' · 🌊 Prochaine vague dans ' + cd + ' s';
       // Progress: 5s countdown = 0% to 20s = 100%
       const progressPct = Math.min(100, Math.max(0, (waveCountdown / waveCountdownMax) * 100)); // se vide jusqu'à la vague
       $wbProg.style.width = progressPct + '%';
     } else if (cd > 5) {
       $wbPill.classList.remove('alert');
-      $wbText.textContent = '🌊 Prochaine vague dans ' + cd + ' s';
+      const waveTotal = levelCfgGlobal.waves === Infinity ? '∞' : levelCfgGlobal.waves;
+      $wbText.textContent = 'Niv. ' + currentLevel + ' · Vague ' + waveNumber + '/' + waveTotal + ' · 🌊 Prochaine vague dans ' + cd + ' s';
       const progressPct = Math.min(100, Math.max(0, (waveCountdown / waveCountdownMax) * 100)); // se vide jusqu'à la vague
       $wbProg.style.width = progressPct + '%';
     }
@@ -5854,67 +5998,58 @@ function gameLoop() {
 
 // ─── Restart (same map) ────────────────────────────────────
 window.restartGame = function() {
-  if (!currentMap) return;
+  // Dismiss overlays
+  $gameoverPanel.classList.remove('visible');
+  $victoryPanel && $victoryPanel.classList.remove('visible');
+  $goOverlay.classList.remove('visible');
 
-  // Clean gameplay objects (walls, trenches, waves, particles)
-  beachVendors.forEach(v => {
-    if (v.alive) { v.group.removeFromParent(); v.group.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); }); }
-    if (v.cartAlive) { v.cartGroup.removeFromParent(); v.cartGroup.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); }); }
-  });
+  if (!currentMapId) return;
+
+  // Reset state
   beachVendors = [];
-  sceneryDecor.forEach(d => {
-    if (d.alive) { d.group.removeFromParent(); d.group.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); }); }
-  });
   sceneryDecor = [];
-  beachPeople.forEach(bp => {
-    if (bp.alive) { bp.group.removeFromParent(); bp.group.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); }); }
-    if (bp.ball && bp.ball.parent) { bp.ball.removeFromParent(); bp.ball.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); }); }
-  });
   beachPeople = [];
   ballGroup = null;
-  walls.forEach(w => {
-    scene.remove(w.group);
-    w.group.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
-  });
   walls = [];
-  trenches.forEach(t => { scene.remove(t.mesh); t.mesh.geometry.dispose(); t.mesh.material.dispose(); });
   trenches = [];
-  waves.forEach(w => {
-    w.segMeshes.forEach(m => { scene.remove(m.body); m.body.geometry.dispose(); m.body.material.dispose(); scene.remove(m.foam); m.foam.geometry.dispose(); m.foam.material.dispose(); });
-  });
   waves = [];
-  particlePool.forEach(p => { scene.remove(p.mesh); p.mesh.geometry?.dispose(); p.mesh.material?.dispose(); });
   particlePool = [];
-
-  // Clean night-specific objects
-  streetLamps.forEach(sl => {
-    sl.group.removeFromParent();
-    sl.group.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
-  });
   streetLamps = [];
   nightBuildingData = [];
-
-  // Clean sheltered entities
-  shelteredEntities.forEach(se => {
-    se.entityRef.group.removeFromParent();
-    se.entityRef.group.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
-  });
   shelteredEntities = [];
-
-  // Clean parked cars
-  parkedCars.forEach(pc => {
-    pc.group.removeFromParent();
-    pc.group.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
-  });
   parkedCars = [];
+  wallsBuiltTotal = 0;
+  trenchesBuiltTotal = 0;
+  waveNumber = 0;
+  gameOver = false;
+  wavesHeld = 0;
+  currentMap = null;
+  currentMapId = null;
 
+  // Dispose entire map group
+  disposeGroup(mapGroup);
+  scene.remove(mapGroup);
+  mapGroup = new THREE.Group();
+  scene.add(mapGroup);
+  cityGroup = new THREE.Group();
+  mapGroup.add(cityGroup);
+  oceanGroup = new THREE.Group();
+  mapGroup.add(oceanGroup);
+  oceanPlanes = [];
+  oceanMaterials = [];
+  waveFoamMaterials = [];
+  cars = [];
+  roadPaths = [];
+  pedestrians = [];
+  beachPeople = [];
+  buildings = [];
+  ghostGroup.visible = false;
   $message.classList.remove('show');
-  $gameoverPanel.classList.remove('visible');
-  $goOverlay.classList.remove('visible');
-  $buildToolbar.classList.add('visible');
-  $waveBanner.classList.add('visible');
+  $buildToolbar.classList.remove('visible');
+  $waveBanner.classList.remove('visible');
 
-  generateMap(currentMap);
+  // Restart at the same level
+  startGame(currentMapId, currentLevel);
 };
 
 // ─── Go to menu ─────────────────────────────────────────────
@@ -5991,6 +6126,9 @@ window.goToMenu = function() {
   buildings = [];
   currentMap = null;
   currentMapId = null;
+  currentLevel = 1;
+  levelCfgGlobal = LEVELS[0];
+  wavesHeld = 0;
   gameOver = true; // pause loop
 
   ghostGroup.visible = false;
@@ -6008,12 +6146,18 @@ window.goToMenu = function() {
 };
 
 // ─── Start game on a map ────────────────────────────────────
-function startGame(mapId) {
+function startGame(mapId, level) {
   const map = MAPS[mapId];
   if (!map) return;
 
   currentMapId = mapId;
   _saveLastMap(mapId);
+
+  // Determine level
+  if (!level || level < 1 || level > 10) level = getUnlockedLevel(mapId);
+  currentLevel = level;
+  levelCfgGlobal = LEVELS[currentLevel - 1];
+  wavesHeld = 0;
 
   $homeScreen.classList.add('hidden');
   $hud.classList.add('visible');
@@ -6023,8 +6167,12 @@ function startGame(mapId) {
   $buildToolbar.classList.add('visible');
   placeBuildToolbar();
   $gameoverPanel.classList.remove('visible');
+  $victoryPanel = document.getElementById('victory-panel');
+  if ($victoryPanel) $victoryPanel.classList.remove('visible');
   $message.classList.remove('show');
   gameOver = false;
+
+  resources = levelCfgGlobal.startRes;
 
   generateMap(map);
 
@@ -6113,6 +6261,11 @@ window.addEventListener('keydown', (e) => {
     if (currentMap && !gameOver) toggleHelp(true);
     return;
   }
+  // Entrée sur le panneau de victoire : niveau suivant
+  if (e.key === 'Enter' && $victoryPanel && $victoryPanel.classList.contains('visible')) {
+    victoryNextLevel();
+    return;
+  }
   if (e.key === 'r' || e.key === 'R') {
     if (currentMap) restartGame();
     return;
@@ -6133,6 +6286,61 @@ window.addEventListener('keydown', (e) => {
 
 // ─── Help panel ────────────────────────────────────────────
 let helpOpen = false;
+
+// ─── End card (victory / defeat) ─────────────────────────────
+function showEndCard(kind) {
+  const $goOverlay = document.getElementById('gameover-overlay');
+  const $goPanel = document.getElementById('gameover-panel');
+  const $vPanel = document.getElementById('victory-panel');
+  if (!kind || kind === 'defeat') {
+    $goOverlay.classList.add('visible');
+    $goPanel.classList.add('visible');
+    if ($vPanel) $vPanel.classList.remove('visible');
+  } else if (kind === 'victory') {
+    $goOverlay.classList.add('visible');
+    $goPanel.classList.remove('visible');
+    if ($vPanel) {
+      $vPanel.classList.add('visible');
+      // Populate stats
+      const $vt = document.getElementById('victory-title');
+      const $vm = document.getElementById('victory-map-name');
+      const $vs = document.getElementById('victory-score');
+      const $vw = document.getElementById('victory-waves');
+      const $vbs = document.getElementById('victory-buildings-saved');
+      const $vwa = document.getElementById('victory-walls');
+      const $vtr = document.getElementById('victory-trenches');
+      if ($vt) $vt.textContent = '🏆 Niveau ' + currentLevel + ' réussi !';
+      if ($vm) $vm.textContent = currentMap ? currentMap.name : '';
+      if ($vs) $vs.textContent = score;
+      if ($vw) $vw.textContent = wavesHeld;
+      if ($vbs) { const al = buildings.filter(b => b.alive).length; $vbs.textContent = al + ' (' + (totalBuildingsInitial ? Math.round(al / totalBuildingsInitial * 100) : 0) + '%)'; }
+      if ($vwa) $vwa.textContent = wallsBuiltTotal;
+      if ($vtr) $vtr.textContent = trenchesBuiltTotal;
+    }
+  }
+  // Hide HUD elements during game over
+  const $message = document.getElementById('wave-banner') ? document.getElementById('wave-banner') : null;
+  const $buildToolbar = document.getElementById('build-toolbar');
+  if ($message) $message.classList.remove('visible');
+  if ($buildToolbar) $buildToolbar.classList.remove('visible');
+}
+
+function victoryNextLevel() {
+  const next = currentLevel + 1;
+  if (next > 10) return;
+  document.getElementById('victory-panel').classList.remove('visible');
+  document.getElementById('gameover-overlay').classList.remove('visible');
+  startGame(currentMapId, next);
+}
+
+window.victoryNextLevel = victoryNextLevel; // appelées depuis les onclick du HTML (le script est un module)
+
+function victoryRestart() {
+  document.getElementById('victory-panel').classList.remove('visible');
+  document.getElementById('gameover-overlay').classList.remove('visible');
+  startGame(currentMapId, currentLevel);
+}
+window.victoryRestart = victoryRestart;
 
 function buildHelpContent() {
   const el = document.getElementById('help-content');
@@ -6158,6 +6366,8 @@ function buildHelpContent() {
     '<p><kbd>Clic droit</kbd> + glisser pour tourner, <kbd>Molette</kbd> pour zoomer.</p>' +
     '<h3 style="color:#64b5f6;margin:12px 0 8px">⚡ Ressources</h3>' +
     '<p>Recharge passive de <strong>' + RESOURCE_REGEN + ' ☼/s</strong>, plafond <strong>' + RESOURCE_CAP + '</strong>. Bonus de ressources après chaque vague stoppée.</p>' +
+    '<h3 style="color:#64b5f6;margin:12px 0 8px">🏆 Niveaux</h3>' +
+    '<p>10 niveaux : tenez le nombre de vagues indiqué pour débloquer le niveau suivant (10 niveaux, le 10e est sans fin). Chaque niveau ajuste la densité de la ville, la hauteur des bâtiments, la présence de tours et la difficulté des vagues.</p>' +
     '<h3 style="color:#64b5f6;margin:12px 0 8px">⌨️ Touches</h3>' +
     '<p><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> Tier mur · <kbd>T</kbd> Tranchée · <kbd>N</kbd> Jour/Nuit · <kbd>H</kbd>/<kbd>?</kbd> Aide · <kbd>R</kbd> Recommencer · <kbd>M</kbd> Menu</p>';
 }
