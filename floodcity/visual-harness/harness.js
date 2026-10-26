@@ -111,7 +111,7 @@ const ASSERTIONS = {
     { sx: 860, sy: 490, expected: 'grass',  name: 'est-interieur' },
     { sx: 640, sy: 560, expected: 'grass',  name: 'sud-interieur' },
     { sx: 500, sy: 520, expected: 'sand',   name: 'transition-ouest', n: 5 },
-    { sx: 940, sy: 520, expected: 'sand',   name: 'transition-est',   n: 5 },
+    { sx: 985, sy: 440, expected: 'sand',   name: 'transition-est',   n: 5 }, // plus au nord : (940,520) était touché par l'eau de la 1re vague
     { sx: 140, sy: 560, expected: 'water',  name: 'ocean-ouest' },
     { sx: 1140,sy: 340, expected: 'water',  name: 'ocean-est' },
     { sx: 640, sy: 100, expected: 'water',  name: 'ocean-nord' },
@@ -187,10 +187,14 @@ async function main() {
     console.log('\n📸 CAPTURES');
     await ss(page, '01-home-screen.png', "Écran d'accueil");
 
-    // ── LITTORAL ─────────────────────────────────────────
+    // ── LITTORAL (always the first card) ─────────────────
     console.log('\n🎮 Littoral...');
     const c1 = await page.evaluate(() => {
       const c = document.querySelectorAll('.map-card');
+      for (const card of c) {
+        const h3 = card.querySelector('h3');
+        if (h3 && h3.textContent.includes('Littoral')) { card.click(); return true; }
+      }
       if (c.length > 0) { c[0].click(); return true; }
       return false;
     });
@@ -315,12 +319,17 @@ async function main() {
     await sl(300);
     report.flickerResult = await flicker(page, '10-flicker-a.png', '11-flicker-b.png', 0.03);
 
-    // ── ISLAND ───────────────────────────────────────────
+    // ── ISLAND (third card now: Littoral=0, Barrage=1, Île=2) ────
     console.log('\n🏝️  Île...');
     await page.goto(TARGET_URL, { waitUntil: 'networkidle0', timeout: 30000 });
     await sl(2000);
     const c2 = await page.evaluate(() => {
       const c = document.querySelectorAll('.map-card');
+      for (const card of c) {
+        const h3 = card.querySelector('h3');
+        if (h3 && h3.textContent.includes('Île')) { card.click(); return true; }
+      }
+      // Fallback: try c[1] for backwards compatibility
       if (c.length > 1) { c[1].click(); return true; }
       return false;
     });

@@ -1876,6 +1876,10 @@ function disposeGroup(group) {
 // Optional per-map fields:
 //   defeatRatio (default 0.15): fraction of initial buildings below which game over triggers
 //   alertRatio  (default 0.25): fraction below which the HUD warning activates
+//   isDam     (default false):  dam map — renders dam wall, reservoir lake, concrete apron;
+//                               no parasols, sunbathers, swimmers, ball player
+//   prepTime  (default 0):      seconds of preparation phase before dam rupture (step 2)
+//   startResMul (default 1):    starting resource multiplier (step 2)
 const MAPS = {
   littoral: {
     name: 'Littoral',
@@ -1991,7 +1995,54 @@ const MAPS = {
       { x1: -45, z1: 9, x2: 45, z2: 9 },
     ],
     roadSpacing: 4.0,   // wider spacing keeps building count in the 80-100 range
-  }
+  },
+  barrage: {
+    name: 'Barrage',
+    description: 'Un lac retenu par un grand barrage domine la ville. Une seule rupture, mais on ne sait pas où : préparez vos digues avant qu\'il ne cède !',
+    difficulty: '⭐⭐⭐ Difficile',
+    difficultyStars: 3,
+    terrainHalf: 17,
+    groundColor: 0x6b9e45,
+    // Coastline params (same as Littoral — dam sits south of the beach zone)
+    beachZ: -15.5,
+    beachWidth: 40,
+    beachDepth: 6.5,
+    // Foam line Z: computed as beach south edge (= beachZ - beachDepth/2 = -18.75)
+    // Buildable zone (same as Littoral)
+    buildXMin: -17,
+    buildXMax: 17,
+    buildZMin: -3,
+    buildZMax: 17,
+    beachRoadZ: -11,
+    beachEdgeZ: -12.25,
+    // Ocean (near, animated) — position computed from beach params
+    oceanWidth: 48,
+    oceanDepth: 14,
+    // Wave config — provisional: same south-facing waves as Littoral (step 2)
+    waveDirections: ['south'],
+    waveSpawnZ: { south: -20 },
+    // Camera & view settings (same as Littoral)
+    cameraPos: { x: -8, y: 20, z: 30 }, // côté ville : le barrage et le lac dominent au fond
+    fogNear: 25,
+    fogFar: 70,
+    camMinDist: 8,
+    camMaxDist: 50,
+    // Roads (same as Littoral)
+    roads: [
+      { x1: -8, z1: -12, x2: -8, z2: 17 },
+      { x1: 3, z1: -12, x2: 3, z2: 17 },
+      { x1: -17, z1: -4, x2: 17, z2: -4 },
+      { x1: -17, z1: 5, x2: 17, z2: 5 },
+      { x1: -17, z1: -11, x2: 17, z2: -11 },
+    ],
+    crossingRoadClear: 1.1,
+    // ── Dam-specific fields (step 2+ mechanics) ───────────
+    isDam: true,           // dam map: render dam wall, reservoir lake, no beach items
+    defeatRatio: 0.6,      // game over if ≤ 60% buildings survive the single breach
+    alertRatio: 0.75,      // HUD warning at 75% remaining
+    prepTime: 45,          // seconds of preparation before dam rupture (step 2)
+    startResMul: 1.8,      // starting resource multiplier (step 2)
+  },
 };
 
 // Helper to check if a point is within an island's buildable zone.
@@ -2107,6 +2158,7 @@ let ballGroup = null; // beach ball mesh (the one that gets played with)
 let oceanPlanes = []; // animated ocean meshes
 let oceanMaterials = []; // tracked for night emissive
 let waveFoamMaterials = []; // wave crest foam for night emissive
+let damGroup = null; // dam wall segments (barrage map)
 let beachVendors = []; // { group, cartGroup, x, z, ... }
 let alertPanicTime = 0;   // performance.now() when alert was triggered
 let lastWaveClearTime = 0; // time when all waves left the map
@@ -3251,6 +3303,7 @@ function generateMap(map) {
   // ── Purge entire map group ──────────────────────────────
   disposeWaveMarker();
   disposeGroup(mapGroup);
+  if (damGroup) { disposeGroup(damGroup); damGroup = null; }
   scene.remove(mapGroup);
 
   mapGroup = new THREE.Group();
@@ -3420,7 +3473,7 @@ function generateMap(map) {
     mapGroup.add(farOcean);
 
   } else {
-    // ── Littoral (rectangular terrain) ────────────────────
+    // ── Rectangular terrain (Littoral or Barrage) ─────────
     const groundGeo = new THREE.PlaneGeometry(map.terrainHalf * 2 + 6, map.terrainHalf * 2 + 6);
     const groundMat = new THREE.MeshStandardMaterial({ color: map.groundColor, roughness: 0.85 });
     const ground = new THREE.Mesh(groundGeo, groundMat);
@@ -3429,51 +3482,142 @@ function generateMap(map) {
     ground.receiveShadow = true;
     mapGroup.add(ground);
 
-    // Animated near ocean (position derived from beach params)
     const beachSouthEdge = map.beachZ - map.beachDepth / 2;
-    const nearOceanZ = beachSouthEdge - map.oceanDepth / 2;
-    const oceanGeo = new THREE.PlaneGeometry(map.oceanWidth, map.oceanDepth, Math.floor(map.oceanWidth), Math.floor(map.oceanDepth));
-    const oceanMat = new THREE.MeshStandardMaterial({
-      color: 0x0d47a1, roughness: 0.15, metalness: 0.1,
-      transparent: true, opacity: 0.88
-    });
-    oceanMaterials.push(oceanMat);
-    const ocean = new THREE.Mesh(oceanGeo, oceanMat);
-    ocean.rotation.x = -Math.PI / 2;
-    ocean.position.set(0, 0.08, nearOceanZ);
-    ocean.receiveShadow = true;
-    ocean.name = 'nearOcean';
-    oceanGroup.add(ocean);
-    oceanPlanes.push(ocean);
 
-    // Beach
-    const beachGeo = new THREE.PlaneGeometry(map.beachWidth, map.beachDepth);
-    const beachMat = new THREE.MeshStandardMaterial({ color: 0xe8d5a8, roughness: 0.9 });
-    const beach = new THREE.Mesh(beachGeo, beachMat);
-    beach.rotation.x = -Math.PI / 2;
-    beach.position.set(0, Y_BEACH, map.beachZ);
-    beach.receiveShadow = true;
-    mapGroup.add(beach);
+    if (map.isDam) {
+      // ── Barrage: reservoir lake + concrete apron + dam wall ──
 
-    // Foam line (at the beach/ocean boundary)
-    const foamGeo = new THREE.PlaneGeometry(map.beachWidth, 0.5);
-    const foamMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false });
-    const foamLine = new THREE.Mesh(foamGeo, foamMat);
-    foamLine.rotation.x = -Math.PI / 2;
-    foamLine.position.set(0, Y_FOAM, beachSouthEdge);
-    foamLine.name = 'foamLine';
-    mapGroup.add(foamLine);
+      // Reservoir lake (replaces ocean, higher water level, no animation)
+      const nearLakeZ = beachSouthEdge - map.oceanDepth / 2;
+      const lakeGeo = new THREE.PlaneGeometry(map.oceanWidth, map.oceanDepth, Math.floor(map.oceanWidth), Math.floor(map.oceanDepth));
+      const lakeMat = new THREE.MeshStandardMaterial({
+        color: 0x2f6f7f, roughness: 0.15, metalness: 0.1,
+        transparent: true, opacity: 0.88
+      });
+      const lake = new THREE.Mesh(lakeGeo, lakeMat);
+      lake.rotation.x = -Math.PI / 2;
+      lake.position.set(0, 3.8, nearLakeZ); // niveau du lac juste sous le haut du barrage (4,5)
+      lake.receiveShadow = true;
+      lake.name = 'nearLake';
+      oceanGroup.add(lake);
 
-    // Far ocean (seamless horizon — matches near ocean material, extends far south)
-    const farOceanGeo2 = new THREE.PlaneGeometry(400, 200);
-    const farOceanMat2 = new THREE.MeshStandardMaterial({
-      color: 0x0d47a1, roughness: 0.15, metalness: 0.1,
-      transparent: true, opacity: 0.88
-    });
-    const farOcean2 = new THREE.Mesh(farOceanGeo2, farOceanMat2);
-    farOcean2.rotation.x = -Math.PI / 2;
-    farOcean2.position.set(0, Y_BELOW_ALL, beachSouthEdge - 100);
-    mapGroup.add(farOcean2);
+      // Concrete apron (instead of sand) — same geometry as beach
+      const apronGeo = new THREE.PlaneGeometry(map.beachWidth, map.beachDepth);
+      const apronMat = new THREE.MeshStandardMaterial({ color: 0x9a9a92, roughness: 0.9 });
+      const apron = new THREE.Mesh(apronGeo, apronMat);
+      apron.rotation.x = -Math.PI / 2;
+      apron.position.set(0, Y_BEACH, map.beachZ);
+      apron.receiveShadow = true;
+      mapGroup.add(apron);
+
+      // NO foam line for dam map
+
+      // Far reservoir lake (under everything, reservoir color)
+      const farLakeGeo = new THREE.PlaneGeometry(400, 200);
+      const farLakeMat = new THREE.MeshStandardMaterial({
+        color: 0x2f6f7f, roughness: 0.15, metalness: 0.1,
+        transparent: true, opacity: 0.88
+      });
+      const farLake = new THREE.Mesh(farLakeGeo, farLakeMat);
+      farLake.rotation.x = -Math.PI / 2;
+      farLake.position.set(0, Y_BELOW_ALL, beachSouthEdge - 100);
+      mapGroup.add(farLake);
+
+      // ── Dam wall: concrete segments + buttresses + coping ──
+      const DAM_HEIGHT = 4.5; // nettement plus haut que les vagues : le lac domine la ville
+      const DAM_THICKNESS = 1.4;
+      const DAM_Z = beachSouthEdge; // −18.75
+      const DAM_COLOR = 0xb8b5ac;
+      const DAM_BUTTRESS_COLOR = 0xb8b5ac;
+      const DAM_COPING_COLOR = 0xd4d1c8;
+
+      damGroup = new THREE.Group();
+      damGroup.name = 'damGroup';
+
+      // Main wall segments — 1 unit wide each, with small gaps. Chaque segment porte son propre
+      // couronnement (plus clair) pour qu'une brèche coupe aussi le haut du barrage.
+      const halfWidth = map.beachWidth / 2;
+      const segWidth = 0.98; // slight gap for visual texture
+      const damMat = new THREE.MeshStandardMaterial({ color: DAM_COLOR, roughness: 0.9 });
+      const copingMat = new THREE.MeshStandardMaterial({ color: DAM_COPING_COLOR, roughness: 0.85 });
+      const segGeo = new THREE.BoxGeometry(segWidth, DAM_HEIGHT, DAM_THICKNESS);
+      const copGeo = new THREE.BoxGeometry(1.0, 0.12, DAM_THICKNESS + 0.15);
+      for (let cx = -halfWidth + 0.5; cx <= halfWidth - 0.5; cx += 1.0) {
+        const seg = new THREE.Group();
+        const wall = new THREE.Mesh(segGeo, damMat);
+        wall.position.y = DAM_HEIGHT / 2;
+        wall.castShadow = true;
+        wall.receiveShadow = true;
+        const cop = new THREE.Mesh(copGeo, copingMat);
+        cop.position.y = DAM_HEIGHT + 0.06;
+        seg.add(wall, cop);
+        seg.position.set(cx, 0, DAM_Z);
+        seg.userData.x = cx; // segment center X — used in step 2 for breach
+        seg.userData.isDamSegment = true;
+        damGroup.add(seg);
+      }
+
+      // Buttresses on the city side (north), every ~4 units
+      const butMat = new THREE.MeshStandardMaterial({ color: DAM_BUTTRESS_COLOR, roughness: 0.9 });
+      const butGeo = new THREE.BoxGeometry(0.6, DAM_HEIGHT * 0.85, 1.0);
+      for (let bx = -halfWidth + 2; bx <= halfWidth - 2; bx += 4.0) {
+        const but = new THREE.Mesh(butGeo, butMat);
+        // côté ville = +Z (le lac est au sud, côté −Z)
+        but.position.set(bx, DAM_HEIGHT * 0.85 / 2, DAM_Z + DAM_THICKNESS / 2 + 0.5);
+        but.userData.x = bx; // contrefort : retiré aussi s'il est dans la brèche
+        but.castShadow = true;
+        damGroup.add(but);
+      }
+
+      mapGroup.add(damGroup);
+
+    } else {
+      // ── Littoral (rectangular terrain, no dam) ──────────
+      // Animated near ocean (position derived from beach params)
+      const nearOceanZ = beachSouthEdge - map.oceanDepth / 2;
+      const oceanGeo = new THREE.PlaneGeometry(map.oceanWidth, map.oceanDepth, Math.floor(map.oceanWidth), Math.floor(map.oceanDepth));
+      const oceanMat = new THREE.MeshStandardMaterial({
+        color: 0x0d47a1, roughness: 0.15, metalness: 0.1,
+        transparent: true, opacity: 0.88
+      });
+      oceanMaterials.push(oceanMat);
+      const ocean = new THREE.Mesh(oceanGeo, oceanMat);
+      ocean.rotation.x = -Math.PI / 2;
+      ocean.position.set(0, 0.08, nearOceanZ);
+      ocean.receiveShadow = true;
+      ocean.name = 'nearOcean';
+      oceanGroup.add(ocean);
+      oceanPlanes.push(ocean);
+
+      // Beach
+      const beachGeo = new THREE.PlaneGeometry(map.beachWidth, map.beachDepth);
+      const beachMat = new THREE.MeshStandardMaterial({ color: 0xe8d5a8, roughness: 0.9 });
+      const beach = new THREE.Mesh(beachGeo, beachMat);
+      beach.rotation.x = -Math.PI / 2;
+      beach.position.set(0, Y_BEACH, map.beachZ);
+      beach.receiveShadow = true;
+      mapGroup.add(beach);
+
+      // Foam line (at the beach/ocean boundary)
+      const foamGeo = new THREE.PlaneGeometry(map.beachWidth, 0.5);
+      const foamMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false });
+      const foamLine = new THREE.Mesh(foamGeo, foamMat);
+      foamLine.rotation.x = -Math.PI / 2;
+      foamLine.position.set(0, Y_FOAM, beachSouthEdge);
+      foamLine.name = 'foamLine';
+      mapGroup.add(foamLine);
+
+      // Far ocean (seamless horizon — matches near ocean material, extends far south)
+      const farOceanGeo2 = new THREE.PlaneGeometry(400, 200);
+      const farOceanMat2 = new THREE.MeshStandardMaterial({
+        color: 0x0d47a1, roughness: 0.15, metalness: 0.1,
+        transparent: true, opacity: 0.88
+      });
+      const farOcean2 = new THREE.Mesh(farOceanGeo2, farOceanMat2);
+      farOcean2.rotation.x = -Math.PI / 2;
+      farOcean2.position.set(0, Y_BELOW_ALL, beachSouthEdge - 100);
+      mapGroup.add(farOcean2);
+    }
   }
 
   // ── Grid helper ─────────────────────────────────────────
@@ -3724,120 +3868,125 @@ function generateMap(map) {
     }
   }
 
-  // Beach items (only for maps with a beach zone)
-  createBeachItems(map);
+  // Beach items (only for maps with a beach zone — no beach props on dam maps)
+  if (!map.isDam) createBeachItems(map);
 
   // Waterfront promenade (littoral only — fills the defense zone between beach and city)
-  if (!map.islandRadius) createWaterfrontDecor(map);
+  if (!map.islandRadius && !map.isDam) createWaterfrontDecor(map);
 
   // Parking lot (littoral only — between promenade and city)
-  if (!map.islandRadius) createParkingLot(map);
+  if (!map.islandRadius && !map.isDam) createParkingLot(map);
 
   // Beach vendors — placed on sand, peripheral for island, along littoral beach
-  beachVendors = [];
-  const vendorCount = 2 + Math.floor(Math.random() * 2); // 2–3
-  for (let vi = 0; vi < vendorCount; vi++) {
-    let vx, vz;
-    if (map.islandRadius) {
-      // Place on island beach using irregular coastline
-      const a = (vi / vendorCount) * Math.PI * 2 + Math.random() * 0.6;
-      const cr = map.coastFn ? map.coastFn(a) : map.islandRadius;
-      const bw = map.beachW ? map.beachW(a) : (map.beachOuterR - map.beachInnerR);
-      const r = cr + bw * 0.5;
-      vx = Math.cos(a) * r;
-      vz = Math.sin(a) * r;
-    } else {
-      // Place vendors along the shoreline (near water edge), NOT among the parasols
-      // Spread evenly across X so they're visible from a distance
-      vx = map.terrainHalf * (-0.6 + vi * 1.2 / Math.max(1, vendorCount - 1));
-      // Slight random jitter, but keep away from edges
-      vx += (Math.random() - 0.5) * 3;
-      vx = Math.max(-map.terrainHalf + 1.5, Math.min(map.terrainHalf - 1.5, vx));
-      // Near the water edge (southernmost third of the beach)
-      const waterEdge = map.beachZ - map.beachDepth / 2;
-      vz = waterEdge + 0.3 + Math.random() * 1.2;
+  if (!map.isDam) {
+    beachVendors = [];
+    const vendorCount = 2 + Math.floor(Math.random() * 2); // 2–3
+    for (let vi = 0; vi < vendorCount; vi++) {
+      let vx, vz;
+      if (map.islandRadius) {
+        // Place on island beach using irregular coastline
+        const a = (vi / vendorCount) * Math.PI * 2 + Math.random() * 0.6;
+        const cr = map.coastFn ? map.coastFn(a) : map.islandRadius;
+        const bw = map.beachW ? map.beachW(a) : (map.beachOuterR - map.beachInnerR);
+        const r = cr + bw * 0.5;
+        vx = Math.cos(a) * r;
+        vz = Math.sin(a) * r;
+      } else {
+        // Place vendors along the shoreline (near water edge), NOT among the parasols
+        // Spread evenly across X so they're visible from a distance
+        vx = map.terrainHalf * (-0.6 + vi * 1.2 / Math.max(1, vendorCount - 1));
+        // Slight random jitter, but keep away from edges
+        vx += (Math.random() - 0.5) * 3;
+        vx = Math.max(-map.terrainHalf + 1.5, Math.min(map.terrainHalf - 1.5, vx));
+        // Near the water edge (southernmost third of the beach)
+        const waterEdge = map.beachZ - map.beachDepth / 2;
+        vz = waterEdge + 0.3 + Math.random() * 1.2;
+      }
+      beachVendors.push(createBeachVendor(vx, vz));
     }
-    beachVendors.push(createBeachVendor(vx, vz));
   }
 
   // ── Beach/sea population ────────────────────────────────
-  beachPeople = [];
-  const swimColors = [0xff4444, 0x44ff44, 0xffaa00, 0xff66cc, 0x44ddff, 0xffdd44];
-  const walkColors = [0xff5533, 0x33aaff, 0x88dd44, 0xff8833, 0xcc44ff, 0xdd4444, 0xdddd44, 0x44ccaa];
+  // No beach people on dam maps (no swimmers, walkers, or ball players)
+  if (!map.isDam) {
+    beachPeople = [];
+    const swimColors = [0xff4444, 0x44ff44, 0xffaa00, 0xff66cc, 0x44ddff, 0xffdd44];
+    const walkColors = [0xff5533, 0x33aaff, 0x88dd44, 0xff8833, 0xcc44ff, 0xdd4444, 0xdddd44, 0x44ccaa];
 
-  if (map.islandRadius) {
-    // Island: swimmers just beyond the beach outer edge
-    for (let s = 0; s < 8; s++) {
-      const angle = (s / 8) * Math.PI * 2 + Math.random() * 0.3;
-      const cr = map.coastFn ? map.coastFn(angle) : map.islandRadius;
-      const bw = map.beachW ? map.beachW(angle) : (map.beachOuterR - map.beachInnerR);
-      const br = cr + bw; // beach outer edge
-      const r = br + 0.6 + Math.random() * 1.2;
-      const sx = Math.cos(angle) * r;
-      const sz = Math.sin(angle) * r;
-      beachPeople.push(createSwimmer(sx, sz, swimColors[s % swimColors.length]));
+    if (map.islandRadius) {
+      // Island: swimmers just beyond the beach outer edge
+      for (let s = 0; s < 8; s++) {
+        const angle = (s / 8) * Math.PI * 2 + Math.random() * 0.3;
+        const cr = map.coastFn ? map.coastFn(angle) : map.islandRadius;
+        const bw = map.beachW ? map.beachW(angle) : (map.beachOuterR - map.beachInnerR);
+        const br = cr + bw; // beach outer edge
+        const r = br + 0.6 + Math.random() * 1.2;
+        const sx = Math.cos(angle) * r;
+        const sz = Math.sin(angle) * r;
+        beachPeople.push(createSwimmer(sx, sz, swimColors[s % swimColors.length]));
+      }
+      // Walkers on the beach sand (irregular)
+      for (let w = 0; w < 6; w++) {
+        const angle = (w / 6) * Math.PI * 2 + Math.random() * 0.5;
+        const cr = map.coastFn ? map.coastFn(angle) : map.islandRadius;
+        const bw = map.beachW ? map.beachW(angle) : (map.beachOuterR - map.beachInnerR);
+        const r = cr + bw * (0.3 + Math.random() * 0.4);
+        const wx = Math.cos(angle) * r;
+        const wz = Math.sin(angle) * r;
+        beachPeople.push(createBeachWalker(wx, wz, walkColors[w % walkColors.length]));
+      }
+      // Ball player on island beach
+      const islandBall = cityGroup.children.find(c => c.userData && c.userData.beachBallPropHolder);
+      if (!islandBall) {
+        const bGeo = new THREE.SphereGeometry(0.03, 8, 8);
+        const bMat = new THREE.MeshStandardMaterial({ color: 0xff6644, roughness: 0.3 });
+        const iball = new THREE.Mesh(bGeo, bMat);
+        const ba = Math.random() * Math.PI * 2;
+        const cr2 = map.coastFn ? map.coastFn(ba) : map.islandRadius;
+        const bw2 = map.beachW ? map.beachW(ba) : (map.beachOuterR - map.beachInnerR);
+        const br = cr2 + bw2 * 0.5;
+        iball.position.set(Math.cos(ba) * br, 0.06, Math.sin(ba) * br);
+        iball.castShadow = true;
+        iball.scale.setScalar(LEGIBILITY_FACTOR);
+        cityGroup.add(iball);
+        beachPeople.push(createBallPlayer(iball, iball.position.x + 0.5, iball.position.z));
+        ballGroup = iball;
+      }
+    } else {
+      // Littoral: swimmers in ocean near shore, walkers on beach sand
+      const beachSouthEdge = map.beachZ - map.beachDepth / 2;
+      // Swimmers in the water (just south of beach edge)
+      for (let s = 0; s < 9; s++) {
+        const sx = -14 + Math.random() * 28;
+        const sz = beachSouthEdge - 0.8 - Math.random() * 2.5;
+        beachPeople.push(createSwimmer(sx, sz, swimColors[s % swimColors.length]));
+      }
+      // Walkers on the beach sand
+      for (let w = 0; w < 7; w++) {
+        const wx = -14 + Math.random() * 28;
+        const margin = 0.4;
+        const zMin = map.beachZ - map.beachDepth / 2 + margin;
+        const zMax = map.beachZ + map.beachDepth / 2 - margin;
+        const wz = zMin + Math.random() * (zMax - zMin);
+        beachPeople.push(createBeachWalker(wx, wz, walkColors[w % walkColors.length]));
+      }
+      // Ball player: create a dedicated ball
+      const bx = -8 + Math.random() * 16;
+      const bz = map.beachZ + (Math.random() - 0.5) * (map.beachDepth - 1);
+      const bGeo2 = new THREE.SphereGeometry(0.03, 8, 8);
+      const bMat2 = new THREE.MeshStandardMaterial({ color: 0xff6644, roughness: 0.3 });
+      const playerBall = new THREE.Mesh(bGeo2, bMat2);
+      playerBall.position.set(bx, 0.06, bz);
+      playerBall.castShadow = true;
+      playerBall.scale.setScalar(LEGIBILITY_FACTOR);
+      cityGroup.add(playerBall);
+      beachPeople.push(createBallPlayer(playerBall, bx + 0.5, bz));
+      ballGroup = playerBall;
     }
-    // Walkers on the beach sand (irregular)
-    for (let w = 0; w < 6; w++) {
-      const angle = (w / 6) * Math.PI * 2 + Math.random() * 0.5;
-      const cr = map.coastFn ? map.coastFn(angle) : map.islandRadius;
-      const bw = map.beachW ? map.beachW(angle) : (map.beachOuterR - map.beachInnerR);
-      const r = cr + bw * (0.3 + Math.random() * 0.4);
-      const wx = Math.cos(angle) * r;
-      const wz = Math.sin(angle) * r;
-      beachPeople.push(createBeachWalker(wx, wz, walkColors[w % walkColors.length]));
-    }
-    // Ball player on island beach
-    const islandBall = cityGroup.children.find(c => c.userData && c.userData.beachBallPropHolder);
-    if (!islandBall) {
-      const bGeo = new THREE.SphereGeometry(0.03, 8, 8);
-      const bMat = new THREE.MeshStandardMaterial({ color: 0xff6644, roughness: 0.3 });
-      const iball = new THREE.Mesh(bGeo, bMat);
-      const ba = Math.random() * Math.PI * 2;
-      const cr2 = map.coastFn ? map.coastFn(ba) : map.islandRadius;
-      const bw2 = map.beachW ? map.beachW(ba) : (map.beachOuterR - map.beachInnerR);
-      const br = cr2 + bw2 * 0.5;
-      iball.position.set(Math.cos(ba) * br, 0.06, Math.sin(ba) * br);
-      iball.castShadow = true;
-      iball.scale.setScalar(LEGIBILITY_FACTOR);
-      cityGroup.add(iball);
-      beachPeople.push(createBallPlayer(iball, iball.position.x + 0.5, iball.position.z));
-      ballGroup = iball;
-    }
-  } else {
-    // Littoral: swimmers in ocean near shore, walkers on beach sand
-    const beachSouthEdge = map.beachZ - map.beachDepth / 2;
-    // Swimmers in the water (just south of beach edge)
-    for (let s = 0; s < 9; s++) {
-      const sx = -14 + Math.random() * 28;
-      const sz = beachSouthEdge - 0.8 - Math.random() * 2.5;
-      beachPeople.push(createSwimmer(sx, sz, swimColors[s % swimColors.length]));
-    }
-    // Walkers on the beach sand
-    for (let w = 0; w < 7; w++) {
-      const wx = -14 + Math.random() * 28;
-      const margin = 0.4;
-      const zMin = map.beachZ - map.beachDepth / 2 + margin;
-      const zMax = map.beachZ + map.beachDepth / 2 - margin;
-      const wz = zMin + Math.random() * (zMax - zMin);
-      beachPeople.push(createBeachWalker(wx, wz, walkColors[w % walkColors.length]));
-    }
-    // Ball player: create a dedicated ball
-    const bx = -8 + Math.random() * 16;
-    const bz = map.beachZ + (Math.random() - 0.5) * (map.beachDepth - 1);
-    const bGeo2 = new THREE.SphereGeometry(0.03, 8, 8);
-    const bMat2 = new THREE.MeshStandardMaterial({ color: 0xff6644, roughness: 0.3 });
-    const playerBall = new THREE.Mesh(bGeo2, bMat2);
-    playerBall.position.set(bx, 0.06, bz);
-    playerBall.castShadow = true;
-    playerBall.scale.setScalar(LEGIBILITY_FACTOR);
-    cityGroup.add(playerBall);
-    beachPeople.push(createBallPlayer(playerBall, bx + 0.5, bz));
-    ballGroup = playerBall;
   }
 
   // ── Sunbathers on the beach ──────────────────────────────
-  if (!map.islandRadius) {
+  if (!map.islandRadius && !map.isDam) {
     const beachZ = map.beachZ;
     const spreadZ = map.beachDepth - 1;
     for (let i = 0; i < 20; i++) {
@@ -4684,7 +4833,9 @@ function updateHUD() {
   const pct = totalBuildingsInitial > 0 ? (alive / totalBuildingsInitial) * 100 : 0;
   $buildingsHb.style.width = pct + '%';
   // _defeatThreshold est un NOMBRE de bâtiments (défaite à 15 %) : rouge à moins de 2× ce seuil, orange sous 50 %
-  $buildingsHb.className = 'hb-bar' + (alive <= currentMap._defeatThreshold * 2 ? ' low' : pct < 50 ? ' mid' : '');
+  // Couleur relative au seuil de défaite de la carte (15 % en général, 60 % sur le Barrage)
+  const defeatPct = totalBuildingsInitial > 0 ? currentMap._defeatThreshold / totalBuildingsInitial * 100 : 15;
+  $buildingsHb.className = 'hb-bar' + (pct <= defeatPct + 10 ? ' low' : pct < (defeatPct + 100) / 2 ? ' mid' : '');
   $resources.textContent = Math.floor(resources);
   $wallsCount.textContent = walls.length;
   $trenchesCount.textContent = trenches.length;
@@ -6369,10 +6520,11 @@ function buildHomeScreen() {
     card.className = 'map-card' + (id === lastMap ? ' last-played' : '');
 
     // Map image by id
-    const imgId = id === 'littoral' ? 'map-littoral' : id === 'ile' ? 'map-ile' : null;
+    const imgId = id === 'littoral' ? 'map-littoral' : id === 'ile' ? 'map-ile' : id === 'barrage' ? 'map-barrage' : null;
     const imgUrl = imgId ? `assets/${imgId}.jpg` : '';
     const altText = id === 'littoral' ? 'Carte Littoral — ville côtière avec plage' :
-                    id === 'ile' ? 'Carte Île — île entourée d\'eau' : `Carte ${map.name}`;
+                    id === 'ile' ? 'Carte Île — île entourée d\'eau' :
+                    id === 'barrage' ? 'Carte Barrage — barrage et lac de retenue' : `Carte ${map.name}`;
 
     // Difficulty badge class
     const diffText = map.difficulty.toLowerCase();
@@ -6414,7 +6566,7 @@ function buildHomeScreen() {
     // Build card HTML
     card.innerHTML = `
       ${imgUrl ? `<div class="map-card-img-wrap">
-        <img class="map-card-img" src="${imgUrl}" alt="${altText}" loading="lazy">
+        <img class="map-card-img" src="${imgUrl}" alt="${altText}" loading="lazy" onerror="this.parentElement.style.display='none'">
       </div>` : ''}
       ${lastPlayedBadge}
       <div class="map-card-body">
