@@ -1,5 +1,5 @@
 {
-  "version": "2026.10.002",
+  "version": "2026.10.003",
   "date": "2026-10-26",
-  "notes": "10 levels per map: small village first, bigger cities and stronger waves later; level picker on the home screen"
+  "notes": "Approximate landing zone of the next wave (arrow + band on the sea), sector shown in the banner"
 }

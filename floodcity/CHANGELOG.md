@@ -2,6 +2,17 @@
 
 All notable changes to Flood City are documented in this file.
 
+## [2026.10.003] — 2026-10-26
+
+### Added
+- Next-wave landing zone marker: the next wave (direction, width, position) is planned when the countdown starts; a band 1.6× wider than the wave, offset by up to ±30 % of its width, and a bobbing arrow on the sea show roughly where it will hit — amber during the countdown, red during the 10-second alert, hidden once the wave is launched
+- Banner: sector (west / centre / east, consistent with the compass) in the countdown and the alert; « front NORD / SUD » kept only on the island
+- Help panel (H): explanation of the marker
+
+### Changed
+- `spawnWave` uses the planned direction, width and position instead of drawing them at launch
+- Docs: with levels, the same seed gives the same map **for the same level**
+
 ## [2026.10.002] — 2026-10-26
 
 ### Added

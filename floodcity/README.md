@@ -64,7 +64,8 @@ Defenses can be built on the whole strip between the city and the sea, beach and
 - Arrive every 20–22 seconds at random horizontal positions; difficulty rises through wave width, height, speed and HP rather than shorter intervals
 - Split into 1-meter segments — each segment can be stopped independently
 - Difficulty (width, height, speed, HP) keeps rising without a cap
-- Alert and compass indication of the incoming front before impact; residents, cars and beachgoers flee the threatened area
+- As soon as the countdown starts, an arrow and a coloured band on the sea show **roughly** where the next wave will hit (amber, then red during the 10-second alert); the band is deliberately wider than the wave and off-centre. The banner names the sector (west / centre / east) and, on the island, the front
+- Residents, cars and beachgoers flee the threatened area during the alert
 
 ### Economy
 - **150 resources** at the start
@@ -152,9 +153,13 @@ Add `?seed=` followed by a number to the URL to replay **exactly** the same map:
 https://games.cloudfr.net/floodcity/?seed=42
 ```
 
-The seed controls the layout of the city, buildings, street furniture and beach. Same seed = same map, every time. Without the parameter, a random map is generated as before. Handy for comparing strategies, sharing a configuration or reproducing a bug.
+The seed controls the layout of the city, buildings, street furniture and beach. Same seed and same level = same map, every time. Without the parameter, a random map is generated as before. Handy for comparing strategies, sharing a configuration or reproducing a bug.
 
 ## 📋 Release notes
+
+### 2026.10.003
+- See roughly where the next wave will hit: an arrow and a coloured band on the sea, from the start of the countdown (amber, then red 10 s before impact)
+- The banner names the sector (west / centre / east) instead of « front SUD » on the coast map; the island still shows the front
 
 ### 2026.10.002
 - 10 levels per map: level 1 is a small village with gentle waves, then the city grows, towers appear and waves get stronger; level 10 is endless

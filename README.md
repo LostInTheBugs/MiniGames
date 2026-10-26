@@ -5,7 +5,7 @@ A collection of self-contained web mini-games — pure HTML5/Canvas browser game
 | Game | Folder | Version | Notes |
 | ---- | ------ | ------- | ----- |
 | 🐱 **CatAdventure** | [`catadventure/`](catadventure/) | 2026.09.001-c2 | 2D platformer — a cat explores a city, collects fish and avoids obstacles. Pure HTML5 Canvas, no dependencies. |
-| 🌊 **Flood City** | [`floodcity/`](floodcity/) | 2026.10.002 | 3D flood-defense game — build walls, dig trenches and protect your city from the waves. Three.js (loaded via import map). |
+| 🌊 **Flood City** | [`floodcity/`](floodcity/) | 2026.10.003 | 3D flood-defense game — build walls, dig trenches and protect your city from the waves. Three.js (loaded via import map). |
 | 🐸 **Frogger** | [`frogger/`](frogger/) | 2026.09.001-c2 | Remake of the classic arcade crossing game — five road lanes, five river lanes and six homes. Pure HTML5 Canvas, no dependencies. |
 
 ## Versions and releases
@@ -13,7 +13,7 @@ A collection of self-contained web mini-games — pure HTML5/Canvas browser game
 Each game is versioned independently with the `YEAR.MONTH.NNN` scheme and released from this repository with a per-game tag:
 
 - `catadventure-2026.09.001-c2`
-- `floodcity-2026.10.002`
+- `floodcity-2026.10.003`
 - `frogger-2026.09.001-c2`
 
 Release notes are extracted from the game's own `CHANGELOG.md`. The root `VERSION` file tracks repository-level changes only — see [CHANGELOG.md](CHANGELOG.md).
