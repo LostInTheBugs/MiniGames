@@ -1,5 +1,5 @@
 {
-  "version": "2026.10.001",
+  "version": "2026.10.002",
   "date": "2026-10-26",
-  "notes": "Design overhaul: home screen, in-game HUD with clickable build toolbar, game-over summary, richer 3D rendering"
+  "notes": "10 levels per map: small village first, bigger cities and stronger waves later; level picker on the home screen"
 }

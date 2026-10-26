@@ -156,6 +156,10 @@ The seed controls the layout of the city, buildings, street furniture and beach.
 
 ## 📋 Release notes
 
+### 2026.10.002
+- 10 levels per map: level 1 is a small village with gentle waves, then the city grows, towers appear and waves get stronger; level 10 is endless
+- Hold the level's waves to unlock the next one (progress saved in the browser); level picker on the home screen
+
 ### 2026.10.001
 - Redesigned home screen: map previews, difficulty badges, best score in evidence, animated wave background
 - In-game interface: clickable build toolbar with costs, wave countdown banner with the threatened front, discreet messages instead of the large central alert, lighter stats panel with a buildings gauge
