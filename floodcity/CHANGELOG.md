@@ -2,6 +2,25 @@
 
 All notable changes to Flood City are documented in this file.
 
+## [2026.10.001] — 2026-10-26
+
+### Added
+- Home screen redesign: map preview images (`assets/`), coloured difficulty badges, best score highlighted, "Last game" badge, full-width "Play" button, animated SVG wave background (respects `prefers-reduced-motion`), scrollable on small screens
+- Clickable build toolbar (sandbag / reinforced / concrete / trench) with costs from the game constants, active state and greyed-out tools when resources are insufficient; keys 1/2/3/T still work (shared `selectTool`)
+- Wave countdown banner with a progress bar that empties over the real countdown; turns red with the threatened front during the alert
+- Buildings gauge in the stats panel (green / orange / red)
+- End-of-game card: title, map name, score, record badge (never at 0 point) or best score, waves held, buildings saved (with %), walls and trenches built over the whole game; Replay / Change map buttons with R / M shortcuts
+
+### Changed
+- The front alert no longer covers the centre of the screen; other messages are shown as a small pill under the banner
+- Stats panel lightened (title and mode line removed, tool shown by the toolbar)
+- 3D rendering: gradient sky texture for day and night (sRGB), fog matched to the horizon, deeper and glossier water, whiter and more opaque wave foam, warmer and lower sun with adjusted shadow bias
+- Visual harness: central message, banner and toolbar hidden during pixel-assertion captures; Île top-down check sampled on open grass instead of the city centre
+
+### Fixed
+- Seeded maps (`?seed=N`) are unchanged by the new sky: objects created outside map generation no longer consume the seeded random generator
+- README: wave interval is 20–22 s (not 14–22 s)
+
 ## [2026.09.001-c2] — 2026-10-25
 
 ### Added

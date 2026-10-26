@@ -1,5 +1,5 @@
 {
-  "version": "2026.09.001-c2",
-  "date": "2026-10-25",
-  "notes": "In-game help panel (H/?), camera and zoom in controls bar"
+  "version": "2026.10.001",
+  "date": "2026-10-26",
+  "notes": "Design overhaul: home screen, in-game HUD with clickable build toolbar, game-over summary, richer 3D rendering"
 }

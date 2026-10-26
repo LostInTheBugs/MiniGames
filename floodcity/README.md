@@ -25,6 +25,8 @@ Best scores are kept per map and shown on the home screen.
 | ⌨️ **M** | Back to the map menu |
 | ⌨️ **H / ?** | Show / hide the in-game help |
 
+Walls and trenches can also be chosen by clicking the **build toolbar** at the bottom of the screen, which shows each cost and greys out what you cannot afford. A banner at the top counts down to the next wave and turns red with the threatened front during the alert.
+
 A **green ghost** appears at the targeted location — red if the placement is invalid (building, road, existing wall, insufficient resources). On Littoral the camera starts on the sea side, with the beach and the front to defend in the foreground.
 
 ## ⚙️ Mechanics
@@ -40,7 +42,7 @@ A **green ghost** appears at the targeted location — red if the placement is i
 Defenses can be built on the whole strip between the city and the sea, beach and waterfront included. Trenches deal 10 damage/second to waves but wear out on contact. Walls block adjacent wave segments — a continuous levee stops everything, an isolated wall opens a breach.
 
 ### Waves
-- Arrive every 14–22 seconds at random horizontal positions; the interval shortens slowly as waves go by
+- Arrive every 20–22 seconds at random horizontal positions; difficulty rises through wave width, height, speed and HP rather than shorter intervals
 - Split into 1-meter segments — each segment can be stopped independently
 - Difficulty (width, height, speed, HP) keeps rising without a cap
 - Alert and compass indication of the incoming front before impact; residents, cars and beachgoers flee the threatened area
@@ -134,6 +136,13 @@ https://games.cloudfr.net/floodcity/?seed=42
 The seed controls the layout of the city, buildings, street furniture and beach. Same seed = same map, every time. Without the parameter, a random map is generated as before. Handy for comparing strategies, sharing a configuration or reproducing a bug.
 
 ## 📋 Release notes
+
+### 2026.10.001
+- Redesigned home screen: map previews, difficulty badges, best score in evidence, animated wave background
+- In-game interface: clickable build toolbar with costs, wave countdown banner with the threatened front, discreet messages instead of the large central alert, lighter stats panel with a buildings gauge
+- New end-of-game card: score and record, waves held, buildings saved, walls and trenches built
+- Richer 3D rendering: gradient sky (day and night), deeper water with sun reflections, whiter wave foam, warmer light
+- `?seed=N` still reproduces exactly the same maps as before
 
 ### 2026.09.001-c2
 - In-game help panel accessible with **H** or **?** key (closed with **Échap**, button ✕, or overlay click)
