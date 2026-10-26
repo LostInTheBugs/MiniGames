@@ -2110,6 +2110,9 @@ let waveFoamMaterials = []; // wave crest foam for night emissive
 let beachVendors = []; // { group, cartGroup, x, z, ... }
 let alertPanicTime = 0;   // performance.now() when alert was triggered
 let lastWaveClearTime = 0; // time when all waves left the map
+// ─── Next wave planning (landing zone marker) ──────────────
+let nextWavePlan = null; // { dir, width, x, bandX, bandW } — tirée par planNextWave()
+let waveMarker = null;   // THREE.Group for the 3D marker arrow + band
 let shelteredEntities = []; // { building, entityRef, entityType, exitDelay, exitStagger }
 let parkedCars = [];        // { group, x, z } — static parked cars that can be swept
 
@@ -3246,6 +3249,7 @@ function generateMap(map) {
   controls.update();
 
   // ── Purge entire map group ──────────────────────────────
+  disposeWaveMarker();
   disposeGroup(mapGroup);
   scene.remove(mapGroup);
 
@@ -4091,24 +4095,121 @@ function createWaveFoamGeometry(segWidth, waveH, depth) {
 }
 
 // ─── Wave system ────────────────────────────────────────────
+// ─── Next wave planning (landing zone marker) ──────────────
+// La prochaine vague est tirée dès le début du compte à rebours (direction, largeur, position X),
+// avec les mêmes formules que spawnWave. Un marqueur volontairement approximatif (bande + flèche)
+// montre la zone d'arrivée : bande 1,6× plus large que la vague, centre décalé au hasard de ±30 %.
+function planNextWave() {
+  if (!currentMap) return;
+  const map = currentMap;
+  const nextNum = waveNumber + 1;
+  const difficulty = (nextNum <= 5
+    ? nextNum / 5
+    : 1 + Math.log2(nextNum / 5) * 0.8) * levelCfgGlobal.diffMul;
+  const dirs = map.waveDirections;
+  const dir = dirs[Math.floor(Math.random() * dirs.length)];
+  const rawWidth = 6 + Math.random() * (8 + difficulty * 18);
+  const waveWidth = Math.min(rawWidth, map.terrainHalf * 2 - 2);
+  const maxOffset = Math.max(0, map.terrainHalf - waveWidth / 2);
+  const waveX = (Math.random() * 2 - 1) * maxOffset;
+  // Zone affichée : plus large que la vague et décalée, pour rester « grosso modo »
+  const bandW = Math.min(waveWidth * 1.6, map.terrainHalf * 2);
+  const jitter = (Math.random() * 2 - 1) * 0.3 * waveWidth;
+  const halfLimit = map.terrainHalf - bandW / 2;
+  const bandX = Math.max(-halfLimit, Math.min(halfLimit, waveX + jitter));
+  nextWavePlan = { dir, width: waveWidth, x: waveX, bandX, bandW };
+  buildWaveMarker(nextWavePlan);
+}
+
+// Secteur approximatif (OUEST / CENTRE / EST) d'après le centre de la zone affichée, pas la vraie position
+function getWaveSector(plan) {
+  if (!plan || !currentMap) return '?';
+  // Repère du jeu (cf. boussole) : le nord est vers +Z, l'est vers −X, l'ouest vers +X
+  const third = currentMap.terrainHalf / 3;
+  if (plan.bandX > third) return 'OUEST';
+  if (plan.bandX < -third) return 'EST';
+  return 'CENTRE';
+}
+
+// Construit le marqueur une seule fois par vague planifiée (bande sur l'eau + flèche vers la ville)
+function buildWaveMarker(plan) {
+  disposeWaveMarker();
+  if (!plan || !currentMap) return;
+  const map = currentMap;
+  const dirSign = plan.dir === 'north' ? -1 : 1;     // sens de déplacement de la vague sur Z
+  const spawnZ = map.waveSpawnZ[plan.dir];
+  // Rivage côté front : bord de plage (Littoral) ou rayon de plage max (Île)
+  const coastZ = map.beachZ != null
+    ? map.beachZ - (map.beachDepth || 6.5) / 2
+    : -dirSign * (map._maxBeachR || map.islandRadius || map.terrainHalf);
+  const z = coastZ + (spawnZ - coastZ) * 0.25;       // sur l'eau, juste au large de la côte menacée
+
+  waveMarker = new THREE.Group();
+  waveMarker.name = 'waveMarker';
+  const bandMat = new THREE.MeshBasicMaterial({ color: 0xffb74d, transparent: true, opacity: 0.45,
+    depthWrite: false, side: THREE.DoubleSide });
+  const band = new THREE.Mesh(new THREE.PlaneGeometry(plan.bandW, 3.2), bandMat);
+  band.rotation.x = -Math.PI / 2;
+  band.position.set(plan.bandX, 0.2, z);
+  waveMarker.add(band);
+
+  const arrowMat = new THREE.MeshBasicMaterial({ color: 0xffb74d, transparent: true, opacity: 0.85 });
+  const arrow = new THREE.Group();
+  const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 1.6, 8), arrowMat);
+  const head = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.1, 12), arrowMat);
+  head.position.y = 0.8 + 0.55;                       // pointe au bout de la tige
+  arrow.add(stem, head);
+  arrow.rotation.x = dirSign * Math.PI / 2;           // +Y → +Z (vague du sud) ou −Z (vague du nord)
+  arrow.scale.setScalar(1.8);                         // bien visible à la distance de jeu
+  arrow.position.set(plan.bandX, 2.4, z);
+  waveMarker.add(arrow);
+
+  waveMarker.userData = { bandMat, arrowMat, arrow, baseZ: z, dirSign };
+  mapGroup.add(waveMarker);
+}
+
+// Animation légère : couleur ambre → rouge pendant l'alerte, flèche qui avance/recule et monte/descend
+function updateWaveMarker(time) {
+  if (!waveMarker) return;
+  waveMarker.visible = !gameOver;
+  if (gameOver) return;
+  const u = waveMarker.userData;
+  const alertOn = alertTriggered && waveCountdown > 0;
+  const color = alertOn ? 0xff5252 : 0xffb74d;
+  u.bandMat.color.setHex(color);
+  u.arrowMat.color.setHex(color);
+  u.bandMat.opacity = alertOn ? 0.6 : 0.45;
+  u.arrow.position.y = 2.4 + Math.sin(time * 2.5) * 0.5;
+  u.arrow.position.z = u.baseZ + u.dirSign * (Math.sin(time * 2.5) * 0.4);
+}
+
+// Cleanup the marker
+function disposeWaveMarker() {
+  if (!waveMarker) return;
+  disposeGroup(waveMarker);
+  if (waveMarker.parent) waveMarker.parent.remove(waveMarker);
+  waveMarker = null;
+}
+
 function spawnWave() {
   if (gameOver || !currentMap) return;
 
   waveNumber++;
   const map = currentMap;
-  const dir = nextWaveDir; // 'north' or 'south'
+
+  // Use the pre-planned direction, width, and position
+  const plan = nextWavePlan || { dir: nextWaveDir, width: 8, x: 0 };
+  const dir = plan.dir;
   const dirSign = dir === 'north' ? -1 : 1;
+  const waveWidth = plan.width;
 
   // Difficulty: linear ramp waves 1-5, then logarithmic growth (no cap), scaled by level
   const difficulty = (waveNumber <= 5
     ? waveNumber / 5
     : 1 + Math.log2(waveNumber / 5) * 0.8) * levelCfgGlobal.diffMul;
-  const rawWidth = 6 + Math.random() * (8 + difficulty * 18);
-  const waveWidth = Math.min(rawWidth, map.terrainHalf * 2 - 2);
   const waveH = 1.5 + difficulty * 5;
   const speed = 3 + difficulty * 4;
-  const maxOffset = Math.max(0, map.terrainHalf - waveWidth / 2);
-  const waveX = (Math.random() * 2 - 1) * maxOffset;
+  const waveX = plan.x;
 
   const SEG_W = 1.0;
   const n = Math.max(1, Math.ceil(waveWidth / SEG_W));
@@ -4163,6 +4264,10 @@ function spawnWave() {
   const dirLabel = dir === 'north' ? 'NORD' : 'SUD';
   const offsetLabel = waveX < -5 ? "à l'ouest" : waveX > 5 ? "à l'est" : "au centre";
   flashMessage(`🌊 Vague #${waveNumber} — front ${dirLabel} (${offsetLabel}) !`, 1800);
+
+  // Hide marker — real wave takes over
+  disposeWaveMarker();
+  nextWavePlan = null;
 }
 
 // ─── Particle pool ──────────────────────────────────────────
@@ -4881,18 +4986,19 @@ function gameLoop() {
     // Niveau : on ne lance que le nombre de vagues prévu ; une fois la dernière lancée, plus de compte à rebours
     const moreWaves = !isFinite(levelCfgGlobal.waves) || waveNumber < levelCfgGlobal.waves;
     if (moreWaves) waveCountdown -= dt;
-    // Alert at 10s — pick direction then
+    // Alert at 10s — use pre-planned direction
     if (moreWaves && !alertTriggered && waveCountdown <= 10 && waveCountdown > 0) {
       alertTriggered = true;
       alertPanicTime = performance.now() / 1000; // seconds for panic stagger
-      const dirs = currentMap.waveDirections;
-      nextWaveDir = dirs[Math.floor(Math.random() * dirs.length)];
+      nextWaveDir = nextWavePlan ? nextWavePlan.dir : currentMap.waveDirections[0];
       document.body.style.animation = 'alertFlash 0.5s ease-in-out 3';
       setTimeout(() => document.body.style.animation = '', 2000);
     }
     if (moreWaves && waveCountdown <= 0) {
       spawnWave();
       alertTriggered = false;
+      // Planifie la suivante seulement s'il reste des vagues à lancer dans ce niveau
+      if (!isFinite(levelCfgGlobal.waves) || waveNumber < levelCfgGlobal.waves) planNextWave();
       const baseInterval = WAVE_INTERVAL_MIN + Math.random() * (WAVE_INTERVAL_MAX - WAVE_INTERVAL_MIN);
       // Interval floor raised to 20s; difficulty scales via wave width/height/speed/HP, not interval compression.
       // Decay slope softened from 0.5 to 0.15 so the floor is never hit before wave ~140.
@@ -5982,6 +6088,9 @@ function gameLoop() {
       updateNightLighting(nightBlend);
     }
 
+    // Update 3D wave marker (arrow + band)
+    updateWaveMarker(now); // masque aussi le marqueur pendant la fin de partie / victoire
+
     updateHUD();
     const cd = Math.ceil(Math.max(0, waveCountdown));
     $waveTimer.textContent = cd;
@@ -5992,22 +6101,29 @@ function gameLoop() {
       $wbText.textContent = 'Niv. ' + currentLevel + ' · Vague ' + waveNumber + '/' + levelCfgGlobal.waves + ' · 🌊 Dernière vague — tenez bon !';
       $wbProg.style.width = '0%';
     } else if (alertTriggered) {
+      const sector = getWaveSector(nextWavePlan);
       const dirLabel = nextWaveDir === 'north' ? 'NORD' : 'SUD';
       $wbPill.classList.add('alert');
       const waveTotal = levelCfgGlobal.waves === Infinity ? '∞' : levelCfgGlobal.waves;
-      $wbText.textContent = 'Niv. ' + currentLevel + ' · Vague ' + waveNumber + '/' + waveTotal + ' · ⚠️ Vague imminente — front ' + dirLabel + ' · ' + cd + ' s';
+      if (currentMapId === 'ile' && nextWavePlan) {
+        $wbText.textContent = 'Niv. ' + currentLevel + ' · Vague ' + waveNumber + '/' + waveTotal + ' · ⚠️ Vague imminente — front ' + dirLabel + ', secteur ' + sector + ' · ' + cd + ' s';
+      } else {
+        $wbText.textContent = 'Niv. ' + currentLevel + ' · Vague ' + waveNumber + '/' + waveTotal + ' · ⚠️ Vague imminente — secteur ' + sector + ' · ' + cd + ' s';
+      }
       $wbProg.style.width = Math.min(100, Math.max(0, (waveCountdown / waveCountdownMax) * 100)) + '%';
     } else if (cd > 0 && cd <= 5) {
       $wbPill.classList.remove('alert');
+      const sector = getWaveSector(nextWavePlan);
       const waveTotal = levelCfgGlobal.waves === Infinity ? '∞' : levelCfgGlobal.waves;
-      $wbText.textContent = 'Niv. ' + currentLevel + ' · Vague ' + waveNumber + '/' + waveTotal + ' · 🌊 Prochaine vague dans ' + cd + ' s';
+      $wbText.textContent = 'Niv. ' + currentLevel + ' · Vague ' + waveNumber + '/' + waveTotal + ' · 🌊 Prochaine vague dans ' + cd + ' s · secteur ' + sector;
       // Progress: 5s countdown = 0% to 20s = 100%
       const progressPct = Math.min(100, Math.max(0, (waveCountdown / waveCountdownMax) * 100)); // se vide jusqu'à la vague
       $wbProg.style.width = progressPct + '%';
     } else if (cd > 5) {
       $wbPill.classList.remove('alert');
+      const sector = getWaveSector(nextWavePlan);
       const waveTotal = levelCfgGlobal.waves === Infinity ? '∞' : levelCfgGlobal.waves;
-      $wbText.textContent = 'Niv. ' + currentLevel + ' · Vague ' + waveNumber + '/' + waveTotal + ' · 🌊 Prochaine vague dans ' + cd + ' s';
+      $wbText.textContent = 'Niv. ' + currentLevel + ' · Vague ' + waveNumber + '/' + waveTotal + ' · 🌊 Prochaine vague dans ' + cd + ' s · secteur ' + sector;
       const progressPct = Math.min(100, Math.max(0, (waveCountdown / waveCountdownMax) * 100)); // se vide jusqu'à la vague
       $wbProg.style.width = progressPct + '%';
     }
@@ -6085,6 +6201,9 @@ window.restartGame = function() {
   mapGroup.add(cityGroup);
   oceanGroup = new THREE.Group();
   mapGroup.add(oceanGroup);
+  disposeWaveMarker();
+
+  // Clear arrays
   oceanPlanes = [];
   oceanMaterials = [];
   waveFoamMaterials = [];
@@ -6165,6 +6284,9 @@ window.goToMenu = function() {
   mapGroup.add(cityGroup);
   oceanGroup = new THREE.Group();
   mapGroup.add(oceanGroup);
+  disposeWaveMarker();
+
+  // Clear arrays
   oceanPlanes = [];
   oceanMaterials = [];
   waveFoamMaterials = [];
@@ -6225,6 +6347,9 @@ function startGame(mapId, level) {
   resources = levelCfgGlobal.startRes;
 
   generateMap(map);
+
+  // Plan the first wave immediately
+  planNextWave();
 
   // First-launch help hint (once per browser)
   try {
@@ -6423,6 +6548,7 @@ function showEndCard(kind) {
   const $buildToolbar = document.getElementById('build-toolbar');
   if ($message) $message.classList.remove('visible');
   if ($buildToolbar) $buildToolbar.classList.remove('visible');
+  disposeWaveMarker();
 }
 
 function victoryNextLevel() {
@@ -6461,7 +6587,7 @@ function buildHelpContent() {
     '<h3 style="color:#64b5f6;margin:12px 0 8px">📍 Placement</h3>' +
     '<p>Constructible sur toute la bande entre la ville et la mer, plage comprise. Le <strong>fantôme vert</strong> indique un placement valide, <strong>rouge</strong> si invalide (bâtiment, route, mur existant ou ressources insuffisantes).</p>' +
     '<h3 style="color:#64b5f6;margin:12px 0 8px">🌊 Vagues</h3>' +
-    '<p>Une alerte sonore et visuelle précède l\'arrivée. La boussole indique le front. Sur l\'Île, les vagues alternent entre le <strong>nord</strong> et le <strong>sud</strong>.</p>' +
+    '<p>Une alerte sonore et visuelle précède l\'arrivée. La boussole indique le front. Sur l\'Île, les vagues alternent entre le <strong>nord</strong> et le <strong>sud</strong>. <strong>Une zone colorée et une flèche sur la mer indiquent à peu près où la prochaine vague va frapper</strong> (ambre, puis rouge 10 s avant) ; la zone est volontairement approximative.</p>' +
     '<h3 style="color:#64b5f6;margin:12px 0 8px">📷 Caméra</h3>' +
     '<p><kbd>Clic droit</kbd> + glisser pour tourner, <kbd>Molette</kbd> pour zoomer.</p>' +
     '<h3 style="color:#64b5f6;margin:12px 0 8px">⚡ Ressources</h3>' +
