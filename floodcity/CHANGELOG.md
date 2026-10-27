@@ -2,6 +2,14 @@
 
 All notable changes to Flood City are documented in this file.
 
+## [2026.10.010] — 2026-10-27
+
+### Added
+- **Polder** map (⭐⭐⭐): Littoral coast with a sea dike across the whole width (34 one-unit sections at z −12.6, HP 40 + 4 per level), no beach life
+- Each wave segment hits the dike once: the section loses the segment's HP and stops it; when a section reaches 0 it breaches (hidden, debris, « Brèche dans la digue ! ») and the segment goes on with what is left; breached sections let the next waves through. Wave HP ×1.2 on this map
+- Repairs: clicking the dike with a wall tier repairs the section under the cursor (Sac de sable 50 %, Renforcé 75 %, Béton 100 % of its HP, at the tier's cost); green ghost on a damaged section; no trench in the dike, nothing can be built on the sea side
+- Banner « · digue N % · K brèche(s) », level picker « digue », help panel section, home preview `assets/map-polder.jpg`; the Aléatoire tile now draws among 8 maps
+
 ## [2026.10.009] — 2026-10-27
 
 ### Added

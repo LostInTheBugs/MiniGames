@@ -13,6 +13,7 @@
 | **Estuaire** | ⭐⭐⭐ Hard | A river crosses the city — with every wave a **tidal bore** runs up it and overflows onto the banks |
 | **Tempête** | ⭐⭐⭐ Hard | Coast under a storm — the wave zone shows up late, **wind pushes waves sideways**, gusts double some waves |
 | **Archipel** | ⭐⭐⭐ Hard | The Île split in three by two channels — a **tidal bore in each channel** with every wave, two fronts |
+| **Polder** | ⭐⭐⭐ Hard | A city below sea level behind a **dike that wears out** — repair it before it breaches |
 
 ### 🧱 Barrage
 
@@ -45,6 +46,12 @@
 - The Île cut into three islands by two north–south channels, linked by bridges; waves come from the north or the south
 - With every wave, a tidal bore runs up **each** channel and overflows onto both banks, weakening as it crosses the island
 - Nothing can be built in the channels; walls on the banks protect the buildings behind
+
+### 🌷 Polder
+
+- Same coast as Littoral, but the city lies below sea level behind a **dike** across the whole coast
+- Every wave wears the sections it hits; a section that gives way leaves a **breach**, and the next waves pour through it
+- Click on the dike with a wall tier to **repair** the section under the cursor (sandbag 50 %, reinforced 75 %, concrete 100 %); nothing can be built on the sea side
 
 ### 🎲 Aléatoire
 
@@ -197,6 +204,9 @@ https://games.cloudfr.net/floodcity/?seed=42
 The seed controls the layout of the city, buildings, street furniture and beach. Same seed and same level = same map, every time. Without the parameter, a random map is generated as before. Handy for comparing strategies, sharing a configuration or reproducing a bug.
 
 ## 📋 Release notes
+
+### 2026.10.010
+- New **Polder** map: a sea dike that wears out with every wave — repair it before it breaches
 
 ### 2026.10.009
 - New **Aléatoire** tile on the home screen: a random map at its highest unlocked level
