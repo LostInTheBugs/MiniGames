@@ -2180,6 +2180,58 @@ const MAPS = {
     // ── Storm fields ──────────────────────────────────────
     storm: true,
   },
+  archipel: {
+    name: 'Archipel',
+    description: 'L\'Île coupée en trois par deux chenaux. À chaque vague, un mascaret s\'engouffre dans chaque chenal et déborde sur les rives.',
+    difficulty: '⭐⭐⭐ Difficile',
+    difficultyStars: 3,
+    terrainHalf: 45,
+    islandRadius: 33.3,
+    groundColor: 0x6a9e48,
+    coastFn: function(angle) {
+      const a = angle;
+      return 33.3
+        - Math.sin(a) * 4.0
+        + Math.cos(a * 2 - 0.4) * 1.7
+        + Math.sin(a * 3) * 1.3
+        + Math.cos(a * 5 + 1.2) * 0.8
+        + Math.cos(a + 2.5) * 1.0;
+    },
+    beachW: function(angle) {
+      return 2.0 - Math.sin(angle) * 0.7;
+    },
+    scatterBuildings: 5,
+    buildXMin: -40,
+    buildXMax: 40,
+    buildZMin: -40,
+    buildZMax: 40,
+    // Wave config — same as Île: north and south fronts
+    waveDirections: ['north', 'south'],
+    waveSpawnZ: { south: -48, north: 48 },
+    // Camera & view settings (same as Île)
+    cameraPos: { x: 42, y: 36, z: 53 },
+    fogNear: 53,
+    fogFar: 158,
+    camMinDist: 18,
+    camMaxDist: 106,
+    // Roads — same as Île, plus E-W roads at z=-6 and z=9 cross the channels
+    roads: [
+      { x1: 0, z1: -45, x2: 0, z2: 45 },
+      { x1: -45, z1: -6, x2: 45, z2: -6 },
+      { x1: -45, z1: 9, x2: 45, z2: 9 },
+    ],
+    roadSpacing: 4.0,
+    // ── Channel fields ────────────────────────────────────
+    // Two north-south channels split the island into three.
+    // Each channel gets a tidal bore on every wave.
+    rivers: [
+      { x: -12, halfWidth: 2.2 },
+      { x: 12, halfWidth: 2.2 },
+    ],
+    // Bore HP loss per unit when inside the island radius
+    // (default 0.035 for Estuaire, lower for Archipel so bores last longer)
+    boreLoss: 0.02,
+  },
 };
 
 // Helper to check if a point is within an island's buildable zone.
@@ -2196,12 +2248,17 @@ function isOnIsland(px, pz, map) {
 }
 
 // ─── River helpers ────────────────────────────────────────
-// Returns true if point is inside the river (with optional margin).
-// margin is added to halfWidth for placement checks.
+// Returns all river objects for a map (array for multi-river maps like Archipel).
+function mapRivers(map) {
+  return map.rivers || (map.river ? [map.river] : []);
+}
+// Returns true if point is inside any river (with optional margin).
 function inRiver(px, pz, map, margin = 0) {
-  if (!map.river) return false;
-  const hw = map.river.halfWidth + margin;
-  return Math.abs(px - map.river.x) < hw;
+  for (const rv of mapRivers(map)) {
+    const hw = rv.halfWidth + margin;
+    if (Math.abs(px - rv.x) < hw) return true;
+  }
+  return false;
 }
 
 // ─── Map content group (ALL map objects go here) ────────────
@@ -3021,8 +3078,8 @@ function createBeachItems(map) {
     const bx = -14 + Math.random() * 28;
     const bz = beachZ + (Math.random() - 0.5) * spreadZ;
 
-    // River exclusion (estuaire only)
-    if (map.river && inRiver(bx, bz, map, 0.6)) continue;
+    // River exclusion — no beach items in any river
+    if (mapRivers(map).length && inRiver(bx, bz, map, 0.6)) continue;
 
     // ── Parasol: total height ~0.34, canopy diameter ~0.40 ──
     const paraGroup = new THREE.Group();
@@ -3882,39 +3939,71 @@ function generateMap(map) {
         // Track destroyed buildings for this map
       }
 
-      // ── River (estuaire map only) ───────────────────────
-      if (map.river) {
-        const rv = map.river;
-        const riverStartZ = beachSouthEdge; // z = sud de la plage
-        const riverEndZ = map.terrainHalf;  // z = terrainHalf (nord)
+      // ── Rivers ──────────────────────────────────────────
+      const rivers = mapRivers(map);
+      if (rivers.length) {
+        // Determine river Z range: estuaire uses beachSouthEdge..terrainHalf,
+        // multi-river maps (archipel) use full terrain (-terrainHalf..terrainHalf).
+        const isMulti = !!map.rivers;
+        const riverStartZ = isMulti ? -map.terrainHalf : (beachZ !== undefined ? beachZ - map.beachDepth / 2 : -map.terrainHalf);
+        const riverEndZ = map.terrainHalf;
         const riverLen = riverEndZ - riverStartZ;
-        // River water plane
-        const riverGeo = new THREE.PlaneGeometry(rv.halfWidth * 2, riverLen, Math.floor(rv.halfWidth * 2), Math.floor(riverLen));
-        const riverMat = new THREE.MeshStandardMaterial({
-          color: 0x0d47a1, roughness: 0.15, metalness: 0.1,
-          transparent: true, opacity: 0.88
-        });
-        riverWater = new THREE.Mesh(riverGeo, riverMat);
-        riverWater.rotation.x = -Math.PI / 2;
-        riverWater.position.set(rv.x, 0.08, riverStartZ + riverLen / 2);
-        riverWater.receiveShadow = true;
-        riverWater.name = 'riverWater';
-        mapGroup.add(riverWater);
-
-        // Stone embankments (0.3-wide, 0.35-high) on both sides
-        riverEmbankments = new THREE.Group();
-        riverEmbankments.name = 'riverEmbankments';
         const embMat = new THREE.MeshStandardMaterial({ color: 0x8a8a8a, roughness: 0.85 });
         const embH = 0.35, embW = 0.3;
-        for (const side of [-1, 1]) {
-          const embGeo = new THREE.BoxGeometry(embW, embH, riverLen + embW);
-          const emb = new THREE.Mesh(embGeo, embMat);
-          emb.position.set(rv.x + side * (rv.halfWidth + embW / 2), embH / 2, riverStartZ + riverLen / 2);
-          emb.castShadow = true;
-          emb.receiveShadow = true;
-          riverEmbankments.add(emb);
+        for (const rv of rivers) {
+          // River water plane (full length)
+          const riverGeo = new THREE.PlaneGeometry(rv.halfWidth * 2, riverLen, Math.floor(rv.halfWidth * 2), Math.floor(riverLen));
+          const riverMat = new THREE.MeshStandardMaterial({
+            color: 0x0d47a1, roughness: 0.15, metalness: 0.1,
+            transparent: true, opacity: 0.88
+          });
+          const riverWaterMesh = new THREE.Mesh(riverGeo, riverMat);
+          riverWaterMesh.rotation.x = -Math.PI / 2;
+          riverWaterMesh.position.set(rv.x, 0.08, riverStartZ + riverLen / 2);
+          riverWaterMesh.receiveShadow = true;
+          riverWaterMesh.name = 'riverWater';
+          mapGroup.add(riverWaterMesh);
+
+          // Embankments/quays
+          if (isMulti && map.coastFn) {
+            // For archipel: quays only where the channel crosses the island
+            // Find the Z range where isOnIsland(rv.x, z, map) is true
+            let islandZMin = 0, islandZMax = 0;
+            // Binary search from center outward
+            for (let z = 0; z <= map.terrainHalf; z += 0.5) {
+              if (!isOnIsland(rv.x, z, map)) { islandZMax = z - 0.5; break; }
+              if (z === map.terrainHalf - 0.5) islandZMax = z;
+            }
+            for (let z = 0; z <= map.terrainHalf; z += 0.5) {
+              if (!isOnIsland(rv.x, -z, map)) { islandZMin = -(z - 0.5); break; }
+              if (z === map.terrainHalf - 0.5) islandZMin = -z;
+            }
+            const qLen = islandZMax - islandZMin;
+            if (qLen > 0) {
+              for (const side of [-1, 1]) {
+                const embGeo = new THREE.BoxGeometry(embW, embH, qLen + embW);
+                const emb = new THREE.Mesh(embGeo, embMat);
+                emb.position.set(rv.x + side * (rv.halfWidth + embW / 2), embH / 2, (islandZMin + islandZMax) / 2);
+                emb.castShadow = true;
+                emb.receiveShadow = true;
+                if (!riverEmbankments) { riverEmbankments = new THREE.Group(); riverEmbankments.name = 'riverEmbankments'; }
+                riverEmbankments.add(emb);
+              }
+            }
+          } else {
+            // Estuaire: full-length embankments
+            for (const side of [-1, 1]) {
+              const embGeo = new THREE.BoxGeometry(embW, embH, riverLen + embW);
+              const emb = new THREE.Mesh(embGeo, embMat);
+              emb.position.set(rv.x + side * (rv.halfWidth + embW / 2), embH / 2, riverStartZ + riverLen / 2);
+              emb.castShadow = true;
+              emb.receiveShadow = true;
+              if (!riverEmbankments) { riverEmbankments = new THREE.Group(); riverEmbankments.name = 'riverEmbankments'; }
+              riverEmbankments.add(emb);
+            }
+          }
         }
-        mapGroup.add(riverEmbankments);
+        if (riverEmbankments.children.length) mapGroup.add(riverEmbankments);
       }
 
       // Far ocean (seamless horizon — matches near ocean material, extends far south)
@@ -4012,9 +4101,8 @@ function generateMap(map) {
     if (clipped) createRoad(clipped.x1, clipped.z1, clipped.x2, clipped.z2);
   }
 
-  // ── Ponts : garde-corps des routes est-ouest au-dessus du fleuve ──
-  if (map.river) {
-    const rv = map.river;
+  // ── Ponts : garde-corps des routes est-ouest au-dessus des fleuves ──
+  for (const rv of mapRivers(map)) {
     const railMat = new THREE.MeshStandardMaterial({ color: 0x9a9a9a, roughness: 0.7 });
     const railGeo = new THREE.BoxGeometry(rv.halfWidth * 2 + 0.6, 0.08, 0.06);
     const postGeo = new THREE.BoxGeometry(0.06, 0.3, 0.06);
@@ -4061,17 +4149,20 @@ function generateMap(map) {
     return placed.some(p => Math.hypot(p.x - px, p.z - pz) < margin);
   }
 
-  // Estuaire : l'emprise d'un bâtiment (demi-diagonale) ne touche pas le lit, marge 0.4
+  // River clash: building half-diag doesn't overlap any river, margin 0.4
   function riverClash(px, halfDiag) {
-    return !!map.river && Math.abs(px - map.river.x) - halfDiag < map.river.halfWidth + 0.4;
+    for (const rv of mapRivers(map)) {
+      if (Math.abs(px - rv.x) - halfDiag < rv.halfWidth + 0.4) return true;
+    }
+    return false;
   }
 
   function inBuildZone(px, pz) {
     if (px < map.buildXMin || px > map.buildXMax) return false;
     if (pz < map.buildZMin || pz > map.buildZMax) return false;
     if (!isOnIsland(px, pz, map)) return false;
-    // River exclusion (estuaire only) — no objects in or near the river
-    if (map.river && inRiver(px, pz, map, 0.6)) return false;
+    // River exclusion — no objects in or near any river
+    if (mapRivers(map).length && inRiver(px, pz, map, 0.6)) return false;
     return true;
   }
 
@@ -4307,7 +4398,7 @@ function generateMap(map) {
       for (let s = 0; s < 9; s++) {
         const sx = -14 + Math.random() * 28;
         const sz = beachSouthEdge - 0.8 - Math.random() * 2.5;
-        if (map.river && inRiver(sx, sz, map, 0.6)) continue;
+        if (mapRivers(map).length && inRiver(sx, sz, map, 0.6)) continue;
         beachPeople.push(createSwimmer(sx, sz, swimColors[s % swimColors.length]));
       }
       // Walkers on the beach sand
@@ -4317,7 +4408,7 @@ function generateMap(map) {
         const zMin = map.beachZ - map.beachDepth / 2 + margin;
         const zMax = map.beachZ + map.beachDepth / 2 - margin;
         const wz = zMin + Math.random() * (zMax - zMin);
-        if (map.river && inRiver(wx, wz, map, 0.6)) continue;
+        if (mapRivers(map).length && inRiver(wx, wz, map, 0.6)) continue;
         beachPeople.push(createBeachWalker(wx, wz, walkColors[w % walkColors.length]));
       }
       // Ball player: create a dedicated ball
@@ -4327,7 +4418,7 @@ function generateMap(map) {
           bx = -8 + Math.random() * 16;
           bz = map.beachZ + (Math.random() - 0.5) * (map.beachDepth - 1);
           attempts++;
-        } while (attempts < 50 && (map.river && inRiver(bx, bz, map, 0.6)));
+        } while (attempts < 50 && (mapRivers(map).length && inRiver(bx, bz, map, 0.6)));
         if (attempts < 50) {
           const bGeo2 = new THREE.SphereGeometry(0.03, 8, 8);
           const bMat2 = new THREE.MeshStandardMaterial({ color: 0xff6644, roughness: 0.3 });
@@ -4350,7 +4441,7 @@ function generateMap(map) {
     for (let i = 0; i < 20; i++) {
       const sx = -14 + Math.random() * 28;
       const sz = beachZ + (Math.random() - 0.5) * spreadZ;
-      if (map.river && inRiver(sx, sz, map, 0.6)) continue;
+      if (mapRivers(map).length && inRiver(sx, sz, map, 0.6)) continue;
       beachPeople.push(createSunbather(sx + 0.14, sz + 0.12, sx + 0.14, sz + 0.12));
     }
   }
@@ -4403,8 +4494,8 @@ function generateMap(map) {
       const angle = Math.atan2(dx, dz);
       const offX = Math.cos(angle) * 1.2 * side;
       const offZ = -Math.sin(angle) * 1.2 * side;
-      // River exclusion (estuaire only)
-      if (map.river && inRiver(sx + offX, sz + offZ, map, 0.6)) continue;
+      // River exclusion — no streetlamps in any river
+      if (mapRivers(map).length && inRiver(sx + offX, sz + offZ, map, 0.6)) continue;
       createStreetLamp(sx + offX, sz + offZ);
     }
   }
@@ -4525,8 +4616,8 @@ function isInBuildZoneForPlacement(px, pz) {
   if (!currentMap) return false;
   // Marée montante : rien sous la ligne d'eau (marge 0.5)
   if (currentMap.rising && pz < tideZ + 0.5) return false;
-  // Estuaire : interdiction de construire dans le lit du fleuve (marge 0.2)
-  if (currentMap.river && inRiver(px, pz, currentMap, 0.2)) return false;
+  // River exclusion — no building in any river (multi-river maps supported)
+  if (mapRivers(currentMap).length && inRiver(px, pz, currentMap, 0.2)) return false;
   if (currentMap.islandRadius) {
     if (currentMap.coastFn) {
       const angle = Math.atan2(pz, px);
@@ -4899,20 +4990,20 @@ function spawnWave() {
     flashMessage(`⚡ + rafale !`, 1500);
   }
 
-  // ── Tidal bore (estuaire only) ──────────────────────────
-  if (map.river) {
-    const rv = map.river;
-    const boreSpeed = speed; // same speed as normal wave
+  // ── Tidal bores ───────────────────────────────────────
+  // One bore per river/channel, spawning at the same time as the main wave.
+  for (const rv of mapRivers(map)) {
+    const boreSpeed = speed;
     const boreH = waveH * 0.6;
     const boreSegHp = segHp * 2;
-    const boreN = Math.ceil(rv.halfWidth * 2 / 1.0); // segments d'environ 1 sur la largeur du lit
+    const boreN = Math.ceil(rv.halfWidth * 2 / 1.0);
     const boreSegW = rv.halfWidth * 2 / boreN;
     const boreSegments = [];
     const boreSegMeshes = [];
 
     for (let i = 0; i < boreN; i++) {
       const sx = rv.x - rv.halfWidth + (i + 0.5) * boreSegW;
-      boreSegments.push({ x: sx, hp: boreSegHp, maxHp: boreSegHp, alive: true });
+      boreSegments.push({ x: sx, hp: boreSegHp, maxHp: boreSegHp, alive: true, river: rv });
 
       const { geometry: bodyGeo } = createWaveSegmentGeometry(boreSegW, boreH, depth);
       const bodyMat = new THREE.MeshStandardMaterial({
@@ -4939,15 +5030,15 @@ function spawnWave() {
       boreSegMeshes.push({ body: bodyMesh, foam: foamMesh });
     }
 
-    // Bore starts northward (up the river)
     waves.push({
       segments: boreSegments, segMeshes: boreSegMeshes,
       speed: boreSpeed, z: spawnZ, x: rv.x,
       width: rv.halfWidth * 2, height: boreH,
       destroyedBuildings: 0,
-      dirSign: 1, dir: 'north',
+      dirSign: dirSign, dir: dir,
       isBore: true,
-      maxHp: boreSegHp, // initial max HP per segment
+      maxHp: boreSegHp,
+      river: rv,
     });
   }
 
@@ -4955,9 +5046,11 @@ function spawnWave() {
   if (map.isDam) {
     // Le message de rupture sera affiché par le code de rupture
     flashMessage(`🌊 Vague #${waveNumber} — front ${dir === 'north' ? 'NORD' : 'SUD'} !`, 1800);
-  } else if (map.river) {
+  } else if (map.river || map.rivers) {
     const sector = getWaveSector(plan);
-    flashMessage(`🌊 Vague #${waveNumber} — front ${dir === 'north' ? 'NORD' : 'SUD'}, secteur ${sector} + mascaret !`, 1800);
+    const riverCount = mapRivers(map).length;
+    const boreText = riverCount > 1 ? `${riverCount} chenaux, mascaret ×${riverCount} !` : 'mascaret !';
+    flashMessage(`🌊 Vague #${waveNumber} — front ${dir === 'north' ? 'NORD' : 'SUD'}, secteur ${sector} + ${boreText}`, 1800);
   } else {
     // Littoral / Île : utiliser getWaveSector(plan) pour le secteur
     const sector = getWaveSector(plan);
@@ -5247,12 +5340,20 @@ function updateWaves(dt) {
         }
       }
 
-      // ── Mascaret (Estuaire) : affaiblissement et débordement sur les berges ──
-      if (wave.isBore && map.river) {
-        const rv = map.river;
+      // ── Mascaret (Estuaire / Archipel) : affaiblissement et débordement ──
+      if (wave.isBore && wave.river) {
+        const rv = wave.river;
         const live = wave.segments.filter(sg => sg.alive);
-        // Pleine force jusqu'au haut de la plage, puis −3.5 % des PV max par unité parcourue en ville
-        const loss = wave.z > map.beachEdgeZ ? wave.maxHp * 0.035 * wave.speed * subDt : 0;
+        // Affaiblissement : sur Estuaire, −3.5 % des PV max par unité parcourue en ville
+        // (wave.z > map.beachEdgeZ). Sur une carte île avec chenaux,
+        // perte de map.boreLoss (0.02 par défaut) des PV max par unité
+        // seulement quand Math.abs(wave.z) < map.islandRadius.
+        let loss = 0;
+        if (map.boreLoss != null && map.islandRadius && Math.abs(wave.z) < map.islandRadius) {
+          loss = wave.maxHp * map.boreLoss * wave.speed * subDt;
+        } else if (wave.z > map.beachEdgeZ) {
+          loss = wave.maxHp * 0.035 * wave.speed * subDt;
+        }
         for (const sg of live) { sg.hp -= loss; if (sg.hp <= 0) sg.alive = false; }
         const strength = live.length
           ? live.reduce((a, sg) => a + Math.max(0, sg.hp), 0) / (wave.segments.length * wave.maxHp) : 0;
@@ -7426,7 +7527,7 @@ function buildHomeScreen() {
     card.className = 'map-card' + (id === lastMap ? ' last-played' : '');
 
     // Map image by id
-    const imgId = ['littoral', 'ile', 'barrage', 'maree', 'estuaire', 'tempete'].includes(id) ? 'map-' + id : null;
+    const imgId = ['littoral', 'ile', 'barrage', 'maree', 'estuaire', 'tempete', 'archipel'].includes(id) ? 'map-' + id : null;
     const imgUrl = imgId ? `assets/${imgId}.jpg` : '';
     const altText = id === 'littoral' ? 'Carte Littoral — ville côtière avec plage' :
                     id === 'ile' ? 'Carte Île — île entourée d\'eau' :
@@ -7468,6 +7569,7 @@ function buildHomeScreen() {
                           id === 'barrage' ? 'Niveau ' + sel + ' · une seule rupture' :
                           id === 'maree' ? 'Niveau ' + sel + ' · ' + cfg.waves + ' vagues · la mer monte' :
                           id === 'estuaire' ? 'Niveau ' + sel + ' · ' + cfg.waves + ' vagues · mascaret' :
+                          id === 'archipel' ? 'Niveau ' + sel + ' · ' + cfg.waves + ' vagues · 2 chenaux' :
                           id === 'tempete' ? 'Niveau ' + sel + ' · ' + cfg.waves + ' vagues · tempête' :
                           'Niveau ' + sel + ' · ' + cfg.waves + ' vagues à tenir';
 
@@ -7511,6 +7613,7 @@ function buildHomeScreen() {
                     id === 'barrage' ? 'Niveau ' + n + ' · une seule rupture' :
                     id === 'maree' ? 'Niveau ' + n + ' · ' + cfg2.waves + ' vagues · la mer monte' :
                     id === 'estuaire' ? 'Niveau ' + n + ' · ' + cfg2.waves + ' vagues · mascaret' :
+                    id === 'archipel' ? 'Niveau ' + n + ' · ' + cfg2.waves + ' vagues · 2 chenaux' :
                     id === 'tempete' ? 'Niveau ' + n + ' · ' + cfg2.waves + ' vagues · tempête' :
                     'Niveau ' + n + ' · ' + cfg2.waves + ' vagues à tenir';
         const playBtn = card.querySelector('.map-card-play');
@@ -7667,6 +7770,8 @@ function buildHelpContent() {
     '<p>Un fleuve traverse la ville du sud au nord. À chaque vague, un <strong>mascaret</strong> remonte son lit et <strong>déborde sur les berges</strong> : protégez les quais avec des murs. Le mascaret est plus fort près de la mer et s\'affaiblit en remontant. On ne construit pas dans le lit du fleuve.</p>' +
     '<h3 style="color:#64b5f6;margin:12px 0 8px">⛈️ Tempête</h3>' +
     '<p>On voit mal (brouillard), il pleut et le vent pousse les vagues de côté (sens affiché dans le bandeau). La zone d\'impact n\'apparaît que dans les 8 dernières secondes. Dès le niveau 4, une vague sur deux est suivie d\'une <strong>rafale</strong> (vague plus petite, ailleurs) qui ne rapporte rien.</p>' +
+    '<h3 style="color:#64b5f6;margin:12px 0 8px">🏝️ Archipel</h3>' +
+    '<p>L\'Île coupée en trois par deux chenaux nord-sud. À chaque vague, un <strong>mascaret</strong> s\'engouffre dans chaque chenal et <strong>déborde sur les rives</strong>. Trois îles, quatre rives intérieures et deux fronts (nord et sud). Les chenaux sont inconstructibles — les murs de rive protègent les quais. Le mascaret s\'affaiblit en avançant sur l\'île.</p>' +
     '<h3 style="color:#64b5f6;margin:12px 0 8px">⚡ Ressources</h3>' +
     '<p>Recharge passive de <strong>' + RESOURCE_REGEN + ' ☼/s</strong>, plafond <strong>' + RESOURCE_CAP + '</strong>. Bonus de ressources après chaque vague stoppée.</p>' +
     '<h3 style="color:#64b5f6;margin:12px 0 8px">🏆 Niveaux</h3>' +
