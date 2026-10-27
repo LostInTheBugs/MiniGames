@@ -10,6 +10,7 @@
 | **Île** | ⭐⭐ Medium | Large island with an irregular coastline — waves alternate between north and south, two fronts |
 | **Barrage** | ⭐⭐⭐ Hard | A reservoir lake held by a dam overlooks the city — a **single breach** per game, somewhere along the dam |
 | **Marée montante** | ⭐⭐⭐ Hard | Coastal city where the **sea rises after each wave** — the beach, then the first streets disappear |
+| **Estuaire** | ⭐⭐⭐ Hard | A river crosses the city — with every wave a **tidal bore** runs up it and overflows onto the banks |
 
 ### 🧱 Barrage
 
@@ -24,6 +25,12 @@
 - Same coast as Littoral, but after each wave held the sea **rises** and swallows everything under the water line: buildings (they count towards defeat), walls, trenches, cars, pedestrians
 - At level 1 it only takes the beach and the coast road; at level 9 it reaches about 40 % of the city. No rise after the last wave of a level
 - You cannot build under water, and waves start from the current water line: the higher the sea, the less time to react
+
+### 🏞️ Estuaire
+
+- Same coast as Littoral, with a river crossing the city from the beach to the north edge; nothing can be built in its bed
+- With every wave, a **tidal bore** runs up the river at the same time. It cannot be stopped and **overflows onto the banks**, destroying nearby buildings
+- It is strongest near the sea and weakens as it goes up; a wall on the quay protects the buildings behind it
 
 Best scores are kept per map and shown on the home screen.
 
@@ -172,6 +179,9 @@ https://games.cloudfr.net/floodcity/?seed=42
 The seed controls the layout of the city, buildings, street furniture and beach. Same seed and same level = same map, every time. Without the parameter, a random map is generated as before. Handy for comparing strategies, sharing a configuration or reproducing a bug.
 
 ## 📋 Release notes
+
+### 2026.10.006
+- New **Estuaire** map: a tidal bore runs up the river with every wave and overflows onto the banks — protect the quays
 
 ### 2026.10.005
 - New **Marée montante** map: the sea rises after each wave and swallows the beach, then the first streets

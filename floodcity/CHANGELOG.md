@@ -2,6 +2,15 @@
 
 All notable changes to Flood City are documented in this file.
 
+## [2026.10.006] — 2026-10-27
+
+### Added
+- **Estuaire** map (⭐⭐⭐): Littoral coast with a river crossing the city from south to north (bed x −4.1 to −0.9), stone quays, bridges with decks and railings on the three east–west roads; nothing is generated or can be built in the bed
+- Tidal bore: every wave launches a second, river-wide wave up the bed (height ×0.6, HP ×2). Nothing can stop it; it keeps full strength up to the top of the beach, then loses 3.5 % of its HP per unit travelled
+- Bank overflow: buildings within 0.5 + 2.5 × (remaining strength) of the bed are destroyed as the bore passes, unless a wall on the same bank, nearer the river, takes the hit; each destroyed building weakens the bore
+- The bore gives no score, resources or held wave; victory waits for it to leave
+- Level picker « mascaret », help panel section, home preview `assets/map-estuaire.jpg`
+
 ## [2026.10.005] — 2026-10-27
 
 ### Added
