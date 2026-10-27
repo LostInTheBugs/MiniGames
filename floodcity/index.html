@@ -1700,6 +1700,9 @@ document.addEventListener('click', function(e) {
 
 const scene = new THREE.Scene();
 
+// Storm rain particle system (created on demand for storm maps)
+let rainSystem = null; // THREE.Points
+
 // ─── Gradient sky ──────────────────────────────────────────
 let skyDayTex;
 (function buildSky() {
@@ -1721,10 +1724,13 @@ let skyDayTex;
 // Fog matches horizon so the sea blends into the sky
 const horizonColor = new THREE.Color(0xa9d6f2);
 const horizonNightColor = new THREE.Color(0x1b2a4a);
+// Storm sky/fog — dark grey, used when map.storm
+const stormHorizonColor = new THREE.Color(0x5a6670);
 scene.fog = new THREE.Fog(horizonColor, 25, 70);
 
 // ─── Night sky gradient (built once, swapped at night) ─────
 let skyNightTex;
+let stormSkyDayTex, stormSkyNightTex; // storm map skies
 (function buildNightSky() {
   const seeded = Math.random; Math.random = NATIVE_RANDOM; // ne pas consommer la graine de la carte
   const c = document.createElement('canvas');
@@ -1880,6 +1886,7 @@ function disposeGroup(group) {
 //                               no parasols, sunbathers, swimmers, ball player
 //   prepTime  (default 0):      seconds of preparation phase before dam rupture (step 2)
 //   startResMul (default 1):    starting resource multiplier (step 2)
+//   storm   (default false):    storm map — rain, dark fog, wind drift, late marker, gusts
 const MAPS = {
   littoral: {
     name: 'Littoral',
@@ -2132,6 +2139,46 @@ const MAPS = {
     // No buildings/trees/lights/cars/parking/beach items in river margin.
     // Build zone: |x − river.x| < halfWidth + 0.2 is forbidden (walls on banks OK).
     river: { x: -2.5, halfWidth: 1.6 },
+  },
+  tempete: {
+    name: 'Tempête',
+    description: 'Pluie, vent et rafales : on devine à peine où frappera la prochaine vague, et le vent la pousse de côté.',
+    difficulty: '⭐⭐⭐ Difficile',
+    difficultyStars: 3,
+    terrainHalf: 17,
+    groundColor: 0x6b9e45,
+    // Coastline params (identiques à Littoral)
+    beachZ: -15.5,
+    beachWidth: 40,
+    beachDepth: 6.5,
+    buildXMin: -17,
+    buildXMax: 17,
+    buildZMin: -3,
+    buildZMax: 17,
+    beachRoadZ: -11,
+    beachEdgeZ: -12.25,
+    oceanWidth: 48,
+    oceanDepth: 14,
+    // Wave config
+    waveDirections: ['south'],
+    waveSpawnZ: { south: -20 },
+    // Camera & view settings (vue de départ côté mer)
+    cameraPos: { x: 6, y: 22, z: -40 },
+    fogNear: 18,
+    fogFar: 52,
+    camMinDist: 8,
+    camMaxDist: 50,
+    // Roads (identiques à Littoral)
+    roads: [
+      { x1: -8, z1: -12, x2: -8, z2: 17 },
+      { x1: 3, z1: -12, x2: 3, z2: 17 },
+      { x1: -17, z1: -4, x2: 17, z2: -4 },
+      { x1: -17, z1: 5, x2: 17, z2: 5 },
+      { x1: -17, z1: -11, x2: 17, z2: -11 },
+    ],
+    crossingRoadClear: 1.1,
+    // ── Storm fields ──────────────────────────────────────
+    storm: true,
   },
 };
 
@@ -3422,7 +3469,60 @@ function generateMap(map) {
     camera.lookAt(0, 0, 0);
   }
   if (map.fogNear != null && map.fogFar != null) {
-    scene.fog = new THREE.Fog(horizonColor, map.fogNear, map.fogFar);
+    const fogColor = map.storm ? stormHorizonColor : horizonColor;
+    scene.fog = new THREE.Fog(fogColor, map.fogNear, map.fogFar);
+  }
+  // Storm sky — dark grey gradient, created on demand (never at script load)
+  if (map.storm && !stormSkyDayTex) {
+    (function() {
+      const seeded = Math.random; Math.random = NATIVE_RANDOM;
+      function makeStormSky(day) {
+        const c = document.createElement('canvas');
+        c.width = 2; c.height = 256;
+        const ctx = c.getContext('2d');
+        const g = ctx.createLinearGradient(0, 255, 0, 0);
+        if (day) {
+          g.addColorStop(0, '#5a6670'); // storm horizon
+          g.addColorStop(1, '#3a4550'); // storm zenith
+        } else {
+          g.addColorStop(0, '#2a3038'); // storm night horizon
+          g.addColorStop(1, '#151a20'); // storm night zenith
+        }
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, 2, 256);
+        const tex = new THREE.CanvasTexture(c);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        return tex;
+      }
+      stormSkyDayTex = makeStormSky(true);
+      stormSkyNightTex = makeStormSky(false);
+      scene.background = stormSkyDayTex;
+      Math.random = seeded;
+    })();
+  } else if (map.storm) {
+    scene.background = stormSkyDayTex;
+  } else if (!map.storm && currentMap && currentMap.storm) {
+    // Leaving storm map → restore normal sky
+    scene.background = skyDayTex;
+  }
+  // Storm rain — particle system created on demand (never at script load)
+  if (map.storm && !rainSystem) {
+    const COUNT = 1500;
+    const positions = new Float32Array(COUNT * 3);
+    const terrainH = map.terrainHalf || 17;
+    for (let i = 0; i < COUNT; i++) {
+      positions[i * 3] = (Math.random() - 0.5) * terrainH * 2;
+      positions[i * 3 + 1] = Math.random() * 14;
+      positions[i * 3 + 2] = (Math.random() - 0.5) * terrainH * 2;
+    }
+    const rainGeo = new THREE.BufferGeometry();
+    rainGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    const rainMat = new THREE.PointsMaterial({
+      color: 0x99aabb, size: 0.15, transparent: true, opacity: 0.5,
+      depthWrite: false, blending: THREE.AdditiveBlending,
+    });
+    rainSystem = new THREE.Points(rainGeo, rainMat);
+    mapGroup.add(rainSystem);
   }
   if (map.camMinDist != null) controls.minDistance = map.camMinDist;
   if (map.camMaxDist != null) controls.maxDistance = map.camMaxDist;
@@ -4555,6 +4655,13 @@ function planNextWave() {
   const halfLimit = map.terrainHalf - bandW / 2;
   const bandX = Math.max(-halfLimit, Math.min(halfLimit, waveX + jitter));
   nextWavePlan = { dir, width: waveWidth, x: waveX, bandX, bandW };
+  // Storm drift: positive = west (+X), negative = east (-X)
+  if (map.storm) {
+    const sign = Math.random() < 0.5 ? 1 : -1;
+    const baseDrift = 0.4 + Math.random() * 0.4;
+    const levelFactor = 1 + 0.05 * (currentLevel - 1);
+    nextWavePlan.drift = sign * baseDrift * levelFactor;
+  }
   buildWaveMarker(nextWavePlan);
 }
 
@@ -4612,6 +4719,11 @@ function updateWaveMarker(time) {
   if (!waveMarker) return;
   waveMarker.visible = !gameOver;
   if (gameOver) return;
+  // Storm map: hide marker until last 8 seconds
+  if (currentMap && currentMap.storm && waveCountdown > 8) {
+    waveMarker.visible = false;
+    return;
+  }
   const u = waveMarker.userData;
   const alertOn = alertTriggered && waveCountdown > 0;
   const color = alertOn ? 0xff5252 : 0xffb74d;
@@ -4732,7 +4844,59 @@ function spawnWave() {
     width: waveWidth, height: waveH,
     destroyedBuildings: 0,
     dirSign, dir,
+    drift: plan.drift || 0, // storm wind drift
   });
+
+  // ── Gust (tempête only, level ≥ 4, even waveNumber) ─────
+  if (map.storm && currentLevel >= 4 && waveNumber % 2 === 0) {
+    const gustWidth = waveWidth * 0.6;
+    const gustH = waveH * 0.8;
+    const gustSegHp = segHp; // same HP per segment
+    const gustN = Math.max(1, Math.ceil(gustWidth / SEG_W));
+    const gustSegW = gustWidth / gustN;
+    // Random x in play zone
+    const maxGustOffset = Math.max(0, map.terrainHalf - gustWidth / 2);
+    const gustX = (Math.random() * 2 - 1) * maxGustOffset;
+    const gustSpeed = speed;
+    const gustZ = spawnZ + 6; // 6 units behind (more south)
+    const gustSegments = [];
+    const gustSegMeshes = [];
+    for (let i = 0; i < gustN; i++) {
+      const sx = gustX - gustWidth / 2 + (i + 0.5) * gustSegW;
+      gustSegments.push({ x: sx, hp: gustSegHp, maxHp: gustSegHp, alive: true });
+      const { geometry: bodyGeo } = createWaveSegmentGeometry(gustSegW, gustH, depth);
+      const bodyMat = new THREE.MeshStandardMaterial({
+        color: 0x1e5a8e, roughness: 0.18, metalness: 0.1,
+        transparent: true, opacity: 0.72
+      });
+      const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
+      bodyMesh.position.set(sx, 0, gustZ);
+      bodyMesh.castShadow = true;
+      bodyMesh.receiveShadow = true;
+      scene.add(bodyMesh);
+      const foamGeo = createWaveFoamGeometry(gustSegW, gustH, depth);
+      const foamMat = new THREE.MeshStandardMaterial({
+        color: 0xffffff, roughness: 0.08, metalness: 0.0,
+        emissive: new THREE.Color(0xffffff), emissiveIntensity: 0.08,
+        transparent: true, opacity: 0.85, depthWrite: false
+      });
+      waveFoamMaterials.push(foamMat);
+      const foamMesh = new THREE.Mesh(foamGeo, foamMat);
+      foamMesh.position.copy(bodyMesh.position);
+      scene.add(foamMesh);
+      gustSegMeshes.push({ body: bodyMesh, foam: foamMesh });
+    }
+    waves.push({
+      segments: gustSegments, segMeshes: gustSegMeshes,
+      speed: gustSpeed, z: gustZ, x: gustX,
+      width: gustWidth, height: gustH,
+      destroyedBuildings: 0,
+      dirSign, dir,
+      isGust: true,
+      drift: plan.drift || 0,
+    });
+    flashMessage(`⚡ + rafale !`, 1500);
+  }
 
   // ── Tidal bore (estuaire only) ──────────────────────────
   if (map.river) {
@@ -5000,6 +5164,13 @@ function updateWaves(dt) {
         const sm = wave.segMeshes[si];
         sm.body.position.z = wave.z;
         sm.foam.position.z = wave.z;
+        // Storm wind drift: shift seg.x, wave.x, and mesh.x each sub-step
+        if (wave.drift) {
+          seg.x += wave.drift * subDt;
+          wave.x = seg.x;
+          sm.body.position.x = seg.x;
+          sm.foam.position.x = seg.x;
+        }
         if (!seg.alive) { sm.body.visible = false; sm.foam.visible = false; continue; }
         sm.body.visible = true;
         sm.foam.visible = true;
@@ -5133,6 +5304,12 @@ function updateWaves(dt) {
     const allDead = !wave.segments.some(s => s.alive);
 
     if (pastNorth || pastSouth || allDead) {
+      // Gust (tempête): no score, no resources, no wavesHeld
+      if (wave.isGust) {
+        wave.segMeshes.forEach(m => { scene.remove(m.body); m.body.geometry.dispose(); m.body.material.dispose(); scene.remove(m.foam); m.foam.geometry.dispose(); m.foam.material.dispose(); });
+        waves.splice(wi, 1);
+        continue;
+      }
       // Tidal bore: no score, no resources, no wavesHeld
       if (wave.isBore) {
         // Just clean up bore meshes
@@ -5530,11 +5707,18 @@ function updateNightLighting(t) {
   renderer.toneMappingExposure = 1.1 + t * (0.72 - 1.1);
 
   // Scene background & fog — swap sky gradient + fade fog
-  scene.background = t > 0.5 ? skyNightTex : skyDayTex;
-  if (scene.fog) {
-    const dayFog = horizonColor.clone(); // même couleur que l'horizon du ciel
-    const nightFog = new THREE.Color(0x1b2a4a);
-    scene.fog.color = dayFog.clone().lerp(nightFog, t);
+  if (currentMap && currentMap.storm) {
+    scene.background = t > 0.5 ? stormSkyNightTex : stormSkyDayTex;
+    // Storm fog stays dark grey (night slightly darker)
+    const stormNightFog = new THREE.Color(0x303840);
+    scene.fog.color = stormHorizonColor.clone().lerp(stormNightFog, t);
+  } else {
+    scene.background = t > 0.5 ? skyNightTex : skyDayTex;
+    if (scene.fog) {
+      const dayFog = horizonColor.clone(); // même couleur que l'horizon du ciel
+      const nightFog = new THREE.Color(0x1b2a4a);
+      scene.fog.color = dayFog.clone().lerp(nightFog, t);
+    }
   }
 
   // ── Building window emission ──
@@ -5660,6 +5844,9 @@ function createStreetLamp(x, z) {
 
 // ─── Game loop ──────────────────────────────────────────────
 let lastFrameTime = performance.now() / 1000;
+// Lightning tracking (storm maps) — interval seeded lazily at first flash
+let lastLightningMs = 0;
+let lightningIntervalMs = 0; // 0 means "not yet seeded"
 
 function gameLoop() {
   requestAnimationFrame(gameLoop);
@@ -5677,6 +5864,41 @@ function gameLoop() {
       tideAnimT = Math.min(1, tideAnimT + dt / 3); // ~3 second animation
       const e = tideAnimT * tideAnimT * (3 - 2 * tideAnimT); // smoothstep
       tideZ = tideFromZ + (tideTargetZ - tideFromZ) * e;
+    }
+
+    // ── Storm rain + lightning ─────────────────────────────
+    if (currentMap.storm && rainSystem && !gameOver) {
+      const pos = rainSystem.geometry.attributes.position.array;
+      // Wind drift from current wave plan (positive = west/+X, negative = east/-X)
+      const windX = (nextWavePlan && nextWavePlan.drift) ? nextWavePlan.drift : 0;
+      const rainSpeed = 18; // m/s fall speed
+      for (let i = 0; i < pos.length; i += 3) {
+        pos[i]     += windX * dt * 0.4;     // slight wind angle
+        pos[i + 1] -= rainSpeed * dt;
+        pos[i + 2] += windX * dt * 0.1;     // slight forward/back drift
+        if (pos[i + 1] < 0) {
+          pos[i]     = (Math.random() - 0.5) * 34;
+          pos[i + 1] = 10 + Math.random() * 4;
+          pos[i + 2] = (Math.random() - 0.5) * 34;
+        }
+      }
+      rainSystem.geometry.attributes.position.needsUpdate = true;
+
+      // Lightning flash
+      const nowMs = performance.now();
+      const interval = lightningIntervalMs > 0 ? lightningIntervalMs : (8000 + NATIVE_RANDOM() * 7000);
+      if (nowMs - lastLightningMs >= interval && !gameOver) {
+        const origAmbient = ambient.intensity;
+        const origHemi = hemi.intensity;
+        ambient.intensity = 5;
+        hemi.intensity = 2;
+        lastLightningMs = nowMs;
+        lightningIntervalMs = 8000 + NATIVE_RANDOM() * 7000; // 8–15 s
+        setTimeout(() => {
+          ambient.intensity = origAmbient;
+          hemi.intensity = origHemi;
+        }, 150);
+      }
     }
 
     // Niveau : on ne lance que le nombre de vagues prévu ; une fois la dernière lancée, plus de compte à rebours
@@ -6940,6 +7162,12 @@ function gameLoop() {
     const t = $wbText.textContent;
     if (!t.includes('mer +')) $wbText.textContent = t + ' · mer +' + tideSteps;
   }
+  // ── Storm wind direction ──────────────────────────────
+  if (currentMap && currentMap.storm && nextWavePlan && nextWavePlan.drift) {
+    const t = $wbText.textContent;
+    const windDir = nextWavePlan.drift > 0 ? '→ ouest' : '→ est';
+    if (!t.includes('vent →')) $wbText.textContent = t + ' · vent ' + windDir;
+  }
 
   controls.update();
 
@@ -7197,7 +7425,7 @@ function buildHomeScreen() {
     card.className = 'map-card' + (id === lastMap ? ' last-played' : '');
 
     // Map image by id
-    const imgId = ['littoral', 'ile', 'barrage', 'maree', 'estuaire'].includes(id) ? 'map-' + id : null;
+    const imgId = ['littoral', 'ile', 'barrage', 'maree', 'estuaire', 'tempete'].includes(id) ? 'map-' + id : null;
     const imgUrl = imgId ? `assets/${imgId}.jpg` : '';
     const altText = id === 'littoral' ? 'Carte Littoral — ville côtière avec plage' :
                     id === 'ile' ? 'Carte Île — île entourée d\'eau' :
@@ -7239,6 +7467,7 @@ function buildHomeScreen() {
                           id === 'barrage' ? 'Niveau ' + sel + ' · une seule rupture' :
                           id === 'maree' ? 'Niveau ' + sel + ' · ' + cfg.waves + ' vagues · la mer monte' :
                           id === 'estuaire' ? 'Niveau ' + sel + ' · ' + cfg.waves + ' vagues · mascaret' :
+                          id === 'tempete' ? 'Niveau ' + sel + ' · ' + cfg.waves + ' vagues · tempête' :
                           'Niveau ' + sel + ' · ' + cfg.waves + ' vagues à tenir';
 
     // Play button text
@@ -7281,6 +7510,7 @@ function buildHomeScreen() {
                     id === 'barrage' ? 'Niveau ' + n + ' · une seule rupture' :
                     id === 'maree' ? 'Niveau ' + n + ' · ' + cfg2.waves + ' vagues · la mer monte' :
                     id === 'estuaire' ? 'Niveau ' + n + ' · ' + cfg2.waves + ' vagues · mascaret' :
+                    id === 'tempete' ? 'Niveau ' + n + ' · ' + cfg2.waves + ' vagues · tempête' :
                     'Niveau ' + n + ' · ' + cfg2.waves + ' vagues à tenir';
         const playBtn = card.querySelector('.map-card-play');
         if (playBtn) {
@@ -7434,6 +7664,8 @@ function buildHelpContent() {
     '<p>La mer monte après chaque vague et engloutit ce qui se trouve sous la ligne d\'eau. On ne peut pas construire sous l\'eau (fantôme rouge). Les vagues partent de la ligne d\'eau : plus la mer monte, plus elles frappent vite. Pas de montée après la dernière vague du niveau. Les bâtiments, murs et tranchées engloutis sont détruits.</p>' +
     '<h3 style="color:#64b5f6;margin:12px 0 8px">🏞️ Estuaire</h3>' +
     '<p>Un fleuve traverse la ville du sud au nord. À chaque vague, un <strong>mascaret</strong> remonte son lit et <strong>déborde sur les berges</strong> : protégez les quais avec des murs. Le mascaret est plus fort près de la mer et s\'affaiblit en remontant. On ne construit pas dans le lit du fleuve.</p>' +
+    '<h3 style="color:#64b5f6;margin:12px 0 8px">⛈️ Tempête</h3>' +
+    '<p>On voit mal (brouillard), il pleut et le vent pousse les vagues de côté (sens affiché dans le bandeau). Le marqueur de zone n'apparaît que dans les 8 dernières secondes. Dès le niveau 4, des <strong>rafales</strong> (vagues plus petites) suivent certaines vagues : ni score ni ressources.</p>' +
     '<h3 style="color:#64b5f6;margin:12px 0 8px">⚡ Ressources</h3>' +
     '<p>Recharge passive de <strong>' + RESOURCE_REGEN + ' ☼/s</strong>, plafond <strong>' + RESOURCE_CAP + '</strong>. Bonus de ressources après chaque vague stoppée.</p>' +
     '<h3 style="color:#64b5f6;margin:12px 0 8px">🏆 Niveaux</h3>' +
