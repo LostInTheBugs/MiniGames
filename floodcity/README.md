@@ -12,6 +12,7 @@
 | **Marée montante** | ⭐⭐⭐ Hard | Coastal city where the **sea rises after each wave** — the beach, then the first streets disappear |
 | **Estuaire** | ⭐⭐⭐ Hard | A river crosses the city — with every wave a **tidal bore** runs up it and overflows onto the banks |
 | **Tempête** | ⭐⭐⭐ Hard | Coast under a storm — the wave zone shows up late, **wind pushes waves sideways**, gusts double some waves |
+| **Archipel** | ⭐⭐⭐ Hard | The Île split in three by two channels — a **tidal bore in each channel** with every wave, two fronts |
 
 ### 🧱 Barrage
 
@@ -38,6 +39,12 @@
 - Same coast as Littoral, in rain and fog; the landing zone of the next wave only shows up **8 s before impact**
 - The **wind** pushes each wave sideways while it travels — the banner tells which way
 - From level 4, every other wave is followed by a **gust**: a smaller wave hitting elsewhere
+
+### 🏝️ Archipel
+
+- The Île cut into three islands by two north–south channels, linked by bridges; waves come from the north or the south
+- With every wave, a tidal bore runs up **each** channel and overflows onto both banks, weakening as it crosses the island
+- Nothing can be built in the channels; walls on the banks protect the buildings behind
 
 Best scores are kept per map and shown on the home screen.
 
@@ -186,6 +193,9 @@ https://games.cloudfr.net/floodcity/?seed=42
 The seed controls the layout of the city, buildings, street furniture and beach. Same seed and same level = same map, every time. Without the parameter, a random map is generated as before. Handy for comparing strategies, sharing a configuration or reproducing a bug.
 
 ## 📋 Release notes
+
+### 2026.10.008
+- New **Archipel** map: the island split in three by two channels, with a tidal bore in each channel at every wave
 
 ### 2026.10.007
 - New **Tempête** map: rain and fog, the wave zone shows up only 8 s before impact, the wind pushes waves sideways and gusts double some of them

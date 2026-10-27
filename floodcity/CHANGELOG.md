@@ -2,6 +2,16 @@
 
 All notable changes to Flood City are documented in this file.
 
+## [2026.10.008] — 2026-10-27
+
+### Added
+- **Archipel** map (⭐⭐⭐): the Île split in three by two north–south channels (x = ±12, 4.4 wide) with quays where they cross the island and bridges on the two east–west roads; waves from the north or the south as on the Île
+- A tidal bore runs up each channel with every wave, in the wave's direction; same overflow onto the banks as on Estuaire, losing 1.2 % of its HP per unit once over the island (`boreLoss`)
+- Level picker « 2 chenaux », help panel section, home preview `assets/map-archipel.jpg`
+
+### Changed
+- Estuaire river code generalised to several channels (`rivers`, `mapRivers()`); Estuaire plays the same
+
 ## [2026.10.007] — 2026-10-27
 
 ### Added
