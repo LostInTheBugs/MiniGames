@@ -10,7 +10,7 @@
 | **Île** | ⭐⭐ Medium | Large island with an irregular coastline — waves alternate between north and south, two fronts |
 | **Barrage** | ⭐⭐⭐ Hard | A reservoir lake held by a dam overlooks the city — a **single breach** per game, somewhere along the dam |
 | **Marée montante** | ⭐⭐⭐ Hard | Coastal city where the **sea rises after each wave** — the beach, then the first streets disappear |
-| **Estuaire** | ⭐⭐⭐ Hard | A river crosses the city — with every wave a **tidal bore** runs up it and overflows onto the banks |
+| **Estuaire** | ⭐⭐⭐ Hard | A river crosses the city — with every wave it **floods** announced sections of its banks |
 | **Tempête** | ⭐⭐⭐ Hard | Coast under a storm — the wave zone shows up late, **wind pushes waves sideways**, gusts double some waves |
 | **Archipel** | ⭐⭐⭐ Hard | The Île split in three by two channels — a **tidal bore in each channel** with every wave, two fronts |
 | **Polder** | ⭐⭐⭐ Hard | A city below sea level behind a **dike that wears out** — repair it before it breaches |
@@ -32,8 +32,8 @@
 ### 🏞️ Estuaire
 
 - Same coast as Littoral, with a river crossing the city from the beach to the north edge; nothing can be built in its bed
-- With every wave, a **tidal bore** runs up the river at the same time. It cannot be stopped and **overflows onto the banks**, destroying nearby buildings
-- It is strongest near the sea and weakens as it goes up; a wall on the quay protects the buildings behind it
+- With every wave the river **floods**: 1 to 4 sections of its banks (more at higher levels) light up in red during the last 8 s of the countdown, then the water spreads over them
+- Buildings reached by the water are destroyed, unless a **wall on the quay** stands between them and the river
 
 ### ⛈️ Tempête
 
@@ -204,6 +204,9 @@ https://games.cloudfr.net/floodcity/?seed=42
 The seed controls the layout of the city, buildings, street furniture and beach. Same seed and same level = same map, every time. Without the parameter, a random map is generated as before. Handy for comparing strategies, sharing a configuration or reproducing a bug.
 
 ## 📋 Release notes
+
+### 2026.10.011
+- **Estuaire**: the river now overflows on sections of its banks shown in red just before each wave, instead of a tidal bore
 
 ### 2026.10.010
 - New **Polder** map: a sea dike that wears out with every wave — repair it before it breaches

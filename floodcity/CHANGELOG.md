@@ -2,6 +2,12 @@
 
 All notable changes to Flood City are documented in this file.
 
+## [2026.10.011] — 2026-10-27
+
+### Changed
+- **Estuaire**: no more tidal bore. With every wave the river overflows on 1 to 4 bank sections (one more every 3 levels, 5 to 7.7 units long), drawn when the countdown starts and shown as pulsing red blocks on the bank during its last 8 s (banner « crue : N tronçons »). When the wave is launched, the water spreads 2 to 3.35 units from the bank (animated, then recedes) and destroys the buildings it reaches, unless a wall on that quay stands between them; the wall takes 80 HP
+- Level picker « crue », help panel and map description updated; Archipel keeps its bores
+
 ## [2026.10.010] — 2026-10-27
 
 ### Added
