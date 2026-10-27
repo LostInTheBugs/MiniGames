@@ -10,7 +10,7 @@
 | **Île** | ⭐⭐ Medium | Large island with an irregular coastline — waves alternate between north and south, two fronts |
 | **Barrage** | ⭐⭐⭐ Hard | A reservoir lake held by a dam overlooks the city — a **single breach** per game, somewhere along the dam |
 | **Marée montante** | ⭐⭐⭐ Hard | Coastal city where the **sea rises after each wave** — the beach, then the first streets disappear |
-| **Estuaire** | ⭐⭐⭐ Hard | A river crosses the city — with every wave it **floods** announced sections of its banks |
+| **Estuaire** | ⭐⭐⭐ Hard | The sea does not hit the beach — each wave **runs up the river** and overflows somewhere on the quays |
 | **Tempête** | ⭐⭐⭐ Hard | Coast under a storm — the wave zone shows up late, **wind pushes waves sideways**, gusts double some waves |
 | **Archipel** | ⭐⭐⭐ Hard | The Île split in three by two channels — a **tidal bore in each channel** with every wave, two fronts |
 | **Polder** | ⭐⭐⭐ Hard | A city below sea level behind a **dike that wears out** — repair it before it breaches |
@@ -31,9 +31,9 @@
 
 ### 🏞️ Estuaire
 
-- Same coast as Littoral, with a river crossing the city from the beach to the north edge; nothing can be built in its bed
-- With every wave the river **floods**: 1 to 4 sections of its banks (more at higher levels) light up in red during the last 8 s of the countdown, then the water spreads over them
-- Buildings reached by the water are destroyed, unless a **wall on the quay** stands between them and the river
+- The sea does not hit the beach: each wave **enters the river mouth** and runs up the river; nothing can stop it in the bed
+- It **overflows** on 1 to 4 sections of the quays drawn at random (the banner says how many); a section boils red about 3 s before the wave reaches it
+- Buildings reached by the water are destroyed, unless a **wall on the quay** stands between them and the river; losing 20 % of the city ends the game
 
 ### ⛈️ Tempête
 
@@ -204,6 +204,9 @@ https://games.cloudfr.net/floodcity/?seed=42
 The seed controls the layout of the city, buildings, street furniture and beach. Same seed and same level = same map, every time. Without the parameter, a random map is generated as before. Handy for comparing strategies, sharing a configuration or reproducing a bug.
 
 ## 📋 Release notes
+
+### 2026.10.012
+- **Estuaire**: waves now enter the river mouth, run up the river and overflow at random spots on the quays, with a short red warning just before
 
 ### 2026.10.011
 - **Estuaire**: the river now overflows on sections of its banks shown in red just before each wave, instead of a tidal bore

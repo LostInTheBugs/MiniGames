@@ -1,5 +1,5 @@
 {
-  "version": "2026.10.011",
+  "version": "2026.10.012",
   "date": "2026-10-27",
-  "notes": "Estuaire: the river now floods announced bank sections with every wave, instead of a tidal bore"
+  "notes": "Estuaire: waves enter the river mouth, run up the river and overflow at random spots on the quays"
 }

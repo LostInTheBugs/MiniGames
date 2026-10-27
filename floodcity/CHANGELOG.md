@@ -2,6 +2,14 @@
 
 All notable changes to Flood City are documented in this file.
 
+## [2026.10.012] — 2026-10-27
+
+### Changed
+- **Estuaire**: the sea no longer hits the beach. Each wave is aimed at the river mouth (the marker points there), runs up the bed — walls, trenches and buildings cannot touch it — and overflows on 1 to 4 bank sections (1 at level 1, 2 at 2–4, 3 at 5–7, 4 at 8–10) drawn at random where the city stands. A section boils red about 3 s before the wave front reaches it; the water then spreads 3.5 to 6.65 units from the bank and destroys buildings unless a quay wall stands between them (the wall takes 80 HP)
+- The banner tells how many overflows the next wave will cause; the sections are no longer shown during the countdown
+- Defeat on Estuaire when 20 % of the city is lost (the threat is limited to the quays): an undefended city falls at level 7, a city with quay walls keeps every building
+- Level picker « par le fleuve », help panel and description updated
+
 ## [2026.10.011] — 2026-10-27
 
 ### Changed
