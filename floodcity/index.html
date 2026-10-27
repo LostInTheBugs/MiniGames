@@ -2183,6 +2183,7 @@ let tideWater = null;
 let tideFoamEdge = null;
 let tideZ = 0;           // current tide water line Z
 let tideTargetZ = 0;     // animated target Z
+let tideFromZ = 0;       // tide Z when the current rise started
 let tideAnimT = 1;       // 1 = settled, 0→1 = animating in
 let tideSteps = 0;       // number of tide rises in this game
 
@@ -3688,7 +3689,7 @@ function generateMap(map) {
         const tideWaterGeo = new THREE.PlaneGeometry(map.beachWidth, 1); // width adjusted in gameLoop
         const tideWaterMat = new THREE.MeshStandardMaterial({
           color: 0x0d47a1, roughness: 0.15, metalness: 0.1,
-          transparent: true, opacity: 0.75, depthWrite: false
+          transparent: true, opacity: 0.88, depthWrite: false
         });
         tideWater = new THREE.Mesh(tideWaterGeo, tideWaterMat);
         tideWater.rotation.x = -Math.PI / 2;
@@ -3707,13 +3708,12 @@ function generateMap(map) {
         mapGroup.add(tideFoamEdge);
 
         // Initial tide position: beach south edge minus half depth (= initial shore)
-        tideZ = beachSouthEdge - map.beachDepth / 2;
-        tideTargetZ = tideZ;
+        tideZ = beachSouthEdge;
+        tideTargetZ = tideZ; tideFromZ = tideZ;
         tideAnimT = 1;
         tideSteps = 0;
 
         // Track destroyed buildings for this map
-        currentMap._destroyedBuildings = 0;
       }
 
       // Far ocean (seamless horizon — matches near ocean material, extends far south)
@@ -4271,6 +4271,8 @@ function placeTrench(worldPos) {
 // the player can build defenses.  Mixing the two was the original bug.
 function isInBuildZoneForPlacement(px, pz) {
   if (!currentMap) return false;
+  // Marée montante : rien sous la ligne d'eau (marge 0.5)
+  if (currentMap.rising && pz < tideZ + 0.5) return false;
   if (currentMap.islandRadius) {
     if (currentMap.coastFn) {
       const angle = Math.atan2(pz, px);
@@ -4535,7 +4537,7 @@ function spawnWave() {
   const segments = [];
   const segMeshes = [];
 
-  const spawnZ = map.rising ? (tideZ - 1.25) : map.waveSpawnZ[dir];
+  const spawnZ = map.rising ? (tideZ - 3) : map.waveSpawnZ[dir];
   const depth = 2.2;
   const segWidth = waveWidth / n;
   const segGeoShared = null; // each segment gets its own geometry for height variation
@@ -4647,6 +4649,15 @@ function spawnDestroyParticles(x, y, z) {
 // Destroy a building: remove from scene, free geometry/materials,
 // evacuate sheltered entities, spawn particles, increment counter.
 // Shared by wave hits and tide flooding.
+// Rising tide: by the last wave of a level the sea has gained 12 + 1.6 per level
+// (beach and coast road at level 1, about 40 % of the city at level 9).
+// Endless level: 2.5 per wave. The water stops at buildZMax - 10 in all cases.
+function tideStep(map) {
+  const n = levelWaveCount();
+  if (!isFinite(n)) return map.rising.step + 1;
+  return (12 + 1.6 * (currentLevel - 1)) / Math.max(1, n - 1);
+}
+
 function destroyBuilding(building) {
   if (!building.alive) return;
   building.alive = false;
@@ -4666,7 +4677,6 @@ function destroyBuilding(building) {
     if (c.material) { if (c.material.map) c.material.map.dispose(); c.material.dispose(); }
   });
   // Track destroyed building for this map
-  if (currentMap._destroyedBuildings) currentMap._destroyedBuildings++;
   spawnDestroyParticles(building.x, building.h, building.z);
 }
 
@@ -4892,10 +4902,11 @@ function updateWaves(dt) {
 
       // ── Rising tide advance (maree map only) ────────────
       if (map.rising && waves.length === 0 && !gameOver) {
-        const stepScale = 1 + 0.08 * (currentLevel - 1);
-        const prevZ = tideZ;
-        tideTargetZ = Math.min(tideZ + map.rising.step * stepScale, map.buildZMax - 6);
-        if (tideTargetZ !== prevZ) {
+        const lastWave = isFinite(levelWaveCount()) && waveNumber >= levelWaveCount();
+        const nextZ = Math.min(tideZ + tideStep(map), map.buildZMax - 10);
+        if (!lastWave && nextZ > tideZ + 0.01) {
+          tideTargetZ = nextZ;
+          tideFromZ = tideZ;
           tideAnimT = 0;
           tideSteps++;
           flashMessage('🌊 La mer monte !', 2000);
@@ -5145,8 +5156,6 @@ function isValidPlacement(x, z) {
   const map = currentMap;
   if (Math.abs(x) > map.terrainHalf || Math.abs(z) > map.terrainHalf) return false;
   if (!isInBuildZoneForPlacement(x, z)) return false;
-  // Rising tide: no building underwater (0.5 buffer beyond tide line)
-  if (map.rising && z < tideZ + 0.5) return false;
   for (const b of buildings) {
     if (!b.alive) continue;
     if (Math.abs(b.x - x) < b.w / 2 + 0.7 && Math.abs(b.z - z) < b.d / 2 + 0.7) return false;
@@ -5411,14 +5420,9 @@ function gameLoop() {
 
     // ── Rising tide animation (maree map only) ───────────
     if (currentMap.rising && tideAnimT < 1) {
-      tideAnimT += dt / 3; // ~3 second animation
-      if (tideAnimT >= 1) { tideAnimT = 1; tideZ = tideTargetZ; }
-      else {
-        // Smooth lerp toward target
-        const prevZ = tideZ;
-        tideZ = tideZ + (tideTargetZ - tideZ) * dt * 0.5;
-        if (Math.abs(tideZ - tideTargetZ) < 0.01) { tideZ = tideTargetZ; tideAnimT = 1; }
-      }
+      tideAnimT = Math.min(1, tideAnimT + dt / 3); // ~3 second animation
+      const e = tideAnimT * tideAnimT * (3 - 2 * tideAnimT); // smoothstep
+      tideZ = tideFromZ + (tideTargetZ - tideFromZ) * e;
     }
 
     // Niveau : on ne lance que le nombre de vagues prévu ; une fois la dernière lancée, plus de compte à rebours
@@ -6484,7 +6488,6 @@ function gameLoop() {
         if (!b.alive) continue;
         if (b.group.position.z < tideLimit) {
           destroyBuilding(b);
-          currentMap._destroyedBuildings = (currentMap._destroyedBuildings || 0) + 1;
         }
       }
 
@@ -6519,6 +6522,15 @@ function gameLoop() {
       }
 
       // Remove beach people now underwater (disappear)
+      for (const list of [cars, pedestrians]) {
+        for (const ent of list) {
+          if (!ent.alive || ent.group.position.z >= tideLimit) continue;
+          ent.group.removeFromParent();
+          ent.group.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
+          ent.alive = false; // retirés de leur liste par updateTraffic / updatePedestrians
+        }
+      }
+
       for (let pi = beachPeople.length - 1; pi >= 0; pi--) {
         const bp = beachPeople[pi];
         if (!bp.alive) continue;
@@ -6575,7 +6587,7 @@ function gameLoop() {
     if (currentMap.rising && tideWater) {
       // Water plane: center Z follows tide, covers from beach south to tideZ
       const map = currentMap;
-      const waterWidth = map.beachWidth;
+      const waterWidth = map.terrainHalf * 2;
       const waterLength = Math.abs(tideZ - (map.beachZ - map.beachDepth / 2));
       tideWater.scale.set(waterWidth / 1, waterLength / 1, 1);
       const tideCenter = (tideZ + (map.beachZ - map.beachDepth / 2)) / 2;
@@ -6904,11 +6916,10 @@ function startGame(mapId, level) {
   // ── Reset rising tide state (maree map only) ─────────
   if (map.rising) {
     const beachSouthEdge = map.beachZ - map.beachDepth / 2;
-    tideZ = beachSouthEdge - map.beachDepth / 2;
-    tideTargetZ = tideZ;
+    tideZ = beachSouthEdge;
+    tideTargetZ = tideZ; tideFromZ = tideZ;
     tideAnimT = 1;
     tideSteps = 0;
-    map._destroyedBuildings = 0;
   }
 
   // Plan the first wave immediately
@@ -6932,7 +6943,7 @@ function buildHomeScreen() {
     card.className = 'map-card' + (id === lastMap ? ' last-played' : '');
 
     // Map image by id
-    const imgId = id === 'littoral' ? 'map-littoral' : id === 'ile' ? 'map-ile' : id === 'barrage' ? 'map-barrage' : null;
+    const imgId = ['littoral', 'ile', 'barrage', 'maree'].includes(id) ? 'map-' + id : null;
     const imgUrl = imgId ? `assets/${imgId}.jpg` : '';
     const altText = id === 'littoral' ? 'Carte Littoral — ville côtière avec plage' :
                     id === 'ile' ? 'Carte Île — île entourée d\'eau' :
@@ -7164,7 +7175,7 @@ function buildHelpContent() {
     '<h3 style="color:#64b5f6;margin:12px 0 8px">🧱 Barrage</h3>' +
     '<p><strong>Une seule rupture par partie.</strong> ~45 s de préparation avant la rupture. Des <strong>fissures</strong> apparaissent 10 s avant : une seule est la vraie, les autres sont des leurres — toutes identiques visuellement. <strong>Défaite</strong> s\'il reste <strong>60 %</strong> des bâtiments ou moins après la rupture. Construisez une digue continue devant la ville.</p>' +
     '<h3 style="color:#64b5f6;margin:12px 0 8px">🌊 Marée montante</h3>' +
-    '<p>La mer monte après chaque vague et engloutit ce qui se trouve sous la ligne d\'eau. On ne peut pas construire sous l\'eau (fantôme rouge). Les vagues partent de la ligne d\'eau courante, donc moins on avance, moins on a de temps. Les bâtiments, murs et tranchées engloutis sont détruits.</p>' +
+    '<p>La mer monte après chaque vague et engloutit ce qui se trouve sous la ligne d\'eau. On ne peut pas construire sous l\'eau (fantôme rouge). Les vagues partent de la ligne d\'eau : plus la mer monte, plus elles frappent vite. Pas de montée après la dernière vague du niveau. Les bâtiments, murs et tranchées engloutis sont détruits.</p>' +
     '<h3 style="color:#64b5f6;margin:12px 0 8px">⚡ Ressources</h3>' +
     '<p>Recharge passive de <strong>' + RESOURCE_REGEN + ' ☼/s</strong>, plafond <strong>' + RESOURCE_CAP + '</strong>. Bonus de ressources après chaque vague stoppée.</p>' +
     '<h3 style="color:#64b5f6;margin:12px 0 8px">🏆 Niveaux</h3>' +
