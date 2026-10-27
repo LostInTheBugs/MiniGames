@@ -1,0 +1,2448 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="version" content="">
+<title>Firefighter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #0d1420; font-family: 'Inter', system-ui, sans-serif; color: #fff; }
+  canvas { display: block; }
+  kbd { display: inline-block; padding: 1px 6px; border-radius: 4px; background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2); font-size: 0.85em; font-family: inherit; }
+
+  .glass {
+    background: rgba(14,18,28,0.78);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 14px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.35);
+  }
+
+  /* ─── Home screen ─────────────────────────────────────── */
+  #home {
+    position: fixed; inset: 0; z-index: 30; overflow-y: auto;
+    background: radial-gradient(ellipse at 50% 0%, #3a1a10 0%, #160c0a 45%, #0b0d14 100%);
+    display: flex; flex-direction: column; align-items: center; padding: 34px 16px 60px;
+  }
+  #home.hidden { display: none; }
+  #home h1 { font-size: 3em; font-weight: 800; letter-spacing: 2px;
+    background: linear-gradient(90deg, #ffb347, #ff5f2e 55%, #ff2e4d); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  #home .subtitle { color: rgba(255,255,255,0.6); margin: 6px 0 26px; text-align: center; }
+  #map-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 18px; width: 100%; max-width: 1120px; }
+  .map-card { cursor: pointer; overflow: hidden; display: flex; flex-direction: column; transition: transform .2s, border-color .2s; }
+  .map-card:hover { transform: translateY(-3px); border-color: rgba(255,140,60,0.5); }
+  .map-card .art { height: 120px; display: flex; align-items: center; justify-content: center; font-size: 54px; position: relative; overflow: hidden; }
+  .map-card .art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .map-card .body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+  .map-card .top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .map-card h3 { font-size: 1.15em; }
+  .badge { font-size: 0.72em; font-weight: 700; padding: 3px 8px; border-radius: 999px; white-space: nowrap; }
+  .b1 { background: #43a047; } .b2 { background: #fb8c00; } .b3 { background: #e53935; }
+  .map-card .desc { font-size: 0.85em; color: rgba(255,255,255,0.7); line-height: 1.4; flex: 1; }
+  .map-card .best { font-size: 0.78em; color: rgba(255,255,255,0.5); }
+  .dots { display: grid; grid-template-columns: repeat(5, 30px); gap: 6px; justify-content: center; }
+  .dot { width: 30px; height: 30px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.06); color: #fff; font: 600 12px Inter, sans-serif; cursor: pointer; }
+  .dot.sel { background: #ff7a2e; border-color: #ffb37a; }
+  .dot.off { opacity: 0.3; cursor: not-allowed; }
+  .lvl-info { text-align: center; font-size: 0.78em; color: rgba(255,255,255,0.55); }
+  .play { margin-top: 4px; padding: 10px; border: none; border-radius: 10px; background: linear-gradient(90deg, #ff8a3d, #ff4b2b); color: #fff; font: 700 0.95em Inter, sans-serif; cursor: pointer; }
+  .play:hover { filter: brightness(1.1); }
+  #home-version { margin-top: 26px; font-size: 0.75em; color: rgba(255,255,255,0.3); }
+
+  /* ─── In-game HUD ─────────────────────────────────────── */
+  #hud { position: fixed; top: 14px; left: 14px; z-index: 10; padding: 12px 16px; min-width: 210px; font-size: 0.86em; display: none; }
+  #hud .row { display: flex; justify-content: space-between; gap: 14px; padding: 2px 0; }
+  #hud .row b { font-weight: 700; }
+  #hud .row.bad b { color: #ff6b6b; }
+  #hud .row.warn b { color: #ffc14d; }
+  #banner { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 10; padding: 8px 18px; font-size: 0.9em; font-weight: 600; display: none; white-space: nowrap; }
+  #banner.alert { border-color: rgba(255,80,60,0.7); background: rgba(80,16,12,0.85); }
+  #wind { position: fixed; top: 14px; right: 14px; z-index: 10; width: 96px; height: 96px; display: none; border-radius: 50%; }
+  #wind svg { width: 100%; height: 100%; }
+  #wind .wtxt { position: absolute; bottom: -22px; left: 0; right: 0; text-align: center; font-size: 0.75em; color: rgba(255,255,255,0.75); }
+  #fleet { position: fixed; bottom: 54px; left: 50%; transform: translateX(-50%); z-index: 10; display: none; gap: 8px; padding: 8px; }
+  .fbtn { width: 92px; padding: 7px 4px 6px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.05); color: #fff; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px; font-family: inherit; }
+  .fbtn .ic { font-size: 22px; line-height: 1.1; }
+  .fbtn .nm { font-size: 0.68em; font-weight: 600; text-align: center; line-height: 1.15; }
+  .fbtn .ct { font-size: 0.7em; color: #9fe39f; font-weight: 700; }
+  .fbtn .ct.none { color: #ff8a80; }
+  .fbtn .k { font-size: 0.6em; color: rgba(255,255,255,0.4); }
+  .fbtn.active { border-color: #ff8a3d; background: rgba(255,120,50,0.22); box-shadow: 0 0 0 1px #ff8a3d inset; }
+  .fbtn.disabled { opacity: 0.3; cursor: not-allowed; }
+  #vlist { position: fixed; top: 130px; right: 14px; z-index: 10; width: 228px; max-height: calc(100vh - 230px); overflow-y: auto; padding: 8px; display: none; font-size: 0.76em; }
+  #vlist h4 { font-size: 0.95em; margin: 2px 4px 6px; color: rgba(255,255,255,0.75); }
+  .vrow { display: grid; grid-template-columns: 22px 1fr; gap: 6px; padding: 5px 6px; border-radius: 8px; cursor: pointer; align-items: center; }
+  .vrow:hover { background: rgba(255,255,255,0.07); }
+  .vrow.sel { background: rgba(255,120,50,0.25); }
+  .vrow .vi { font-size: 16px; }
+  .vrow .vn { font-weight: 600; }
+  .vrow .vs { color: rgba(255,255,255,0.55); font-size: 0.92em; }
+  .vrow .bar { height: 3px; background: rgba(255,255,255,0.12); border-radius: 2px; margin-top: 3px; overflow: hidden; }
+  .vrow .bar i { display: block; height: 100%; background: #4fc3f7; }
+  #message { position: fixed; top: 64px; left: 50%; transform: translateX(-50%); z-index: 12; padding: 8px 18px; font-weight: 700; opacity: 0; transition: opacity .25s; pointer-events: none; text-align: center; }
+  #message.show { opacity: 1; }
+  #controls { position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%); z-index: 10; padding: 6px 14px; font-size: 0.72em; color: rgba(255,255,255,0.7); display: none; white-space: nowrap; }
+  #pause-overlay { position: fixed; inset: 0; z-index: 20; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.35); font-size: 2em; font-weight: 800; }
+  #pause-overlay.show { display: flex; }
+
+  /* ─── End panel ───────────────────────────────────────── */
+  #end-overlay { position: fixed; inset: 0; z-index: 25; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.5); }
+  #end-overlay.show { display: flex; }
+  #end-panel { padding: 26px 30px; min-width: 330px; text-align: center; }
+  #end-panel h2 { font-size: 1.8em; margin-bottom: 6px; }
+  #end-panel .sub { color: rgba(255,255,255,0.65); margin-bottom: 14px; }
+  #end-panel .stats { text-align: left; margin: 0 auto 18px; display: inline-block; font-size: 0.9em; line-height: 1.7; }
+  #end-panel .btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  #end-panel button { padding: 9px 16px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); color: #fff; font: 600 0.9em Inter, sans-serif; cursor: pointer; }
+  #end-panel button.primary { background: linear-gradient(90deg, #ff8a3d, #ff4b2b); border: none; }
+
+  /* ─── Help ────────────────────────────────────────────── */
+  #help-overlay { position: fixed; inset: 0; z-index: 40; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.45); }
+  #help-overlay.show { display: flex; }
+  #help-panel { width: min(680px, 92vw); max-height: 86vh; overflow-y: auto; padding: 22px 26px; font-size: 0.88em; line-height: 1.5; position: relative; }
+  #help-panel h2 { margin-bottom: 10px; }
+  #help-panel h3 { color: #ffa45c; margin: 12px 0 4px; font-size: 1em; }
+  #help-panel table { border-collapse: collapse; width: 100%; font-size: 0.95em; }
+  #help-panel td { padding: 3px 6px; border-bottom: 1px solid rgba(255,255,255,0.07); vertical-align: top; }
+  #help-panel .x { position: absolute; top: 12px; right: 14px; background: none; border: none; color: #fff; font-size: 1.2em; cursor: pointer; }
+
+  @media (max-width: 900px) {
+    #vlist { display: none !important; }
+    .fbtn { width: 70px; } .fbtn .nm { font-size: 0.6em; }
+    #controls { display: none !important; }
+  }
+
+  /* ─── Version update notification ──────────────────────── */
+  #version-banner {
+    position: fixed; bottom: 24px; right: 24px;
+    z-index: 60;   /* au-dessus de l'écran d'accueil (z 50), sous la modale (z 90) */
+    background: rgba(10,15,30,0.85);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 14px;
+    padding: 14px 18px;
+    max-width: 340px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    opacity: 0;
+    transform: translateY(12px);
+    pointer-events: none;
+    transition: opacity 0.4s, transform 0.4s;
+    display: none;
+  }
+  #version-banner.visible {
+    display: block;
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+  #version-banner .vb-title {
+    font-size: 0.88em; font-weight: 700;
+    color: #ffd54f; margin-bottom: 2px;
+  }
+  #version-banner .vb-version {
+    font-size: 0.78em; color: rgba(255,255,255,0.45);
+    margin-bottom: 8px;
+  }
+  #version-banner .vb-actions {
+    display: flex; gap: 8px; align-items: center;
+  }
+  #version-banner .vb-detail-btn {
+    padding: 7px 16px;
+    background: rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.65); border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.82em;
+    transition: background 0.15s, color 0.15s;
+  }
+  #version-banner .vb-detail-btn:hover { background: rgba(255,255,255,0.14); color: #fff; }
+  #version-banner .vb-reload {
+    padding: 7px 16px;
+    background: linear-gradient(135deg, #42a5f5, #1e88e5);
+    color: white; border: none; border-radius: 8px;
+    cursor: pointer; font-weight: 700; font-size: 0.82em;
+    transition: transform 0.15s;
+  }
+  #version-banner .vb-reload:hover { transform: scale(1.05); }
+  #version-banner .vb-close {
+    background: none; border: none;
+    color: rgba(255,255,255,0.4); font-size: 1.3em;
+    cursor: pointer; padding: 4px 8px;
+    line-height: 1; transition: color 0.2s;
+  }
+  #version-banner .vb-close:hover { color: rgba(255,255,255,0.8); }
+
+  /* ─── Auto-update toggle ───────────────────────────────── */
+  #vb-auto-toggle {
+    display: flex; align-items: center; gap: 6px;
+    margin-top: 8px; font-size: 0.75em;
+    color: rgba(255,255,255,0.4);
+  }
+  #vb-auto-toggle input { display: none; }
+  #vb-auto-toggle label {
+    display: inline-block; width: 34px; height: 19px;
+    background: rgba(255,255,255,0.12);
+    border-radius: 10px; position: relative; cursor: pointer;
+    transition: background 0.25s;
+  }
+  #vb-auto-toggle label::after {
+    content: ''; position: absolute; top: 2px; left: 2px;
+    width: 15px; height: 15px; border-radius: 50%;
+    background: rgba(255,255,255,0.5); transition: left 0.25s, background 0.25s;
+  }
+  #vb-auto-toggle input:checked + label {
+    background: rgba(66,165,245,0.5);
+  }
+  #vb-auto-toggle input:checked + label::after {
+    left: 17px; background: #fff;
+  }
+
+  /* ─── Version detail modal ─────────────────────────────── */
+  #version-modal-overlay {
+    position: fixed; inset: 0; z-index: 90;
+    background: rgba(0,0,0,0.55);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    display: none; align-items: center; justify-content: center;
+  }
+  #version-modal-overlay.visible { display: flex; }
+  #version-modal {
+    background: rgba(15,20,40,0.95);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 16px; padding: 0;
+    max-width: 560px; width: 90vw; max-height: 75vh;
+    display: flex; flex-direction: column;
+    box-shadow: 0 12px 48px rgba(0,0,0,0.6);
+  }
+  #version-modal .vm-header {
+    padding: 18px 22px 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  #version-modal .vm-header h3 {
+    font-size: 1.15em; font-weight: 700;
+    color: #ffd54f; margin: 0;
+  }
+  #version-modal .vm-header .vm-close {
+    background: none; border: none;
+    color: rgba(255,255,255,0.4); font-size: 1.4em;
+    cursor: pointer; padding: 4px 8px;
+    line-height: 1; transition: color 0.2s;
+  }
+  #version-modal .vm-header .vm-close:hover { color: #fff; }
+  #version-modal .vm-body {
+    padding: 16px 22px 8px; overflow-y: auto;
+    flex: 1;
+    /* make scrollbar subtle */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.1) transparent;
+  }
+  #version-modal .vm-body::-webkit-scrollbar { width: 6px; }
+  #version-modal .vm-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }
+  #version-modal .vm-body::-webkit-scrollbar-track { background: transparent; }
+  #version-modal .vm-release {
+    margin-bottom: 22px; padding-bottom: 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  #version-modal .vm-release:last-child { border-bottom: none; }
+  #version-modal .vm-rel-header {
+    display: flex; align-items: baseline; gap: 10px;
+    margin-bottom: 8px;
+  }
+  #version-modal .vm-rel-version {
+    font-size: 1.05em; font-weight: 700;
+    color: #64b5f6;
+  }
+  #version-modal .vm-rel-date {
+    font-size: 0.78em; color: rgba(255,255,255,0.35);
+  }
+  #version-modal .vm-rel-notes {
+    font-size: 0.85em; color: #c0c8d8;
+    line-height: 1.6;
+  }
+  /* markdown inside notes */
+  #version-modal .vm-rel-notes ul { margin: 6px 0; padding-left: 18px; }
+  #version-modal .vm-rel-notes li { margin: 2px 0; }
+  #version-modal .vm-rel-notes strong { color: #ffd54f; font-weight: 700; }
+  #version-modal .vm-rel-notes code {
+    background: rgba(255,255,255,0.08); padding: 1px 5px;
+    border-radius: 3px; font-size: 0.9em;
+  }
+  #version-modal .vm-rel-notes h4 {
+    font-size: 0.9em; font-weight: 700; color: rgba(255,255,255,0.7);
+    margin: 8px 0 4px;
+  }
+  #version-modal .vm-rel-notes h3 {
+    font-size: 0.95em; font-weight: 700; color: rgba(255,255,255,0.8);
+    margin: 10px 0 4px;
+  }
+  #version-modal .vm-rel-notes p { margin: 4px 0; }
+  #version-modal .vm-footer {
+    padding: 12px 22px 18px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    display: flex; gap: 10px; align-items: center;
+    justify-content: flex-end;
+  }
+  #version-modal .vm-footer .vm-reload {
+    padding: 9px 22px;
+    background: linear-gradient(135deg, #42a5f5, #1e88e5);
+    color: white; border: none; border-radius: 8px;
+    cursor: pointer; font-weight: 700; font-size: 0.88em;
+    transition: transform 0.15s;
+  }
+  #version-modal .vm-footer .vm-reload:hover { transform: scale(1.05); }
+  #version-modal .vm-footer .vm-reload-note {
+    font-size: 0.72em; color: rgba(255,255,255,0.3);
+    flex: 1; text-align: left;
+  }
+
+
+</style>
+</head>
+<body>
+
+<div id="home">
+  <h1>🚒 FIREFIGHTER</h1>
+  <div class="subtitle">Envoyez les bons moyens au bon endroit : feux de forêt, maisons et immeubles en feu, accidents de la route.</div>
+  <div id="map-cards"></div>
+  <div id="home-version"></div>
+</div>
+
+<div id="hud" class="glass"></div>
+<div id="banner" class="glass"></div>
+<div id="wind" class="glass"><svg viewBox="-50 -50 100 100">
+  <circle r="44" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="2"/>
+  <text x="0" y="-31" text-anchor="middle" fill="#ff8a65" font-size="12" font-weight="700">N</text>
+  <text x="33" y="4" text-anchor="middle" fill="rgba(255,255,255,0.6)" font-size="10">E</text>
+  <text x="0" y="40" text-anchor="middle" fill="rgba(255,255,255,0.6)" font-size="10">S</text>
+  <text x="-33" y="4" text-anchor="middle" fill="rgba(255,255,255,0.6)" font-size="10">O</text>
+  <g id="wind-arrow"><line x1="0" y1="18" x2="0" y2="-18" stroke="#7fd3ff" stroke-width="5" stroke-linecap="round"/><polygon points="0,-26 -9,-12 9,-12" fill="#7fd3ff"/></g>
+</svg><div class="wtxt"></div></div>
+<div id="vlist" class="glass"></div>
+<div id="fleet" class="glass"></div>
+<div id="message" class="glass"></div>
+<div id="controls" class="glass">🖱️ <kbd>Clic</kbd> envoyer · <kbd>Clic droit</kbd> pivoter · <kbd>Molette</kbd> zoom · <kbd>Clic milieu</kbd> déplacer · <kbd>1</kbd>–<kbd>6</kbd> véhicule · <kbd>F</kbd> vitesse ×2 · <kbd>P</kbd> pause · <kbd>H</kbd> aide · <kbd>R</kbd> recommencer · <kbd>M</kbd> menu</div>
+<div id="pause-overlay">⏸ Pause</div>
+
+<div id="end-overlay"><div id="end-panel" class="glass"></div></div>
+
+<div id="help-overlay"><div id="help-panel" class="glass"><button class="x">✕</button><div id="help-content"></div></div></div>
+
+<div id="version-banner">
+  <div class="vb-title">🔄 Mise à jour disponible</div>
+  <div class="vb-version"></div>
+  <div class="vb-actions">
+    <button class="vb-detail-btn">📋 Détails</button>
+    <button class="vb-reload">Recharger</button>
+    <button class="vb-close">✕</button>
+  </div>
+  <div id="vb-auto-toggle">
+    <input type="checkbox" id="vb-auto-cb">
+    <label for="vb-auto-cb"></label>
+    <span>Mise à jour automatique</span>
+  </div>
+</div>
+
+<!-- ─── Version detail modal ─────────────────────────────────── -->
+<div id="version-modal-overlay">
+  <div id="version-modal">
+    <div class="vm-header">
+      <h3>📋 Mises à jour disponibles</h3>
+      <button class="vm-close">✕</button>
+    </div>
+    <div class="vm-body"></div>
+    <div class="vm-footer">
+      <span class="vm-reload-note">Jeu servi en statique — le rechargement télécharge la dernière version.</span>
+      <button class="vm-reload">🔄 Recharger</button>
+    </div>
+  </div>
+</div>
+
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ─── Version ──────────────────────────────────────────────────
+const GAME_VERSION = "2026.10.001";
+document.querySelector("meta[name=version]").setAttribute("content", GAME_VERSION);
+document.getElementById('home-version').textContent = 'v' + GAME_VERSION;
+console.log("Firefighter v" + GAME_VERSION);
+
+// ─── Graine (?seed=N) ─────────────────────────────────────────
+// Avec ?seed=N, Math.random devient déterministe : même carte pour la même graine
+// et le même niveau. Toutes les données de la carte sont tirées AVANT la création
+// des objets three.js (qui consomment Math.random pour leurs UUID).
+function mulberry32(seed) {
+  let s = seed | 0;
+  return function () {
+    s |= 0; s = s + 0x6D2B79F5 | 0;
+    let t = Math.imul(s ^ s >>> 15, 1 | s);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+const NATIVE_RANDOM = Math.random;
+let SEED = null;
+(function () {
+  const q = new URLSearchParams(location.search).get('seed');
+  if (q !== null) { SEED = parseInt(q, 10) || 0; console.log('Firefighter — graine ' + SEED); }
+})();
+function reseed(salt) { if (SEED !== null) Math.random = mulberry32(SEED * 7919 + salt); }
+
+// ─── Grille ───────────────────────────────────────────────────
+// Carte de N×N cases de 1 unité. Case (i, j) : x = i − HALF + 0.5 (est = +X),
+// z = j − HALF + 0.5 (nord = −Z, la caméra regarde vers le nord).
+const N = 48, HALF = N / 2;
+const T = { GRASS: 0, FOREST: 1, ROAD: 2, BUILD: 3, WATER: 4, ROCK: 5, FIELD: 6, SAND: 7, QUAY: 8 };
+const FLAM = [0.35, 1.0, 0, 0, 0, 0, 0.6, 0, 0];          // propension à s'enflammer
+const BURN = [0.14, 0.055, 0, 0, 0, 0, 0.1, 0, 0];        // combustible consommé par seconde à pleine intensité
+const FUEL = [0.6, 1.0, 0, 0, 0, 0, 0.7, 0, 0];
+const COLORS = {
+  [T.GRASS]: 0x6f9a48, [T.FOREST]: 0x3f6b2e, [T.ROAD]: 0x55575c, [T.BUILD]: 0x8a8578,
+  [T.WATER]: 0x2a6fb0, [T.ROCK]: 0x8d8a86, [T.FIELD]: 0xc9b05a, [T.SAND]: 0xd8c690, [T.QUAY]: 0xa8a49c,
+};
+const idx = (i, j) => j * N + i;
+const inb = (i, j) => i >= 0 && j >= 0 && i < N && j < N;
+const cx = i => i - HALF + 0.5;
+const cz = j => j - HALF + 0.5;
+const toI = x => Math.floor(x + HALF);
+const toJ = z => Math.floor(z + HALF);
+
+// ─── Bruit de valeur (graine courante) ────────────────────────
+function makeNoise(cell) {
+  const g = new Float32Array((Math.ceil(N / cell) + 2) ** 2).map(() => Math.random());
+  const W = Math.ceil(N / cell) + 2;
+  const s = t => t * t * (3 - 2 * t);
+  return (i, j) => {
+    const x = i / cell, y = j / cell, x0 = Math.floor(x), y0 = Math.floor(y);
+    const fx = s(x - x0), fy = s(y - y0);
+    const a = g[y0 * W + x0], b = g[y0 * W + x0 + 1], c = g[(y0 + 1) * W + x0], d = g[(y0 + 1) * W + x0 + 1];
+    return a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy;
+  };
+}
+
+// ─── Cartes ───────────────────────────────────────────────────
+// Chaque générateur remplit `world` : types de cases, hauteurs des sommets,
+// bâtiments, caserne, héliport, bouches d'incendie. Aucun objet three.js ici.
+const MAPS = {
+  village: {
+    name: 'Village et forêt', icon: '🌲', diff: 1, badge: '⭐ Facile',
+    desc: 'Un village entouré de collines boisées et de champs. Le vent pousse les feux de forêt vers les maisons.',
+    fleet: { canadair: 1, helico: 1, ccf: 3, vl: 1, epa: 1, fpt: 2 },
+    incidents: { forest: 5, house: 3, tower: 1, accident: 2 },
+    spread: 1.0,
+  },
+  ville: {
+    name: 'Ville', icon: '🏙️', diff: 2, badge: '⭐⭐ Moyen',
+    desc: 'Des immeubles serrés, un fleuve et un parc. La grande échelle est indispensable pour les étages, et les accidents se multiplient.',
+    fleet: { canadair: 1, helico: 1, ccf: 1, vl: 2, epa: 2, fpt: 3 },
+    incidents: { forest: 1, house: 3, tower: 4, accident: 4 },
+    spread: 0.85,
+  },
+  port: {
+    name: 'Port', icon: '⚓', diff: 2, badge: '⭐⭐ Moyen',
+    desc: 'Quais, entrepôts, bateaux et une petite ville sur la colline. La mer est tout près pour remplir canadairs et hélicoptères.',
+    fleet: { canadair: 1, helico: 1, ccf: 2, vl: 1, epa: 1, fpt: 3 },
+    incidents: { forest: 2, house: 2, tower: 2, warehouse: 3, boat: 2, accident: 3 },
+    spread: 0.95,
+  },
+  montagne: {
+    name: 'Montagne', icon: '⛰️', diff: 3, badge: '⭐⭐⭐ Difficile',
+    desc: 'Pentes boisées, routes en lacets où les camions avancent lentement. Les moyens aériens font la différence.',
+    fleet: { canadair: 2, helico: 2, ccf: 3, vl: 1, epa: 1, fpt: 1 },
+    incidents: { forest: 7, house: 2, tower: 1, accident: 3 },
+    spread: 1.15,
+    lostBonus: 2,      // maisons isolées dans la forêt : 2 pertes de plus tolérées
+  },
+};
+
+let world = null;   // données de la carte courante
+
+function newWorld() {
+  return {
+    type: new Uint8Array(N * N),
+    fuel: new Float32Array(N * N),
+    fire: new Float32Array(N * N),     // intensité 0..1
+    wet: new Float32Array(N * N),      // humidité après arrosage 0..1
+    burned: new Uint8Array(N * N),
+    bld: new Int16Array(N * N).fill(-1), // index du bâtiment sur la case
+    hv: new Float32Array((N + 1) * (N + 1)), // hauteurs des sommets
+    buildings: [], trees: [], hydrants: [],
+    station: null, heliport: null, waterLevel: 0,
+  };
+}
+function setType(w, i, j, t) { if (inb(i, j)) w.type[idx(i, j)] = t; }
+function road(w, i0, j0, i1, j1) {
+  const di = Math.sign(i1 - i0), dj = Math.sign(j1 - j0);
+  let i = i0, j = j0;
+  for (;;) { if (inb(i, j)) w.type[idx(i, j)] = T.ROAD; if (i === i1 && j === j1) break; if (i !== i1) i += di; else j += dj; }
+}
+function blob(w, ci, cj, r, t, noise) {
+  for (let j = Math.floor(cj - r - 2); j <= cj + r + 2; j++) for (let i = Math.floor(ci - r - 2); i <= ci + r + 2; i++) {
+    if (!inb(i, j)) continue;
+    const d = Math.hypot(i - ci, j - cj) + (noise ? (noise(i, j) - 0.5) * 2.4 : 0);
+    if (d <= r) w.type[idx(i, j)] = t;
+  }
+}
+function free(w, i0, j0, wd, dp, allowed) {
+  for (let j = j0; j < j0 + dp; j++) for (let i = i0; i < i0 + wd; i++) {
+    if (!inb(i, j)) return false;
+    const k = idx(i, j);
+    if (w.bld[k] >= 0) return false;
+    if (!(allowed || [T.GRASS, T.FIELD]).includes(w.type[k])) return false;
+  }
+  return true;
+}
+// kind: house | tower | warehouse | boat | station
+function addBuilding(w, kind, i0, j0, wd, dp, floors, extra) {
+  const b = Object.assign({ id: w.buildings.length, kind, i0, j0, wd, dp, floors,
+    x: cx(i0) + (wd - 1) / 2, z: cz(j0) + (dp - 1) / 2, fire: 0, hp: 100, lost: false, color: 0 }, extra || {});
+  b.h = kind === 'tower' ? 0.8 * floors + 0.4 : kind === 'warehouse' ? 1.6 : kind === 'boat' ? 0.7 : kind === 'station' ? 1.4 : 1.0;
+  for (let j = j0; j < j0 + dp; j++) for (let i = i0; i < i0 + wd; i++) {
+    const k = idx(i, j);
+    if (kind !== 'boat') w.type[k] = T.BUILD;
+    w.bld[k] = b.id;
+  }
+  w.buildings.push(b);
+  return b;
+}
+// Cases de route voisines d'un rectangle
+function nearRoad(w, i0, j0, wd, dp) {
+  for (let j = j0 - 1; j <= j0 + dp; j++) for (let i = i0 - 1; i <= i0 + wd; i++)
+    if (inb(i, j) && w.type[idx(i, j)] === T.ROAD) return true;
+  return false;
+}
+// Remplit les abords des routes avec des bâtiments
+function lineBuildings(w, area, prob, pick, allowed) {
+  for (let j = area.j0; j <= area.j1; j++) for (let i = area.i0; i <= area.i1; i++) {
+    if (Math.random() > prob) continue;
+    const [kind, wd, dp, floors] = pick(i, j);
+    if (free(w, i, j, wd, dp, allowed) && nearRoad(w, i, j, wd, dp)) addBuilding(w, kind, i, j, wd, dp, floors);
+  }
+}
+function flatHeights(w, amp, noise) {
+  for (let j = 0; j <= N; j++) for (let i = 0; i <= N; i++) w.hv[j * (N + 1) + i] = amp * (noise(i, j) - 0.5);
+}
+function station(w, i0, j0) {
+  const b = addBuilding(w, 'station', i0, j0, 3, 2, 1);
+  w.station = b;
+  // case de route devant la caserne
+  let best = null;
+  for (let j = j0 - 1; j <= j0 + 2; j++) for (let i = i0 - 1; i <= i0 + 3; i++)
+    if (inb(i, j) && w.type[idx(i, j)] === T.ROAD && !best) best = [i, j];
+  b.door = best || [i0, j0 + 2];
+}
+function heliport(w, i0, j0) {
+  for (let j = j0; j < j0 + 2; j++) for (let i = i0; i < i0 + 2; i++) setType(w, i, j, T.QUAY);
+  w.heliport = { x: cx(i0) + 0.5, z: cz(j0) + 0.5 };
+}
+function forestByNoise(w, noise, thr, keep) {
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const k = idx(i, j);
+    if (w.type[k] !== T.GRASS) continue;
+    if (keep && !keep(i, j)) continue;
+    if (noise(i, j) > thr) w.type[k] = T.FOREST;
+  }
+}
+
+const GEN = {
+  village(w) {
+    const n1 = makeNoise(7), n2 = makeNoise(4), nh = makeNoise(9);
+    flatHeights(w, 1.2, nh);
+    blob(w, 8, 9, 5.2, T.WATER, n2);                       // étang au nord-ouest
+    // champs autour du village
+    for (const [i0, j0, i1, j1] of [[30, 30, 38, 36], [10, 30, 17, 37], [32, 12, 40, 18]])
+      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) if (w.type[idx(i, j)] === T.GRASS) w.type[idx(i, j)] = T.FIELD;
+    // routes
+    road(w, 0, 26, 47, 26); road(w, 24, 47, 24, 4);
+    road(w, 24, 14, 14, 14); road(w, 14, 14, 14, 18);
+    road(w, 18, 20, 30, 20); road(w, 18, 20, 18, 32); road(w, 30, 20, 30, 32); road(w, 18, 32, 30, 32);
+    road(w, 30, 26, 30, 26);
+    road(w, 40, 26, 40, 40); road(w, 6, 26, 6, 40);
+    // forêt (hors du centre du village et des champs)
+    forestByNoise(w, n1, 0.47, (i, j) => Math.hypot(i - 24, j - 26) > 9.5);
+    station(w, 33, 27); heliport(w, 37, 28);
+    // maisons du village
+    lineBuildings(w, { i0: 15, j0: 17, i1: 33, j1: 35 }, 0.55, () => [Math.random() < 0.12 ? 'tower' : 'house', 2, 2, 3 + Math.floor(Math.random() * 2)]);
+    // fermes et maisons isolées
+    lineBuildings(w, { i0: 2, j0: 2, i1: 45, j1: 45 }, 0.035, () => ['house', 2, 2, 1]);
+    w.hydrants = [[21, 26], [27, 26], [24, 30], [24, 22]];
+  },
+  ville(w) {
+    const nh = makeNoise(10), n1 = makeNoise(5);
+    flatHeights(w, 0.5, nh);
+    for (let j = 0; j < N; j++) for (let i = 7; i <= 9; i++) w.type[idx(i, j)] = T.WATER;  // fleuve
+    const rows = [3, 9, 15, 21, 27, 33, 39, 45], cols = [4, 13, 19, 25, 31, 37, 43];
+    for (const j of rows) road(w, 0, j, 47, j);
+    for (const i of cols) road(w, i, 0, i, 47);
+    // parc
+    for (let j = 22; j <= 26; j++) for (let i = 26; i <= 30; i++) w.type[idx(i, j)] = n1(i, j) > 0.4 ? T.FOREST : T.GRASS;
+    // bois à l'est
+    for (let j = 0; j < N; j++) for (let i = 44; i < N; i++) if (w.type[idx(i, j)] === T.GRASS && n1(i, j) > 0.35) w.type[idx(i, j)] = T.FOREST;
+    for (let j = 0; j < N; j++) for (let i = 0; i < 7; i++) if (w.type[idx(i, j)] === T.GRASS && n1(i, j) > 0.55) w.type[idx(i, j)] = T.FOREST;
+    station(w, 20, 16); heliport(w, 32, 16);
+    lineBuildings(w, { i0: 10, j0: 0, i1: 43, j1: 46 }, 0.7, (i, j) => {
+      const center = Math.hypot(i - 24, j - 24) < 12;
+      return Math.random() < (center ? 0.6 : 0.25) ? ['tower', 2, 2, 4 + Math.floor(Math.random() * (center ? 4 : 2))] : ['house', 2, 2, 1];
+    });
+    w.hydrants = [[19, 9], [25, 21], [31, 33], [13, 27], [37, 27], [25, 39]];
+  },
+  port(w) {
+    const nh = makeNoise(9), n1 = makeNoise(5);
+    for (let j = 0; j <= N; j++) for (let i = 0; i <= N; i++) w.hv[j * (N + 1) + i] = Math.max(0, (30 - j) / 30) * 2.2 + 0.5 * (nh(i, j) - 0.5);
+    for (let j = 38; j < N; j++) for (let i = 0; i < N; i++) w.type[idx(i, j)] = T.WATER;          // mer au sud
+    for (let j = 35; j <= 37; j++) for (let i = 2; i <= 45; i++) w.type[idx(i, j)] = T.QUAY;      // quai
+    for (const pi of [10, 22, 34]) for (let j = 38; j <= 44; j++) for (let i = pi; i <= pi + 1; i++) w.type[idx(i, j)] = T.QUAY; // jetées
+    for (let i = 0; i < N; i++) if (w.type[idx(i, 37)] === T.WATER) w.type[idx(i, 37)] = T.SAND;
+    road(w, 0, 29, 47, 29); road(w, 0, 34, 47, 34);
+    for (const i of [6, 16, 28, 40]) road(w, i, 4, i, 34);
+    road(w, 6, 12, 40, 12); road(w, 6, 20, 40, 20);
+    // entrepôts le long du quai
+    for (const i0 of [3, 9, 17, 23, 31, 37]) if (free(w, i0, 30, 4, 4)) addBuilding(w, 'warehouse', i0, 30, 4, 4, 1);
+    // conteneurs (obstacles ininflammables)
+    for (let i = 41; i <= 45; i++) for (let j = 30; j <= 33; j++) if (w.type[idx(i, j)] === T.GRASS) w.type[idx(i, j)] = T.ROCK;
+    // bateaux amarrés le long des jetées
+    for (const [i0, j0] of [[12, 39], [12, 42], [20, 40], [24, 39], [24, 43], [32, 41], [36, 40]])
+      addBuilding(w, 'boat', i0, j0, 2, 1, 1);
+    // forêt sur la colline au nord
+    forestByNoise(w, n1, 0.45, (i, j) => j < 11 || i > 42 || i < 4);
+    station(w, 17, 25); heliport(w, 44, 36);
+    lineBuildings(w, { i0: 4, j0: 4, i1: 43, j1: 27 }, 0.55, (i, j) => Math.random() < 0.25 ? ['tower', 2, 2, 4 + Math.floor(Math.random() * 3)] : ['house', 2, 2, 1]);
+    w.hydrants = [[10, 34], [22, 34], [34, 34], [16, 20], [28, 12]];
+  },
+  montagne(w) {
+    const nh = makeNoise(11), nr = makeNoise(5), n1 = makeNoise(4);
+    // relief : crêtes au nord-ouest et au sud-est, vallée en diagonale
+    for (let j = 0; j <= N; j++) for (let i = 0; i <= N; i++) {
+      const valley = Math.abs((i - j) / Math.SQRT2) / 24;     // 0 au fond de la vallée
+      w.hv[j * (N + 1) + i] = Math.max(0, valley * 7.5 + 2.6 * (nh(i, j) - 0.5) + 1.2 * (nr(i, j) - 0.5));
+    }
+    const ch = (i, j) => (w.hv[j * (N + 1) + i] + w.hv[j * (N + 1) + i + 1] + w.hv[(j + 1) * (N + 1) + i] + w.hv[(j + 1) * (N + 1) + i + 1]) / 4;
+    blob(w, 30, 29, 3.6, T.WATER, n1);  // lac de fond de vallée
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+      const k = idx(i, j);
+      if (w.type[k] !== T.GRASS) continue;
+      const h = ch(i, j);
+      if (h > 5.6) w.type[k] = T.ROCK;
+      else if (n1(i, j) > 0.3 && h > 0.9) w.type[k] = T.FOREST;
+    }
+    // route en lacets : chemin de moindre pente entre les deux extrémités de la vallée
+    const way = gridPath((i, j) => {
+      const t = w.type[idx(i, j)];
+      if (t === T.WATER || t === T.ROCK) return Infinity;
+      return 1 + ch(i, j) * 1.6;
+    }, [1, 2], [46, 45]);
+    paintRoad(w, way);
+    const branch = gridPath((i, j) => {
+      const t = w.type[idx(i, j)];
+      if (t === T.WATER || t === T.ROCK) return Infinity;
+      return t === T.ROAD ? 0.3 : 1 + ch(i, j) * 2;
+    }, [40, 6], [22, 20]);
+    paintRoad(w, branch);
+    // hameau près de la route, sur le replat
+    let si = 20, sj = 20, bestH = 1e9;
+    for (const [i, j] of way) { const h = ch(i, j); if (i > 14 && i < 34 && h < bestH) { bestH = h; si = i; sj = j; } }
+    for (const [i, j, wd, dp] of [[si + 2, sj - 1, 3, 2], [si - 1, sj + 2, 3, 2]])
+      if (free(w, i, j, wd, dp, [T.GRASS, T.FOREST, T.FIELD])) { station(w, i, j); break; }
+    if (!w.station) { // repli : n'importe quel emplacement libre au bord de la route
+      const ok = [T.GRASS, T.FOREST, T.FIELD, T.ROCK];
+      outer: for (const [i, j] of way) for (const [oi, oj] of [[1, 0], [-3, 0], [0, 1], [0, -2], [1, 1], [-3, -2]]) {
+        if (free(w, i + oi, j + oj, 3, 2, ok)) { station(w, i + oi, j + oj); break outer; }
+      }
+    }
+    if (!w.station) { const [i, j] = way[Math.floor(way.length / 2)]; station(w, Math.min(N - 3, i + 1), Math.min(N - 2, j)); }
+    const s = w.station;
+    for (let r = 2; r < 8 && !w.heliport; r++) for (let dj = -r; dj <= r && !w.heliport; dj++) for (let di = -r; di <= r && !w.heliport; di++) {
+      const i = s.i0 + di, j = s.j0 + dj;
+      if (free(w, i, j, 2, 2, [T.GRASS, T.FOREST, T.FIELD])) heliport(w, i, j);
+    }
+    lineBuildings(w, { i0: si - 9, j0: sj - 9, i1: si + 9, j1: sj + 9 }, 0.6, () => [Math.random() < 0.15 ? 'tower' : 'house', 2, 2, 4], [T.GRASS, T.FOREST, T.FIELD]);
+    lineBuildings(w, { i0: 2, j0: 2, i1: 45, j1: 45 }, 0.05, () => ['house', 2, 2, 1], [T.GRASS, T.FOREST, T.FIELD]);
+    w.hydrants = way.filter((_, k) => k % 14 === 7).slice(0, 4);
+    w.slope = true;
+  },
+};
+
+// Trace une route le long d'un chemin ; un pas en diagonale est complété par une case
+// orthogonale pour que la chaussée reste continue
+function paintRoad(w, path) {
+  for (let q = 0; q < path.length; q++) {
+    const [i, j] = path[q];
+    w.type[idx(i, j)] = T.ROAD;
+    if (q) { const [pi, pj] = path[q - 1]; if (pi !== i && pj !== j) { const k = idx(i, pj); if (w.type[k] !== T.WATER && w.type[k] !== T.ROCK) w.type[k] = T.ROAD; else w.type[idx(pi, j)] = T.ROAD; } }
+  }
+}
+
+// A* générique sur la grille (8 voisins, pas de coupe de coin) — coût(i, j) par case
+function gridPath(cost, from, to, maxIter) {
+  const open = new MinHeap();
+  const g = new Float32Array(N * N).fill(Infinity), came = new Int32Array(N * N).fill(-1);
+  const s = idx(from[0], from[1]), goal = idx(to[0], to[1]);
+  g[s] = 0; open.push(s, 0);
+  let best = s, bestH = Infinity, it = 0;
+  const hfun = k => Math.hypot((k % N) - to[0], Math.floor(k / N) - to[1]);
+  while (open.size && it++ < (maxIter || 20000)) {
+    const k = open.pop();
+    if (k === goal) { best = k; break; }
+    const h = hfun(k); if (h < bestH) { bestH = h; best = k; }
+    const i = k % N, j = (k - i) / N;
+    for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
+      if (!di && !dj) continue;
+      const ni = i + di, nj = j + dj;
+      if (!inb(ni, nj)) continue;
+      const c = cost(ni, nj);
+      if (c === Infinity) continue;
+      if (di && dj && (cost(i + di, j) === Infinity || cost(i, j + dj) === Infinity)) continue;
+      const ng = g[k] + c * (di && dj ? 1.414 : 1);
+      const nk = idx(ni, nj);
+      if (ng < g[nk]) { g[nk] = ng; came[nk] = k; open.push(nk, ng + hfun(nk)); }
+    }
+  }
+  const out = [];
+  for (let k = best; k >= 0; k = came[k]) { out.push([k % N, Math.floor(k / N)]); if (k === s) break; }
+  return out.reverse();
+}
+class MinHeap {
+  constructor() { this.k = []; this.p = []; }
+  get size() { return this.k.length; }
+  push(key, pr) {
+    const k = this.k, p = this.p; let n = k.length; k.push(key); p.push(pr);
+    while (n > 0) { const q = (n - 1) >> 1; if (p[q] <= pr) break; k[n] = k[q]; p[n] = p[q]; n = q; }
+    k[n] = key; p[n] = pr;
+  }
+  pop() {
+    const k = this.k, p = this.p, top = k[0], lk = k.pop(), lp = p.pop();
+    if (k.length) {
+      let n = 0; const L = k.length;
+      for (;;) { let c = 2 * n + 1; if (c >= L) break; if (c + 1 < L && p[c + 1] < p[c]) c++; if (p[c] >= lp) break; k[n] = k[c]; p[n] = p[c]; n = c; }
+      k[n] = lk; p[n] = lp;
+    }
+    return top;
+  }
+}
+
+function generateWorld(mapId, level) {
+  reseed(level * 101 + Object.keys(MAPS).indexOf(mapId));
+  const w = newWorld();
+  GEN[mapId](w);
+  // bâtiments : couleurs et combustible des cases
+  for (const b of w.buildings) {
+    b.color = b.kind === 'house' ? [0xe8d9b8, 0xd9c09a, 0xf0e6d2, 0xcfb08a][Math.floor(Math.random() * 4)]
+      : b.kind === 'tower' ? [0x9aa6b5, 0xb8b0a2, 0x8f9aa6, 0xc4bcb0][Math.floor(Math.random() * 4)]
+      : b.kind === 'warehouse' ? [0x6d8fa8, 0x9b6b55, 0x7f8c8d][Math.floor(Math.random() * 3)]
+      : b.kind === 'boat' ? 0xf2f2f2 : 0xc62828;
+    b.roof = [0x9c4a3a, 0x7d3c30, 0x5d5d5d, 0xa0522d][Math.floor(Math.random() * 4)];
+  }
+  for (let k = 0; k < N * N; k++) w.fuel[k] = FUEL[w.type[k]];
+  // arbres : 1 à 2 par case de forêt, position et taille tirées maintenant
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) if (w.type[idx(i, j)] === T.FOREST) {
+    const n = Math.random() < 0.55 ? 2 : 1;
+    for (let t = 0; t < n; t++) w.trees.push({ k: idx(i, j), x: cx(i) + (Math.random() - 0.5) * 0.7, z: cz(j) + (Math.random() - 0.5) * 0.7, s: 0.75 + Math.random() * 0.55 });
+  }
+  // eau : abaisser les sommets entièrement entourés d'eau
+  const wl = 0.0;
+  for (let j = 0; j <= N; j++) for (let i = 0; i <= N; i++) {
+    let allW = true, anyW = false;
+    for (const [a, b] of [[i - 1, j - 1], [i, j - 1], [i - 1, j], [i, j]]) {
+      if (!inb(a, b)) continue;
+      const isW = w.type[idx(a, b)] === T.WATER || w.bld[idx(a, b)] >= 0 && w.buildings[w.bld[idx(a, b)]].kind === 'boat';
+      if (isW) anyW = true; else allW = false;
+    }
+    const hk = j * (N + 1) + i;
+    if (anyW) { w.hv[hk] = Math.min(w.hv[hk], wl); if (allW) w.hv[hk] = wl - 0.6; }
+  }
+  w.waterLevel = wl - 0.08;
+  w.forestTotal = w.type.reduce((a, t) => a + (t === T.FOREST ? 1 : 0), 0);
+  w.waterCells = [];
+  for (let k = 0; k < N * N; k++) if (w.type[k] === T.WATER && w.bld[k] < 0) w.waterCells.push(k);
+  return w;
+}
+
+// Hauteur du sol (interpolation bilinéaire des sommets)
+function groundAt(x, z) {
+  const fx = Math.max(0, Math.min(N - 0.001, x + HALF)), fz = Math.max(0, Math.min(N - 0.001, z + HALF));
+  const i = Math.floor(fx), j = Math.floor(fz), u = fx - i, v = fz - j, W = N + 1, h = world.hv;
+  const a = h[j * W + i], b = h[j * W + i + 1], c = h[(j + 1) * W + i], d = h[(j + 1) * W + i + 1];
+  return a * (1 - u) * (1 - v) + b * u * (1 - v) + c * (1 - u) * v + d * u * v;
+}
+function cellH(i, j) { return groundAt(cx(i), cz(j)); }
+
+// ─── Version update checker ──────────────────────────────────
+// Checks GitHub releases for newer versions. Shows a discreet
+// notification when a newer version exists, with a detail modal
+// listing all intermediate releases and their notes.
+//
+// Robustness:
+//   - GitHub API: 60 req/h per IP (unauthenticated). We poll at
+//     most every 30 min (2/h) and cache responses.
+//   - No checks when the tab is hidden (visibilitychange).
+//   - All failures are SILENT — no console noise, no player error.
+//   - Falls back to version.json if GitHub is unreachable.
+//   - If installed > latest release: no update proposed.
+//
+// Auto-update: user toggle, persisted in localStorage. When active,
+// reloads only on home screen or after game over, NEVER mid-game.
+
+// ─── Version comparison (YYYY.MM.NNN[-cX]) ────────────────────
+function _parseVersion(v) {
+  // Returns [year, month, num, correction] where correction is 0 for
+  // no suffix, or the integer after -c (e.g. -c2 → 2).
+  // Returns null on parse failure.
+  const m = /^(\d{4})\.(\d{2})\.(\d{3})(?:-c(\d+))?$/.exec(v);
+  if (!m) return null;
+  return [
+    parseInt(m[1], 10),
+    parseInt(m[2], 10),
+    parseInt(m[3], 10),
+    m[4] ? parseInt(m[4], 10) : 0
+  ];
+}
+
+function _compareVersions(a, b) {
+  // Returns <0 if a < b, 0 if equal, >0 if a > b.
+  // null/undefined/invalid is treated as older.
+  const pa = _parseVersion(a), pb = _parseVersion(b);
+  if (!pa && !pb) return 0;
+  if (!pa) return 1;   // a invalid → treat as newer (don't propose update)
+  if (!pb) return -1;
+  for (let i = 0; i < 4; i++) {
+    if (pa[i] !== pb[i]) return pa[i] - pb[i];
+  }
+  return 0;
+}
+
+// ─── State ────────────────────────────────────────────────────
+const _CHECK_INTERVAL = 60 * 60 * 1000;   // 1 h (convention), well under 60/h limit
+const _FIRST_CHECK_DELAY = 30 * 1000;     // first check after 30 s
+const _GITHUB_API = 'https://api.github.com/repos/LostInTheBugs/MiniGames/releases?per_page=50';
+const _TAG_PREFIX = 'firefighter-';   // releases of this game are tagged <game>-<version>
+const _AUTO_KEY = 'firefighter_auto_update';
+
+// ─── Monorepo tag helper: 'firefighter-2026.10.001' -> '2026.09.001' ──
+function _stripTag(tagName) {
+  return String(tagName || '').replace(/^v/, '').replace(_TAG_PREFIX, '');
+}
+
+let _releaseCache = null;     // { data: [...], fetchedAt: timestamp }
+let _dismissedVersion = null;
+let _lastVersionCheck = 0;
+let _autoUpdate = false;      // default off, loaded from localStorage
+
+const $vb = document.getElementById('version-banner');
+const $vmOverlay = document.getElementById('version-modal-overlay');
+const $vmBody = $vmOverlay.querySelector('.vm-body');
+const $autoCb = document.getElementById('vb-auto-cb');
+
+// ─── Load auto-update preference ──────────────────────────────
+try {
+  const raw = localStorage.getItem(_AUTO_KEY);
+  if (raw === 'true') _autoUpdate = true;
+} catch (_) { /* private browsing / file:// — ok */ }
+$autoCb.checked = _autoUpdate;
+
+$autoCb.addEventListener('change', () => {
+  _autoUpdate = $autoCb.checked;
+  try { localStorage.setItem(_AUTO_KEY, _autoUpdate ? 'true' : 'false'); } catch (_) {}
+});
+
+// ─── Cache-busting reload ─────────────────────────────────────
+function _forceReload() {
+  const url = new URL(location.href);
+  url.searchParams.set('_t', Date.now());
+  location.href = url.href;
+}
+
+// ─── Detail modal ─────────────────────────────────────────────
+$vb.querySelector('.vb-detail-btn').addEventListener('click', () => {
+  _openDetailModal();
+});
+
+$vmOverlay.querySelector('.vm-close').addEventListener('click', () => {
+  $vmOverlay.classList.remove('visible');
+});
+
+$vmOverlay.addEventListener('click', (e) => {
+  if (e.target === $vmOverlay) $vmOverlay.classList.remove('visible');
+});
+
+$vmOverlay.querySelector('.vm-reload').addEventListener('click', () => {
+  _forceReload();
+});
+
+function _openDetailModal() {
+  if (!_releaseCache || !_releaseCache.data) { $vmBody.innerHTML = '<p style="color:rgba(255,255,255,0.4);padding:20px">Chargement des détails…</p>'; }
+  const releases = (_releaseCache && _releaseCache.data) ? _releaseCache.data : [];
+  // Filter: only versions STRICTLY newer than installed
+  const newer = releases.filter(r => r.tag_name.indexOf(_TAG_PREFIX) === 0 &&
+                                   _compareVersions(_stripTag(r.tag_name), GAME_VERSION) > 0);
+  if (newer.length === 0) {
+    $vmBody.innerHTML = '<p style="color:rgba(255,255,255,0.4);padding:20px">Aucune mise à jour disponible.</p>';
+  } else {
+    $vmBody.innerHTML = newer.map(r => {
+      const date = r.published_at ? new Date(r.published_at).toLocaleDateString('fr-FR', {year:'numeric',month:'long',day:'numeric'}) : '';
+      return '<div class="vm-release">' +
+        '<div class="vm-rel-header">' +
+          '<span class="vm-rel-version">v' + _esc(_stripTag(r.tag_name)) + '</span>' +
+          (date ? '<span class="vm-rel-date">' + _esc(date) + '</span>' : '') +
+        '</div>' +
+        '<div class="vm-rel-notes">' + _markdownToHtml(r.body || '') + '</div>' +
+      '</div>';
+    }).join('');
+  }
+  $vmOverlay.classList.add('visible');
+}
+
+function _esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+// ─── Minimal Markdown → HTML ──────────────────────────────────
+function _markdownToHtml(md) {
+  if (!md) return '';
+  let lines = md.split('\n');
+  let out = '';
+  let inList = false;
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i];
+    // Trim trailing spaces but keep leading indent for lists
+    const trimmed = line.trimEnd();
+
+    // Headings
+    if (/^###\s/.test(trimmed)) {
+      if (inList) { out += '</ul>'; inList = false; }
+      out += '<h4>' + _esc(trimmed.replace(/^###\s+/, '')) + '</h4>';
+      continue;
+    }
+    if (/^##\s/.test(trimmed)) {
+      if (inList) { out += '</ul>'; inList = false; }
+      out += '<h3>' + _esc(trimmed.replace(/^##\s+/, '')) + '</h3>';
+      continue;
+    }
+
+    // List items
+    if (/^[-*]\s/.test(trimmed)) {
+      if (!inList) { out += '<ul>'; inList = true; }
+      const content = trimmed.replace(/^[-*]\s+/, '');
+      out += '<li>' + _inlineMarkdown(content) + '</li>';
+      continue;
+    }
+
+    // Empty line or non-list content → close list
+    if (inList && /^\s*$/.test(trimmed)) {
+      out += '</ul>';
+      inList = false;
+      continue;
+    }
+    if (inList && !/^[-*]\s/.test(trimmed)) {
+      out += '</ul>';
+      inList = false;
+      // fall through to paragraph
+    }
+
+    // Blank line
+    if (/^\s*$/.test(trimmed)) continue;
+
+    // Regular paragraph
+    out += '<p>' + _inlineMarkdown(trimmed) + '</p>';
+  }
+  if (inList) out += '</ul>';
+  return out;
+}
+
+function _inlineMarkdown(text) {
+  // Bold: **text**
+  text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  // Inline code: `text`
+  text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
+  // Italic: *text* (but not **)
+  text = text.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>');
+  return _esc(text).replace(/&lt;strong&gt;/g, '<strong>').replace(/&lt;\/strong&gt;/g, '</strong>')
+    .replace(/&lt;code&gt;/g, '<code>').replace(/&lt;\/code&gt;/g, '</code>')
+    .replace(/&lt;em&gt;/g, '<em>').replace(/&lt;\/em&gt;/g, '</em>');
+}
+
+// ─── Banner management ────────────────────────────────────────
+$vb.querySelector('.vb-reload').addEventListener('click', () => {
+  _forceReload();
+});
+
+$vb.querySelector('.vb-close').addEventListener('click', () => {
+  _dismissedVersion = $vb.dataset.version || null;
+  $vb.classList.remove('visible');
+});
+
+function _showBanner(latestVersion) {
+  if (latestVersion === _dismissedVersion) return;
+  $vb.dataset.version = latestVersion;
+  $vb.querySelector('.vb-version').textContent = 'v' + latestVersion + ' → vous avez v' + GAME_VERSION;
+  $vb.classList.add('visible');
+}
+
+// ─── Core: check GitHub releases ──────────────────────────────
+async function _fetchReleases() {
+  // Returns { releases: [...] } on success, null on any failure.
+  try {
+    const res = await fetch(_GITHUB_API, {
+      headers: { 'Accept': 'application/vnd.github+json' }
+    });
+    if (!res.ok) return null;  // 403 (rate limit), 404, 500, etc.
+    const data = await res.json();
+    if (!Array.isArray(data) || data.length === 0) return null;
+
+    // Filter: only valid version tags
+    const releases = data.filter(r => {
+      if (!r || typeof r.tag_name !== 'string') return false;
+      if (r.tag_name.indexOf(_TAG_PREFIX) !== 0) return false; // release of another game
+      return _parseVersion(_stripTag(r.tag_name)) !== null;
+    });
+
+    // Sort descending by version
+    releases.sort((a, b) => _compareVersions(_stripTag(b.tag_name), _stripTag(a.tag_name)));
+
+    return { releases };
+  } catch (_) {
+    return null; // network error → silent
+  }
+}
+
+async function _fetchVersionJson() {
+  // Fallback: check version.json
+  try {
+    const res = await fetch('version.json?t=' + Date.now(), {
+      cache: 'no-store',
+      headers: { 'Cache-Control': 'no-cache' }
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data || typeof data.version !== 'string') return null;
+    return data.version;
+  } catch (_) { return null; }
+}
+
+async function _checkForUpdates() {
+  // Try GitHub first
+  let result = await _fetchReleases();
+  let useVersionJsonFallback = false;
+
+  if (!result) {
+    // GitHub failed — fallback to version.json
+    const localVer = await _fetchVersionJson();
+    if (localVer && _compareVersions(localVer, GAME_VERSION) > 0) {
+      useVersionJsonFallback = true;
+    } else {
+      return; // nothing to do
+    }
+  }
+
+  if (result) {
+    _releaseCache = { data: result.releases, fetchedAt: Date.now() };
+
+    const latest = result.releases[0];
+    if (!latest) return;
+
+    // If installed is newer than latest release, do nothing
+    if (_compareVersions(GAME_VERSION, _stripTag(latest.tag_name)) >= 0) return;
+
+    _showBanner(_stripTag(latest.tag_name));
+
+    // Auto-update: only on home screen or after game over
+    if (_autoUpdate) {
+      _maybeAutoReload(_stripTag(latest.tag_name));
+    }
+    return;
+  }
+
+  // Fallback: version.json result
+  if (useVersionJsonFallback) {
+    const localVer = await _fetchVersionJson(); // re-fetch (cached in browser might be stale, so timestamp)
+    if (localVer && _compareVersions(localVer, GAME_VERSION) > 0) {
+      _showBanner(localVer);
+      if (_autoUpdate) _maybeAutoReload(localVer);
+    }
+  }
+}
+
+function _maybeAutoReload(targetVersion) {
+  // Only reload if safe: home screen or game over, NEVER mid-game.
+  // gameOver === true and currentMap !== null → game over screen
+  // currentMap === null → home screen
+  // gameOver === false && currentMap !== null → playing
+  const onHomeScreen = currentMap === null;
+  const onGameOver = gameOver && currentMap !== null;
+  if (onHomeScreen || onGameOver) {
+    // Trigger after a short delay so the player can see the notification
+    // but still in a safe spot.
+    setTimeout(() => {
+      // Re-check safe state (could have started a game in meantime)
+      const stillSafe = (currentMap === null) || (gameOver && currentMap !== null);
+      if (stillSafe) _forceReload();
+    }, 3000);
+  }
+  // If mid-game: don't reload. The banner stays visible, and after game over
+  // / home screen, the next check cycle (or visibility change) will trigger.
+}
+
+// ─── Scheduling ───────────────────────────────────────────────
+let _versionTimer = null;
+
+function _scheduleCheck(delay) {
+  clearTimeout(_versionTimer);
+  _versionTimer = setTimeout(() => {
+    if (!document.hidden) {
+      _checkForUpdates();
+      _lastVersionCheck = Date.now();
+    }
+    _scheduleCheck(_CHECK_INTERVAL);
+  }, delay);
+}
+
+// Resume checking when tab becomes visible
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) {
+    // If cache is stale, re-check
+    const cacheAge = _releaseCache ? (Date.now() - _releaseCache.fetchedAt) : Infinity;
+    if (cacheAge > _CHECK_INTERVAL) {
+      _checkForUpdates();
+      _lastVersionCheck = Date.now();
+    }
+    _scheduleCheck(_CHECK_INTERVAL);
+  }
+});
+
+// On game over or returning to home screen, check if an auto-update
+// was waiting (banner is visible but auto-update was deferred).
+function _checkDeferredAutoReload() {
+  if (!_autoUpdate) return;
+  if (!$vb.classList.contains('visible')) return;
+  const onHomeScreen = currentMap === null;
+  const onGameOver = gameOver && currentMap !== null;
+  if (onHomeScreen || onGameOver) {
+    setTimeout(() => _forceReload(), 2000);
+  }
+}
+
+// The deferred auto-reload is checked at the two SAFE points of the game:
+// inside goToMenu() (return to the home screen) and right after the
+// game-over panel is shown (see the _checkDeferredAutoReload call there).
+
+// Start the cycle
+_scheduleCheck(_FIRST_CHECK_DELAY);
+
+// Expose for tests/harness
+window.__updateCheck = {
+  _checkForUpdates, _compareVersions, _parseVersion, _stripTag,
+  get _releaseCache() { return _releaseCache; }
+};
+
+// ─── Safe storage (localStorage with graceful fallback) ──────
+// All reads/writes are try/catch'd. Corrupted data, quota exceeded,
+// private browsing, or file:// URLs don't break the game.
+
+
+// ═══════════════════════════════════════════════════════════════
+// Rendu
+// ═══════════════════════════════════════════════════════════════
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.body.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x9cc7e8);
+scene.fog = new THREE.Fog(0x9cc7e8, 60, 140);
+const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.3, 400);
+camera.position.set(0, 38, 40);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.mouseButtons = { LEFT: null, MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.ROTATE };
+controls.enableDamping = true; controls.dampingFactor = 0.08;
+controls.maxPolarAngle = Math.PI * 0.46; controls.minDistance = 10; controls.maxDistance = 85;
+controls.target.set(0, 0, 2);
+
+const hemi = new THREE.HemisphereLight(0xdfefff, 0x4a5a3a, 1.1);
+scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xfff1dc, 1.6);
+sun.position.set(-25, 40, 18);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -32, right: 32, top: 32, bottom: -32, near: 1, far: 120 });
+scene.add(sun);
+
+let mapGroup = new THREE.Group();
+scene.add(mapGroup);
+let terrain = null, terrainColors = null, treeMesh = null, flameMesh = null, glowMesh = null;
+const _c = new THREE.Color(), _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _v = new THREE.Vector3(), _s = new THREE.Vector3();
+
+function disposeTree(o) {
+  o.traverse(c => {
+    if (c.geometry) c.geometry.dispose();
+    if (c.material) (Array.isArray(c.material) ? c.material : [c.material]).forEach(m => { if (m.map && !m.map.userData.keep) m.map.dispose(); m.dispose(); });
+  });
+}
+
+// Couleur d'une case selon son état (brûlée, en feu, mouillée)
+function cellColor(k, out) {
+  const t = world.type[k];
+  out.setHex(COLORS[t]);
+  if (t === T.BUILD) out.setHex(0x7d7a72);
+  if (world.burned[k]) out.setHex(t === T.FOREST ? 0x26221f : 0x3b3530);
+  else if (world.fire[k] > 0) out.lerp(_tmpFire, 0.35 + 0.4 * world.fire[k]);
+  else if (world.wet[k] > 0.05 && FLAM[t] > 0) out.multiplyScalar(1 - 0.25 * world.wet[k]);
+  return out;
+}
+const _tmpFire = new THREE.Color(0x8a3a12);
+
+function buildTerrain() {
+  // Une paire de triangles par case (sommets non partagés) pour colorer chaque case
+  const pos = new Float32Array(N * N * 6 * 3), col = new Float32Array(N * N * 6 * 3);
+  const W = N + 1, h = world.hv;
+  let p = 0;
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const x0 = i - HALF, x1 = x0 + 1, z0 = j - HALF, z1 = z0 + 1;
+    const a = h[j * W + i], b = h[j * W + i + 1], c = h[(j + 1) * W + i], d = h[(j + 1) * W + i + 1];
+    for (const [x, y, z] of [[x0, a, z0], [x0, c, z1], [x1, b, z0], [x1, b, z0], [x0, c, z1], [x1, d, z1]]) {
+      pos[p++] = x; pos[p++] = y; pos[p++] = z;
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  geo.computeVertexNormals();
+  terrainColors = geo.attributes.color;
+  terrain = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true }));
+  terrain.receiveShadow = true;
+  mapGroup.add(terrain);
+  for (let k = 0; k < N * N; k++) paintCell(k);
+  // socle sous la carte
+  const base = new THREE.Mesh(new THREE.BoxGeometry(N + 0.4, 3, N + 0.4), new THREE.MeshLambertMaterial({ color: 0x4b3a2a }));
+  base.position.y = -2.2;
+  mapGroup.add(base);
+  // plan d'eau translucide au-dessus des cases d'eau
+  const wq = [];
+  for (const k of world.waterCells.concat(world.buildings.filter(b => b.kind === 'boat').flatMap(b => cellsOf(b)))) {
+    const i = k % N, j = (k - i) / N, x0 = i - HALF, z0 = j - HALF, y = world.waterLevel;
+    wq.push(x0, y, z0, x0, y, z0 + 1, x0 + 1, y, z0, x0 + 1, y, z0, x0, y, z0 + 1, x0 + 1, y, z0 + 1);
+  }
+  if (wq.length) {
+    const wg = new THREE.BufferGeometry();
+    wg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(wq), 3));
+    wg.computeVertexNormals();
+    const water = new THREE.Mesh(wg, new THREE.MeshStandardMaterial({ color: 0x2f7fc4, roughness: 0.15, metalness: 0.1, transparent: true, opacity: 0.82 }));
+    water.receiveShadow = true;
+    mapGroup.add(water);
+  }
+}
+function paintCell(k) {
+  cellColor(k, _c);
+  // léger damier pour lire la grille, plus marqué sur l'herbe et la forêt
+  const i = k % N, j = (k - i) / N;
+  if (((i + j) & 1) && world.type[k] !== T.ROAD) _c.multiplyScalar(0.96);
+  const a = terrainColors.array;
+  for (let v = 0; v < 6; v++) { const o = (k * 6 + v) * 3; a[o] = _c.r; a[o + 1] = _c.g; a[o + 2] = _c.b; }
+  terrainColors.needsUpdate = true;
+}
+function cellsOf(b) {
+  const out = [];
+  for (let j = b.j0; j < b.j0 + b.dp; j++) for (let i = b.i0; i < b.i0 + b.wd; i++) out.push(idx(i, j));
+  return out;
+}
+
+// Texture de fenêtres partagée pour les immeubles
+let winTex = null;
+function windowTexture() {
+  if (winTex) return winTex;
+  const c = document.createElement('canvas'); c.width = 64; c.height = 64;
+  const g = c.getContext('2d');
+  g.fillStyle = '#ffffff'; g.fillRect(0, 0, 64, 64);
+  g.fillStyle = '#4b5966';
+  for (let y = 6; y < 64; y += 16) for (let x = 6; x < 64; x += 16) g.fillRect(x, y, 8, 8);
+  winTex = new THREE.CanvasTexture(c);
+  winTex.wrapS = winTex.wrapT = THREE.RepeatWrapping;
+  winTex.colorSpace = THREE.SRGBColorSpace;
+  return winTex;
+}
+
+function buildBuildings() {
+  for (const b of world.buildings) {
+    const g = new THREE.Group();
+    const y0 = Math.min(...cellsOf(b).map(k => cellH(k % N, Math.floor(k / N))));
+    const W = b.wd - 0.25, D = b.dp - 0.25;
+    let mat;
+    if (b.kind === 'house') {
+      mat = new THREE.MeshLambertMaterial({ color: b.color });
+      const body = new THREE.Mesh(new THREE.BoxGeometry(W, b.h, D), mat);
+      body.position.y = b.h / 2;
+      const roof = new THREE.Mesh(new THREE.ConeGeometry(Math.max(W, D) * 0.75, 0.8, 4), new THREE.MeshLambertMaterial({ color: b.roof }));
+      roof.position.y = b.h + 0.4; roof.rotation.y = Math.PI / 4; roof.scale.set(W / Math.max(W, D), 1, D / Math.max(W, D));
+      g.add(body, roof);
+    } else if (b.kind === 'tower') {
+      const tex = windowTexture().clone(); tex.needsUpdate = true;
+      tex.repeat.set(Math.max(1, Math.round(W)), b.floors);
+      mat = new THREE.MeshLambertMaterial({ color: b.color, map: tex });
+      const body = new THREE.Mesh(new THREE.BoxGeometry(W, b.h, D), mat);
+      body.position.y = b.h / 2;
+      const top = new THREE.Mesh(new THREE.BoxGeometry(W + 0.1, 0.12, D + 0.1), new THREE.MeshLambertMaterial({ color: 0x555a60 }));
+      top.position.y = b.h + 0.06;
+      g.add(body, top);
+    } else if (b.kind === 'warehouse') {
+      mat = new THREE.MeshLambertMaterial({ color: b.color });
+      const body = new THREE.Mesh(new THREE.BoxGeometry(W, b.h, D), mat);
+      body.position.y = b.h / 2;
+      const roof = new THREE.Mesh(new THREE.BoxGeometry(W + 0.1, 0.1, D + 0.1), new THREE.MeshLambertMaterial({ color: 0x8c9196 }));
+      roof.position.y = b.h + 0.05;
+      g.add(body, roof);
+    } else if (b.kind === 'boat') {
+      mat = new THREE.MeshLambertMaterial({ color: 0xf2f2f2 });
+      const hull = new THREE.Mesh(new THREE.BoxGeometry(W + 0.2, 0.45, D - 0.1), new THREE.MeshLambertMaterial({ color: 0x23395d }));
+      hull.position.y = world.waterLevel + 0.1 - y0;
+      const cab = new THREE.Mesh(new THREE.BoxGeometry(W * 0.45, 0.45, D * 0.6), mat);
+      cab.position.set(-W * 0.15, hull.position.y + 0.45, 0);
+      g.add(hull, cab);
+    } else { // caserne
+      mat = new THREE.MeshLambertMaterial({ color: 0xc62828 });
+      const body = new THREE.Mesh(new THREE.BoxGeometry(W, b.h, D), mat);
+      body.position.y = b.h / 2;
+      const roof = new THREE.Mesh(new THREE.BoxGeometry(W + 0.15, 0.15, D + 0.15), new THREE.MeshLambertMaterial({ color: 0xe0e0e0 }));
+      roof.position.y = b.h + 0.07;
+      const doors = new THREE.Mesh(new THREE.BoxGeometry(W * 0.8, b.h * 0.6, 0.05), new THREE.MeshLambertMaterial({ color: 0xeeeeee }));
+      doors.position.set(0, b.h * 0.3, D / 2 + 0.03);
+      g.add(body, roof, doors);
+      const sp = emojiSprite('🚒', 1.4); sp.position.y = b.h + 1.1; g.add(sp);
+    }
+    g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    g.position.set(b.x, y0, b.z);
+    b.mesh = g; b.mat = mat; b.y0 = y0;
+    mapGroup.add(g);
+  }
+  if (world.heliport) {
+    const hp = world.heliport;
+    const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 0.06, 24), new THREE.MeshLambertMaterial({ color: 0x3d4a52 }));
+    pad.position.set(hp.x, groundAt(hp.x, hp.z) + 0.03, hp.z);
+    const hm = emojiSprite('🅷', 0.9); hm.position.set(hp.x, pad.position.y + 0.5, hp.z);
+    mapGroup.add(pad, hm);
+  }
+  for (const [i, j] of world.hydrants) {
+    const hy = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.35, 8), new THREE.MeshLambertMaterial({ color: 0xd32f2f }));
+    hy.position.set(cx(i) + 0.4, cellH(i, j) + 0.18, cz(j) + 0.4);
+    mapGroup.add(hy);
+  }
+}
+
+function buildTrees() {
+  const n = world.trees.length;
+  const geo = new THREE.ConeGeometry(0.42, 1.25, 7);
+  geo.translate(0, 0.85, 0);
+  const trunk = new THREE.CylinderGeometry(0.07, 0.09, 0.3, 5); trunk.translate(0, 0.15, 0);
+  // fusion simple : on garde le cône (le tronc est suggéré par la couleur sombre au pied)
+  treeMesh = new THREE.InstancedMesh(geo, new THREE.MeshLambertMaterial({ color: 0xffffff }), Math.max(1, n));
+  treeMesh.castShadow = true;
+  world.trees.forEach((t, q) => {
+    t.y = groundAt(t.x, t.z);
+    setTree(q, 'ok');
+  });
+  treeMesh.count = n;
+  mapGroup.add(treeMesh);
+  trunk.dispose();
+}
+function setTree(q, state) {
+  const t = world.trees[q];
+  const s = state === 'burned' ? t.s * 0.55 : t.s;
+  _m.compose(_v.set(t.x, t.y, t.z), _q.identity(), _s.set(s, state === 'burned' ? s * 0.8 : s, s));
+  treeMesh.setMatrixAt(q, _m);
+  treeMesh.setColorAt(q, _c.setHex(state === 'burned' ? 0x1d1a18 : state === 'fire' ? 0x6b3a14 : (q % 3 ? 0x2f6b2a : 0x3c7a30)));
+  treeMesh.instanceMatrix.needsUpdate = true;
+  if (treeMesh.instanceColor) treeMesh.instanceColor.needsUpdate = true;
+}
+
+// ─── Flammes, lueurs, fumée, eau ───────────────────────────────
+const MAX_FLAMES = 1400;
+function buildFx() {
+  const fg = new THREE.ConeGeometry(0.28, 0.9, 6); fg.translate(0, 0.45, 0);
+  flameMesh = new THREE.InstancedMesh(fg, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.92, depthWrite: false }), MAX_FLAMES);
+  flameMesh.count = 0; flameMesh.frustumCulled = false;
+  for (let q = 0; q < MAX_FLAMES; q++) flameMesh.setColorAt(q, _c.setHex(0xff8a1f));
+  mapGroup.add(flameMesh);
+  smoke.init(); spray.init();
+}
+// Point rond et doux pour la fumée et l'eau
+let _dotTex = null;
+function dotTexture() {
+  if (_dotTex) return _dotTex;
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.5, 'rgba(255,255,255,0.6)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  _dotTex = new THREE.CanvasTexture(c); _dotTex.userData.keep = true;
+  return _dotTex;
+}
+const smoke = {
+  n: 700, pts: null, data: null, k: 0,
+  init() {
+    const pos = new Float32Array(this.n * 3).fill(-999);
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    this.pts = new THREE.Points(g, new THREE.PointsMaterial({ color: 0x5a5550, size: 1.6, map: dotTexture(), transparent: true, opacity: 0.55, depthWrite: false }));
+    this.pts.frustumCulled = false;
+    this.data = Array.from({ length: this.n }, () => ({ life: 0, vx: 0, vz: 0 }));
+    mapGroup.add(this.pts);
+  },
+  emit(x, y, z) {
+    const q = this.k = (this.k + 1) % this.n, d = this.data[q], p = this.pts.geometry.attributes.position.array;
+    p[q * 3] = x + (NATIVE_RANDOM() - 0.5) * 0.4; p[q * 3 + 1] = y; p[q * 3 + 2] = z + (NATIVE_RANDOM() - 0.5) * 0.4;
+    d.life = 3 + NATIVE_RANDOM() * 2; d.vx = wind.x * 1.2; d.vz = wind.z * 1.2;
+  },
+  update(dt) {
+    const p = this.pts.geometry.attributes.position.array;
+    for (let q = 0; q < this.n; q++) {
+      const d = this.data[q]; if (d.life <= 0) continue;
+      d.life -= dt;
+      p[q * 3] += d.vx * dt; p[q * 3 + 1] += 1.4 * dt; p[q * 3 + 2] += d.vz * dt;
+      if (d.life <= 0) p[q * 3 + 1] = -999;
+    }
+    this.pts.geometry.attributes.position.needsUpdate = true;
+  },
+};
+const spray = {
+  n: 900, pts: null, data: null, k: 0,
+  init() {
+    const pos = new Float32Array(this.n * 3).fill(-999);
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    this.pts = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xcdeeff, size: 0.32, map: dotTexture(), transparent: true, opacity: 0.9, depthWrite: false }));
+    this.pts.frustumCulled = false;
+    this.data = Array.from({ length: this.n }, () => ({ life: 0, vx: 0, vy: 0, vz: 0 }));
+    mapGroup.add(this.pts);
+  },
+  emit(x, y, z, vx, vy, vz, life) {
+    const q = this.k = (this.k + 1) % this.n, d = this.data[q], p = this.pts.geometry.attributes.position.array;
+    p[q * 3] = x; p[q * 3 + 1] = y; p[q * 3 + 2] = z;
+    d.vx = vx; d.vy = vy; d.vz = vz; d.life = life || 1;
+  },
+  // jet en arc d'un point à un autre
+  jet(x0, y0, z0, x1, y1, z1) {
+    const T0 = 0.6, r = () => (NATIVE_RANDOM() - 0.5) * 0.5;
+    this.emit(x0, y0, z0, (x1 - x0) / T0 + r(), (y1 - y0) / T0 + 4.9 * T0 * 0.5 + r(), (z1 - z0) / T0 + r(), T0);
+  },
+  update(dt) {
+    const p = this.pts.geometry.attributes.position.array;
+    for (let q = 0; q < this.n; q++) {
+      const d = this.data[q]; if (d.life <= 0) continue;
+      d.life -= dt; d.vy -= 9.8 * dt;
+      p[q * 3] += d.vx * dt; p[q * 3 + 1] += d.vy * dt; p[q * 3 + 2] += d.vz * dt;
+      if (d.life <= 0) p[q * 3 + 1] = -999;
+    }
+    this.pts.geometry.attributes.position.needsUpdate = true;
+  },
+};
+
+// Sprite emoji (icônes d'incident, caserne)
+const _emojiCache = {};
+function emojiSprite(ch, size) {
+  let tex = _emojiCache[ch];
+  if (!tex) {
+    const c = document.createElement('canvas'); c.width = c.height = 128;
+    const g = c.getContext('2d');
+    g.font = '100px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(ch, 64, 70);
+    tex = _emojiCache[ch] = new THREE.CanvasTexture(c);
+    tex.userData.keep = true;
+    tex.colorSpace = THREE.SRGBColorSpace;
+  }
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
+  sp.scale.set(size, size, size);
+  sp.renderOrder = 10;
+  return sp;
+}
+
+// ─── Véhicules (maillages) ─────────────────────────────────────
+function box(w, h, d, color, x, y, z) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshLambertMaterial({ color }));
+  m.position.set(x || 0, y || 0, z || 0); m.castShadow = true;
+  return m;
+}
+function wheelSet(g, len, wdt, n) {
+  for (let s = -1; s <= 1; s += 2) for (let q = 0; q < n; q++) {
+    const wh = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.08, 10), new THREE.MeshLambertMaterial({ color: 0x1c1c1c }));
+    wh.rotation.z = Math.PI / 2;
+    wh.position.set(s * wdt / 2, 0.11, -len / 2 + 0.2 + q * (len - 0.4) / Math.max(1, n - 1));
+    g.add(wh);
+  }
+}
+function makeVehicleMesh(type) {
+  const g = new THREE.Group();
+  const red = 0xd32f2f;
+  if (type === 'fpt') {
+    g.add(box(0.5, 0.36, 1.2, red, 0, 0.32, 0), box(0.5, 0.22, 0.32, 0xffffff, 0, 0.32, 0.47));
+    g.add(box(0.46, 0.06, 0.8, 0xbdbdbd, 0, 0.53, -0.15));
+    wheelSet(g, 1.1, 0.52, 2);
+  } else if (type === 'ccf') {
+    g.add(box(0.48, 0.42, 1.05, red, 0, 0.36, 0), box(0.5, 0.12, 0.3, 0xffffff, 0, 0.5, 0.36));
+    g.add(box(0.4, 0.2, 0.55, 0xeeeeee, 0, 0.65, -0.18));
+    wheelSet(g, 1.0, 0.54, 2);
+  } else if (type === 'epa') {
+    g.add(box(0.5, 0.32, 1.35, red, 0, 0.3, 0), box(0.5, 0.2, 0.3, 0xffffff, 0, 0.3, 0.55));
+    const ladder = new THREE.Group();
+    ladder.add(box(0.16, 0.08, 1.5, 0xcfcfcf, 0, 0, -0.5));
+    ladder.position.set(0, 0.52, 0.3);
+    ladder.name = 'ladder';
+    g.add(ladder);
+    wheelSet(g, 1.25, 0.52, 3);
+  } else if (type === 'vl') {
+    g.add(box(0.4, 0.24, 0.75, 0xd32f2f, 0, 0.24, 0), box(0.38, 0.16, 0.38, 0x263238, 0, 0.42, -0.04));
+    const bar = box(0.3, 0.05, 0.08, 0x2196f3, 0, 0.52, 0); bar.name = 'beacon'; g.add(bar);
+    wheelSet(g, 0.65, 0.42, 2);
+  } else if (type === 'helico') {
+    g.add(box(0.42, 0.42, 0.9, red, 0, 0, 0), box(0.12, 0.12, 0.9, red, 0, 0.08, -0.85), box(0.36, 0.2, 0.3, 0x90caf9, 0, 0.08, 0.36));
+    const rot = box(2.2, 0.02, 0.12, 0x333333, 0, 0.3, 0); rot.name = 'rotor'; g.add(rot);
+    const bucket = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.12, 0.22, 10), new THREE.MeshLambertMaterial({ color: 0xff8f00 }));
+    bucket.position.y = -0.9; g.add(bucket, box(0.02, 0.6, 0.02, 0x222222, 0, -0.52, 0));
+  } else if (type === 'canadair') {
+    const fus = box(0.42, 0.42, 2.2, 0xffd600, 0, 0, 0);
+    const wing = box(3.4, 0.07, 0.5, 0xffd600, 0, 0.22, 0.1);
+    const stripe = box(0.44, 0.12, 2.22, red, 0, -0.08, 0);
+    const tail = box(0.06, 0.55, 0.35, red, 0, 0.35, -1.0), tailw = box(1.1, 0.05, 0.3, 0xffd600, 0, 0.55, -1.0);
+    const eng1 = box(0.16, 0.16, 0.4, 0x37474f, 0.8, 0.3, 0.25), eng2 = box(0.16, 0.16, 0.4, 0x37474f, -0.8, 0.3, 0.25);
+    g.add(fus, wing, stripe, tail, tailw, eng1, eng2);
+  }
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.62, 0.75, 24), new THREE.MeshBasicMaterial({ color: 0xffb74d, transparent: true, opacity: 0.9, depthWrite: false }));
+  ring.rotation.x = -Math.PI / 2; ring.name = 'ring'; ring.visible = false;
+  g.add(ring);
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  return g;
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// Jeu
+// ═══════════════════════════════════════════════════════════════
+const VEH = {
+  canadair: { name: 'Canadair', short: 'Canadair', icon: '✈️', air: true, alt: 6.5, speed: 10, key: '1',
+    help: 'Avion bombardier d\'eau. Largue une longue bande d\'eau (8 cases) dans le sens de son vol, puis écope sur l\'eau la plus proche. Idéal sur les feux de forêt.' },
+  helico: { name: 'Hélicoptère bombardier', short: 'Hélico', icon: '🚁', air: true, alt: 4.2, speed: 7, key: '2',
+    help: 'Largue son seau sur un cercle de 2 cases de rayon, puis le remplit à l\'eau ou à l\'héliport. Précis, utile partout, y compris sur les toits.' },
+  ccf: { name: 'Camion feu de forêt', short: 'CCF', icon: '🚛', cls: 'off', speed: 3.1, cap: 100, flow: 9, reach: 2.7, bEff: 0.6, tallEff: 0.15, rescue: 3, key: '3',
+    help: 'Tout-terrain : roule hors des routes et entre dans la forêt. Arrose les feux de végétation tout autour de lui. Peu efficace sur les immeubles.' },
+  vl: { name: 'Véhicule léger', short: 'VL', icon: '🚓', cls: 'urban', speed: 5.2, cap: 0, flow: 0, reach: 2.4, rescue: 12, key: '4',
+    help: 'Rapide, sans eau : désincarcération et secours aux victimes sur les accidents de la route.' },
+  epa: { name: 'Grande échelle', short: 'Échelle', icon: '🪜', cls: 'road', speed: 2.8, cap: 80, flow: 8, reach: 3.8, bEff: 1.35, tallEff: 1, cellEff: 0.6, rescue: 0, key: '5',
+    help: 'Reste sur les routes. Sa lance en haut de l\'échelle atteint les étages : seule vraiment efficace sur les immeubles (4 étages et plus).' },
+  fpt: { name: 'Camion de pompiers', short: 'Pompiers', icon: '🚒', cls: 'urban', speed: 3.4, cap: 120, flow: 10, reach: 2.9, bEff: 1, tallEff: 0.3, rescue: 7, key: '6',
+    help: 'Le fourgon pompe : maisons, entrepôts, bateaux, accidents. Sur un immeuble il ne traite que le bas : il faut la grande échelle.' },
+};
+const VTYPES = Object.keys(VEH);
+const STATE_TXT = { idle: 'disponible', hold: 'disponible', move: 'en route', work: 'en intervention', fly: 'en vol', refillGo: 'va se remplir', refill: 'remplissage', ret: 'retour', drop: 'largage' };
+
+let currentMap = null, currentLevel = 1, gameOver = false, paused = false, gameSpeed = 1;
+let L = null;                 // paramètres du niveau
+let vehicles = [], incidents = [], accidents = [];
+let selectedType = 'fpt', selectedVehicle = null;
+let elapsed = 0, nextIncident = 0, fireAcc = 0, uiAcc = 0, windAcc = 0;
+let stats = null;
+const wind = { a: 0, s: 0.4, x: 0, z: 0 };
+const burning = new Set();          // cases en feu
+const dirty = new Set();            // cases à repeindre
+let treesByCell = null;
+
+function levelCfg(mapId, lv) {
+  const m = MAPS[mapId];
+  return {
+    duration: lv === 10 ? Infinity : 150 + 15 * (lv - 1),
+    interval: Math.max(10, 32 - 2.4 * (lv - 1)),
+    spread: m.spread * (0.75 + 0.08 * (lv - 1)),
+    wind: 0.25 + 0.07 * (lv - 1),
+    lostPct: 0.2 - 0.01 * (lv - 1),
+    forestPct: 35 - 1.5 * (lv - 1),
+    victims: lv <= 7 ? 2 : 1,           // défaite dès ce nombre de victimes
+    accidentTime: 75 - 3 * (lv - 1),
+    growth: 1 + 0.06 * (lv - 1),
+  };
+}
+
+// ─── Progression ───────────────────────────────────────────────
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('firefighter_' + k); return v === null ? d : JSON.parse(v); } catch (_) { return d; } },
+  set(k, v) { try { localStorage.setItem('firefighter_' + k, JSON.stringify(v)); } catch (_) { /* stockage indisponible */ } },
+};
+const unlocked = id => Math.max(1, Math.min(10, store.get('unlocked_' + id, 1)));
+
+// ─── Lancement d'une partie ────────────────────────────────────
+function startGame(mapId, level) {
+  currentMap = mapId; currentLevel = level; gameOver = false; paused = false;
+  L = levelCfg(mapId, level);
+  store.set('last_map', mapId);
+  // nettoyage
+  disposeTree(mapGroup); scene.remove(mapGroup);
+  mapGroup = new THREE.Group(); scene.add(mapGroup);
+  vehicles = []; incidents = []; accidents = []; burning.clear(); dirty.clear();
+  world = generateWorld(mapId, level);
+  reseed(level * 977 + 13);   // la suite (incidents, vent) suit aussi la graine
+  buildTerrain(); buildBuildings(); buildTrees(); buildFx();
+  treesByCell = new Map();
+  world.trees.forEach((t, q) => { if (!treesByCell.has(t.k)) treesByCell.set(t.k, []); treesByCell.get(t.k).push(q); });
+  // relief : pente par case (ralentit les camions en montagne)
+  world.slope = new Float32Array(N * N);
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const W = N + 1, h = world.hv, a = [h[j * W + i], h[j * W + i + 1], h[(j + 1) * W + i], h[(j + 1) * W + i + 1]];
+    world.slope[idx(i, j)] = Math.max(...a) - Math.min(...a);
+  }
+  // vent
+  wind.a = Math.random() * Math.PI * 2; wind.s = L.wind; setWind();
+  // flotte
+  const m = MAPS[mapId];
+  for (const t of VTYPES) for (let q = 0; q < (m.fleet[t] || 0); q++) spawnVehicle(t, q);
+  if (!m.fleet[selectedType]) selectedType = VTYPES.find(t => m.fleet[t]);
+  selectedVehicle = null;
+  stats = { lost: 0, saved: 0, victims: 0, rescued: 0, resolved: 0, score: 0, buildTotal: world.buildings.filter(b => b.kind !== 'station').length };
+  stats.maxLost = Math.max(2, Math.min(Math.round(stats.buildTotal * L.lostPct), 4 - Math.floor((level - 1) / 4))) + (MAPS[mapId].lostBonus || 0);   // 4 bâtiments (niv. 1-4), 3 (5-8), 2 (9-10)
+  elapsed = 0; nextIncident = 4; fireAcc = 0; uiAcc = 0; windAcc = 0;
+  // caméra
+  controls.target.set(0, 0, 2); camera.position.set(0, mapId === 'montagne' ? 44 : 38, 42);
+  // interface
+  $('#home').classList.add('hidden');
+  for (const id of ['#hud', '#banner', '#wind', '#controls']) $(id).style.display = 'block';
+  $('#fleet').style.display = 'flex'; $('#vlist').style.display = 'block';
+  $('#end-overlay').classList.remove('show'); $('#pause-overlay').classList.remove('show');
+  buildFleetBar(); updateUI(true);
+  flash(`${MAPS[mapId].icon} ${MAPS[mapId].name} — niveau ${level}`, 2200);
+  if (!store.get('help_seen', false)) { store.set('help_seen', true); setTimeout(() => flash('Appuie sur H pour l\'aide', 3500), 2400); }
+}
+function setWind() { wind.x = Math.sin(wind.a) * wind.s; wind.z = -Math.cos(wind.a) * wind.s; }
+
+function goToMenu() {
+  currentMap = null; gameOver = false; paused = false;
+  for (const id of ['#hud', '#banner', '#wind', '#controls', '#fleet', '#vlist']) $(id).style.display = 'none';
+  $('#end-overlay').classList.remove('show'); $('#pause-overlay').classList.remove('show');
+  $('#home').classList.remove('hidden');
+  buildHome();
+  _checkDeferredAutoReload();
+}
+
+// ─── Feu ───────────────────────────────────────────────────────
+function ignite(k, v) {
+  if (world.fire[k] > 0 || world.burned[k] || world.fuel[k] <= 0 || FLAM[world.type[k]] <= 0) return false;
+  world.fire[k] = v || 0.2; burning.add(k); dirty.add(k);
+  const tr = treesByCell.get(k); if (tr) tr.forEach(q => setTree(q, 'fire'));
+  return true;
+}
+function extinguishCell(k, amount) {
+  if (world.fire[k] > 0) {
+    world.fire[k] -= amount;
+    if (world.fire[k] <= 0) { world.fire[k] = 0; burning.delete(k); const tr = treesByCell.get(k); if (tr) tr.forEach(q => setTree(q, 'ok')); }
+  }
+  world.wet[k] = Math.min(1, world.wet[k] + amount * 0.8);
+  dirty.add(k);
+}
+function igniteBuilding(b, v) {
+  if (b.kind === 'station' || b.lost || b.fire > 0) return false;
+  b.fire = v || 0.15;
+  return true;
+}
+function coolBuilding(b, amount) {
+  if (b.fire <= 0 || b.lost) return;
+  b.fire -= amount;
+  if (b.fire <= 0) { b.fire = 0; setBuildingLook(b); }
+}
+function setBuildingLook(b) {
+  if (!b.mat) return;
+  const base = new THREE.Color(b.color);
+  if (b.lost) base.setHex(0x2b2724);
+  else if (b.hp < 100) base.lerp(new THREE.Color(0x3a2a20), (100 - b.hp) / 140);
+  b.mat.color.copy(base);
+  if (b.lost) b.mesh.scale.y = 0.35;
+}
+const NB8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+function fireTick(dt) {
+  const spreadBase = 0.075 * L.spread;   // par voisin et par seconde, à pleine intensité, sans vent
+  for (const k of Array.from(burning)) {
+    const i = k % N, j = (k - i) / N, t = world.type[k];
+    const f = world.fire[k] = Math.min(1, world.fire[k] + 0.35 * dt * L.growth);
+    world.fuel[k] -= BURN[t] * f * dt;
+    if (world.fuel[k] <= 0) {
+      world.fire[k] = 0; world.fuel[k] = 0; world.burned[k] = 1; burning.delete(k); dirty.add(k);
+      const tr = treesByCell.get(k); if (tr) tr.forEach(q => setTree(q, 'burned'));
+      continue;
+    }
+    for (const [di, dj] of NB8) {
+      const ni = i + di, nj = j + dj;
+      if (!inb(ni, nj)) continue;
+      const nk = idx(ni, nj);
+      const diag = di && dj ? 0.7 : 1;
+      // vent : wind.x vers l'est (+X), wind.z vers le sud (+Z) ; le feu file sous le vent
+      const windF = Math.max(0.15, Math.min(3, 1 + 1.6 * ((di * wind.x + dj * wind.z) / Math.hypot(di, dj))));
+      const bi = world.bld[nk];
+      if (bi >= 0) {
+        const b = world.buildings[bi];
+        if (b.fire <= 0 && !b.lost && Math.random() < 0.05 * f * windF * dt * L.spread * (1 - 0.8 * world.wet[nk])) igniteBuilding(b);
+        continue;
+      }
+      if (world.fire[nk] > 0 || world.burned[nk]) continue;
+      const p = spreadBase * FLAM[world.type[nk]] * f * windF * diag * (1 - 0.9 * world.wet[nk]) * dt;
+      if (p > 0 && Math.random() < p) ignite(nk, 0.15);
+    }
+  }
+  // bâtiments
+  for (const b of world.buildings) {
+    if (b.fire <= 0 || b.lost) continue;
+    b.fire = Math.min(1, b.fire + 0.05 * dt * L.growth);
+    b.hp -= 3.0 * b.fire * dt * (b.kind === 'tower' ? 0.75 : 1);
+    if (b.hp <= 0) {
+      b.hp = 0; b.lost = true; b.fire = 0; stats.lost++;
+      setBuildingLook(b);
+      for (const k of cellsOf(b)) { world.burned[k] = 1; dirty.add(k); }
+      flash(`🏚️ ${kindName(b)} ${b.kind === 'house' ? 'détruite' : 'détruit'}`, 1800);
+      continue;
+    }
+    if (Math.random() < 0.3) setBuildingLook(b);
+    // propagation : cases et bâtiments voisins
+    for (let j = b.j0 - 1; j <= b.j0 + b.dp; j++) for (let i = b.i0 - 1; i <= b.i0 + b.wd; i++) {
+      if (!inb(i, j)) continue;
+      const k = idx(i, j), bi = world.bld[k];
+      if (bi === b.id) continue;
+      const dx = i - (b.i0 + b.wd / 2), dz = j - (b.j0 + b.dp / 2), dl = Math.hypot(dx, dz) || 1;
+      const windF = Math.max(0.15, Math.min(3, 1 + 1.6 * ((dx * wind.x + dz * wind.z) / dl)));
+      if (bi >= 0) { if (Math.random() < 0.012 * b.fire * windF * dt * L.spread) igniteBuilding(world.buildings[bi]); }
+      else if (Math.random() < 0.04 * b.fire * windF * dt * L.spread * FLAM[world.type[k]] * (1 - 0.9 * world.wet[k])) ignite(k, 0.2);
+    }
+  }
+  // séchage
+  for (let k = 0; k < N * N; k++) if (world.wet[k] > 0) { world.wet[k] = Math.max(0, world.wet[k] - 0.03 * dt); dirty.add(k); }
+  for (const k of dirty) paintCell(k);
+  dirty.clear();
+}
+function kindName(b) {
+  return { house: 'Maison', tower: 'Immeuble', warehouse: 'Entrepôt', boat: 'Bateau', station: 'Caserne' }[b.kind];
+}
+
+// ─── Incidents ─────────────────────────────────────────────────
+const INC = {
+  forest: { icon: '🔥', label: 'Feu de forêt' },
+  house: { icon: '🏠', label: 'Feu de maison' },
+  tower: { icon: '🏢', label: 'Feu d\'immeuble' },
+  warehouse: { icon: '🏭', label: 'Feu d\'entrepôt' },
+  boat: { icon: '⛵', label: 'Feu de bateau' },
+  accident: { icon: '🚗', label: 'Accident de la route' },
+};
+function sector(x, z) {
+  const ns = z < -8 ? 'nord' : z > 8 ? 'sud' : '', ew = x > 8 ? 'est' : x < -8 ? 'ouest' : '';
+  return ns && ew ? `${ns}-${ew}` : ns || ew || 'centre';
+}
+function spawnIncident() {
+  const w = MAPS[currentMap].incidents;
+  const kinds = Object.keys(w).filter(k => w[k] > 0);
+  for (let tries = 0; tries < 6; tries++) {
+    let r = Math.random() * kinds.reduce((a, k) => a + w[k], 0), kind = kinds[0];
+    for (const k of kinds) { r -= w[k]; if (r <= 0) { kind = k; break; } }
+    const inc = makeIncident(kind);
+    if (inc) {
+      incidents.push(inc);
+      inc.sprite = emojiSprite(INC[kind].icon, 1.6);
+      inc.sprite.position.set(inc.x, inc.y + 2.6, inc.z);
+      mapGroup.add(inc.sprite);
+      flash(`🚨 ${INC[kind].label} — secteur ${sector(inc.x, inc.z)}`, 2600);
+      return inc;
+    }
+  }
+  return null;
+}
+function makeIncident(kind) {
+  if (kind === 'forest') {
+    const cands = [];
+    for (let k = 0; k < N * N; k++) if (world.type[k] === T.FOREST && !world.burned[k] && world.fire[k] === 0 && world.fuel[k] > 0.5) cands.push(k);
+    if (!cands.length) return null;
+    const k = cands[Math.floor(Math.random() * cands.length)];
+    ignite(k, 0.35);
+    const i = k % N, j = (k - i) / N;
+    for (const [di, dj] of NB8.slice(0, 4)) if (inb(i + di, j + dj) && Math.random() < 0.5) ignite(idx(i + di, j + dj), 0.2);
+    return { kind, x: cx(i), z: cz(j), y: cellH(i, j), t: elapsed };
+  }
+  if (kind === 'accident') {
+    const s = world.station.door;
+    const cands = [];
+    for (let k = 0; k < N * N; k++) {
+      if (world.type[k] !== T.ROAD) continue;
+      const i = k % N, j = (k - i) / N;
+      if (Math.hypot(i - s[0], j - s[1]) < 6) continue;
+      if (accidents.some(a => Math.hypot(a.i - i, a.j - j) < 4)) continue;
+      cands.push(k);
+    }
+    if (!cands.length) return null;
+    const k = cands[Math.floor(Math.random() * cands.length)], i = k % N, j = (k - i) / N;
+    const a = { i, j, x: cx(i), z: cz(j), y: cellH(i, j), timer: L.accidentTime, maxT: L.accidentTime, progress: 0, victims: 1 + Math.floor(Math.random() * 2), done: false, lost: false };
+    const g = new THREE.Group();
+    const c1 = box(0.36, 0.22, 0.62, 0x1e88e5, -0.12, 0.13, 0), c2 = box(0.36, 0.22, 0.62, 0xfdd835, 0.2, 0.13, 0.22);
+    c1.rotation.y = 0.5; c2.rotation.y = -0.9;
+    g.add(c1, c2); g.position.set(a.x, a.y, a.z);
+    a.mesh = g; mapGroup.add(g);
+    accidents.push(a);
+    return { kind, x: a.x, z: a.z, y: a.y, acc: a, t: elapsed };
+  }
+  const list = world.buildings.filter(b => b.kind === kind && !b.lost && b.fire <= 0);
+  if (!list.length) return null;
+  const b = list[Math.floor(Math.random() * list.length)];
+  igniteBuilding(b, 0.3);
+  return { kind, x: b.x, z: b.z, y: b.y0 + b.h, b, t: elapsed };
+}
+function updateIncidents(dt) {
+  for (const inc of incidents) {
+    if (inc.over) continue;
+    let active, ok = true;
+    if (inc.kind === 'accident') { active = !inc.acc.done && !inc.acc.lost; ok = inc.acc.done; }
+    else if (inc.b) { active = inc.b.fire > 0 && !inc.b.lost; ok = !inc.b.lost; }
+    else {
+      active = false;
+      for (const k of burning) { const i = k % N, j = (k - i) / N; if (Math.hypot(cx(i) - inc.x, cz(j) - inc.z) < 8) { active = true; break; } }
+    }
+    if (!active) {
+      inc.over = true;
+      inc.sprite.removeFromParent(); inc.sprite.material.dispose();
+      if (ok) { stats.resolved++; stats.score += 100; flash(`✅ ${INC[inc.kind].label} maîtrisé`, 1800); }
+    } else {
+      inc.sprite.position.y = inc.y + 2.6 + Math.sin(elapsed * 3 + inc.x) * 0.25;
+    }
+  }
+  incidents = incidents.filter(i => !i.over || elapsed - i.t < 1);
+  for (const a of accidents) {
+    if (a.done || a.lost) continue;
+    a.timer -= dt;
+    if (a.progress >= 100) {
+      a.done = true; stats.rescued += a.victims; stats.score += 50 * a.victims;
+      flash(`🚑 ${a.victims} victime${a.victims > 1 ? 's' : ''} secourue${a.victims > 1 ? 's' : ''}`, 1800);
+      setTimeout(() => { a.mesh.removeFromParent(); disposeTree(a.mesh); }, 2500);
+    } else if (a.timer <= 0) {
+      a.lost = true; stats.victims += a.victims;
+      flash(`💔 Secours trop tardifs : ${a.victims} victime${a.victims > 1 ? 's' : ''}`, 2200);
+      a.mesh.traverse(o => { if (o.material) o.material.color.multiplyScalar(0.35); });
+    }
+  }
+}
+
+// ─── Véhicules ─────────────────────────────────────────────────
+function costFn(cls) {
+  return (i, j) => {
+    const k = idx(i, j), t = world.type[k];
+    let c;
+    if (t === T.ROAD) c = 1; else if (t === T.QUAY) c = 1.1;
+    else if (cls === 'road') return Infinity;
+    else if (t === T.GRASS) c = cls === 'off' ? 1.7 : 2.6;
+    else if (t === T.FIELD) c = cls === 'off' ? 1.9 : 3;
+    else if (t === T.SAND) c = cls === 'off' ? 2.2 : 3;
+    else if (t === T.FOREST) { if (cls === 'off') c = world.burned[k] ? 2 : 2.8; else if (world.burned[k]) c = 2.8; else return Infinity; }
+    else return Infinity;
+    if (world.bld[k] >= 0) return Infinity;
+    return c * (1 + 0.55 * (world.slope ? world.slope[k] : 0));
+  };
+}
+function spawnVehicle(type, q) {
+  const def = VEH[type];
+  const v = { id: vehicles.length, type, def, num: q + 1, tank: def.air ? 1 : def.cap, state: 'idle', path: null, pi: 0, target: null, heading: 0, timer: 0, idleT: 0, plan: 0 };
+  v.mesh = makeVehicleMesh(type);
+  mapGroup.add(v.mesh);
+  if (type === 'canadair') {
+    const wc = nearestWater(world.station.x, world.station.z);
+    v.home = { x: wc.x, z: wc.z }; v.state = 'hold';
+    v.x = wc.x + 3 * Math.cos(q * 2); v.z = wc.z + 3 * Math.sin(q * 2); v.y = world.waterLevel + def.alt; v.phase = q * 2;
+  } else if (type === 'helico') {
+    const hp = world.heliport || { x: world.station.x + 2, z: world.station.z };
+    v.home = { x: hp.x + q * 1.2, z: hp.z }; v.x = v.home.x; v.z = v.home.z; v.y = groundAt(v.x, v.z) + 0.55;
+  } else {
+    const [di, dj] = world.station.door;
+    const n = vehicles.filter(o => !o.def.air).length;
+    v.home = { i: di, j: dj };
+    v.x = cx(di) + ((n % 3) - 1) * 0.35; v.z = cz(dj) + (Math.floor(n / 3) - 0.5) * 0.4; v.y = groundAt(v.x, v.z);
+  }
+  vehicles.push(v);
+  placeMesh(v);
+  return v;
+}
+function placeMesh(v) {
+  v.mesh.position.set(v.x, v.y, v.z);
+  v.mesh.rotation.y = v.heading;
+}
+function nearestWater(x, z) {
+  let best = null, bd = Infinity;
+  for (const k of world.waterCells) {
+    const i = k % N, j = (k - i) / N, d = Math.hypot(cx(i) - x, cz(j) - z);
+    if (d < bd) { bd = d; best = { x: cx(i), z: cz(j) }; }
+  }
+  return best || { x: 0, z: 0 };
+}
+function available(v) { return v.state === 'idle' || v.state === 'hold'; }
+
+function dispatch(x, z) {
+  if (!currentMap || gameOver) return;
+  let v = selectedVehicle;
+  if (!v) {
+    const list = vehicles.filter(o => o.type === selectedType);
+    if (!list.length) { flash('Aucun véhicule de ce type sur cette carte', 1500); return; }
+    const score = o => (available(o) ? 0 : o.state === 'ret' ? 1000 : 3000) + Math.hypot(o.x - x, o.z - z);
+    v = list.sort((a, b) => score(a) - score(b))[0];
+  }
+  selectedVehicle = null;
+  sendTo(v, x, z);
+  flash(`${v.def.icon} ${v.def.short} ${v.num} → secteur ${sector(x, z)}`, 1300);
+  updateUI(true);
+}
+function sendTo(v, x, z) {
+  v.target = { x, z };
+  v.idleT = 0;
+  if (v.def.air) {
+    if (v.tank <= 0) { goRefill(v); return; }
+    v.state = 'fly';
+  } else {
+    if (v.def.cap > 0 && v.tank <= 0) { goRefill(v); return; }
+    v.state = 'move';
+    pathTo(v, toI(x), toJ(z));
+  }
+}
+function pathTo(v, ti, tj) {
+  ti = Math.max(0, Math.min(N - 1, ti)); tj = Math.max(0, Math.min(N - 1, tj));
+  const start = [Math.max(0, Math.min(N - 1, toI(v.x))), Math.max(0, Math.min(N - 1, toJ(v.z)))];
+  v.path = gridPath(costFn(v.def.cls), start, [ti, tj], 6000);
+  v.pi = 1;
+}
+function goRefill(v) {
+  v.state = 'refillGo';
+  if (v.def.air) {
+    const w = nearestWater(v.x, v.z);
+    v.refillAt = w;
+    if (v.type === 'helico' && world.heliport) {
+      const hp = world.heliport;
+      if (Math.hypot(hp.x - v.x, hp.z - v.z) < Math.hypot(w.x - v.x, w.z - v.z)) v.refillAt = { x: hp.x, z: hp.z, pad: true };
+    }
+    return;
+  }
+  const pts = [world.station.door].concat(world.hydrants);
+  let best = pts[0], bd = Infinity;
+  for (const p of pts) { const d = Math.hypot(cx(p[0]) - v.x, cz(p[1]) - v.z); if (d < bd) { bd = d; best = p; } }
+  v.refillAt = best;
+  pathTo(v, best[0], best[1]);
+}
+function goHome(v) {
+  v.state = 'ret'; v.target = null;
+  if (v.def.air) return;
+  pathTo(v, v.home.i, v.home.j);
+}
+// Avance le long du chemin ; renvoie true à l'arrivée
+function followPath(v, dt) {
+  if (!v.path || v.pi >= v.path.length) return true;
+  let budget = dt;
+  while (budget > 0 && v.pi < v.path.length) {
+    const [i, j] = v.path[v.pi];
+    const last = v.pi === v.path.length - 1;
+    const tx = last && v.state === 'move' && v.target && toI(v.target.x) === i && toJ(v.target.z) === j ? v.target.x : cx(i);
+    const tz = last && v.state === 'move' && v.target && toI(v.target.x) === i && toJ(v.target.z) === j ? v.target.z : cz(j);
+    const c = costFn(v.def.cls)(Math.max(0, Math.min(N - 1, toI(v.x))), Math.max(0, Math.min(N - 1, toJ(v.z))));
+    const sp = v.def.speed / (isFinite(c) ? c : 2);
+    const dx = tx - v.x, dz = tz - v.z, d = Math.hypot(dx, dz);
+    if (d < 1e-3) { v.pi++; continue; }
+    const step = Math.min(d, sp * budget);
+    v.x += dx / d * step; v.z += dz / d * step;
+    budget -= step / sp;
+    const h = Math.atan2(dx, dz);
+    v.heading = lerpAngle(v.heading, h, 0.35);
+    if (step >= d - 1e-4) v.pi++;
+  }
+  v.y = groundAt(v.x, v.z);
+  return v.pi >= v.path.length;
+}
+function lerpAngle(a, b, t) { let d = b - a; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return a + d * t; }
+
+// Distance d'un point au bord d'un bâtiment
+function distToBuilding(b, x, z) {
+  const dx = Math.max(0, Math.abs(x - b.x) - b.wd / 2), dz = Math.max(0, Math.abs(z - b.z) - b.dp / 2);
+  return Math.hypot(dx, dz);
+}
+// Cible la plus utile à portée d'un véhicule terrestre
+function findWork(v) {
+  const d = v.def;
+  if (d.rescue > 0) for (const a of accidents) if (!a.done && !a.lost && Math.hypot(a.x - v.x, a.z - v.z) <= d.reach) return { acc: a };
+  if (d.cap > 0 && v.tank > 0) {
+    let best = null, bd = Infinity;
+    for (const b of world.buildings) {
+      if (b.fire <= 0 || b.lost) continue;
+      const dd = distToBuilding(b, v.x, v.z);
+      if (dd <= d.reach && dd < bd) { bd = dd; best = { b }; }
+    }
+    if (best) return best;
+    for (const k of burning) {
+      const i = k % N, j = (k - i) / N, dd = Math.hypot(cx(i) - v.x, cz(j) - v.z);
+      if (dd <= d.reach && dd < bd) { bd = dd; best = { k }; }
+    }
+    return best;
+  }
+  return null;
+}
+// Feu (ou accident) le plus proche d'un point, pour s'en approcher
+function nearestJob(v, x, z, radius) {
+  let best = null, bd = radius;
+  const d = v.def;
+  if (d.rescue > 0) for (const a of accidents) if (!a.done && !a.lost) { const dd = Math.hypot(a.x - x, a.z - z); if (dd < bd) { bd = dd; best = { i: a.i, j: a.j }; } }
+  if (d.cap > 0) {
+    for (const b of world.buildings) if (b.fire > 0 && !b.lost) { const dd = distToBuilding(b, x, z); if (dd < bd) { bd = dd; best = { i: b.i0, j: b.j0 + b.dp } ; } }
+    for (const k of burning) { const i = k % N, j = (k - i) / N, dd = Math.hypot(cx(i) - x, cz(j) - z); if (dd < bd) { bd = dd; best = { i, j }; } }
+  }
+  return best;
+}
+function workGround(v, dt) {
+  const d = v.def;
+  if (d.cap > 0 && v.tank <= 0) { goRefill(v); flash(`💧 ${d.short} ${v.num} à sec : remplissage`, 1300); return; }
+  const job = findWork(v);
+  const ladder = v.mesh.getObjectByName('ladder');
+  if (job) {
+    v.idleT = 0; v.path = null;
+    let tx, tz, ty;
+    if (job.acc) {
+      job.acc.progress += d.rescue * dt; tx = job.acc.x; tz = job.acc.z; ty = job.acc.y + 0.3;
+    } else if (job.b) {
+      const b = job.b, tall = b.kind === 'tower' && b.floors >= 4;
+      coolBuilding(b, 0.11 * d.bEff * (tall ? d.tallEff : 1) * dt);
+      tx = b.x; tz = b.z; ty = b.y0 + b.h * (tall && v.type === 'epa' ? 0.8 : 0.45);
+      v.tank -= d.flow * dt;
+    } else {
+      const i = job.k % N, j = (job.k - i) / N;
+      extinguishCell(job.k, 1.1 * (d.cellEff || 1) * dt);
+      for (const [di, dj] of NB8.slice(0, 4)) if (inb(i + di, j + dj)) extinguishCell(idx(i + di, j + dj), 0.35 * (d.cellEff || 1) * dt);
+      tx = cx(i); tz = cz(j); ty = cellH(i, j) + 0.3;
+      v.tank -= d.flow * dt;
+    }
+    v.heading = lerpAngle(v.heading, Math.atan2(tx - v.x, tz - v.z), 0.2);
+    if (ladder && job.b) {
+      const dist = Math.hypot(tx - v.x, tz - v.z), up = Math.atan2(ty - v.y - 0.5, dist);
+      ladder.rotation.x = lerp(ladder.rotation.x, -up, 0.1);
+    }
+    if (!job.acc) {
+      const h0 = ladder && job.b ? 0.5 + Math.sin(-ladder.rotation.x) * 1.5 : 0.6;
+      for (let q = 0; q < 3; q++) spray.jet(v.x, v.y + h0, v.z, tx + (NATIVE_RANDOM() - 0.5) * 0.6, ty, tz + (NATIVE_RANDOM() - 0.5) * 0.6);
+    }
+    return;
+  }
+  if (ladder) ladder.rotation.x = lerp(ladder.rotation.x, 0, 0.05);
+  // rien à portée : s'approcher du foyer le plus proche de la zone d'intervention
+  const near = nearestJob(v, v.target.x, v.target.z, 9);
+  if (near) {
+    v.idleT = 0;
+    if (!v.path || v.pi >= v.path.length) {
+      v.plan -= dt;
+      if (v.plan <= 0) { v.plan = 1.2; pathTo(v, near.i, near.j); }
+    }
+    if (v.path && v.pi < v.path.length) followPath(v, dt);
+    return;
+  }
+  v.idleT += dt;
+  if (v.idleT > 3) goHome(v);
+}
+function lerp(a, b, t) { return a + (b - a) * t; }
+
+function airDrop(v) {
+  if (v.type === 'canadair') {
+    const hx = Math.sin(v.heading), hz = Math.cos(v.heading);
+    for (let s = -4.5; s <= 4.5; s += 0.5) for (let w = -1.3; w <= 1.3; w += 0.5) {
+      const x = v.x + hx * s - hz * w, z = v.z + hz * s + hx * w, i = toI(x), j = toJ(z);
+      if (!inb(i, j)) continue;
+      const k = idx(i, j);
+      extinguishCell(k, 1);
+      const bi = world.bld[k];
+      if (bi >= 0) { const b = world.buildings[bi]; coolBuilding(b, (b.kind === 'tower' ? 0.04 : 0.08)); }
+    }
+    for (let q = 0; q < 160; q++) {
+      const s = (NATIVE_RANDOM() - 0.5) * 9;
+      spray.emit(v.x + hx * s, v.y - 0.3, v.z + hz * s, (NATIVE_RANDOM() - 0.5) * 1.5, -1 - NATIVE_RANDOM() * 3, (NATIVE_RANDOM() - 0.5) * 1.5, 1.6);
+    }
+  } else {
+    for (let dj = -3; dj <= 3; dj++) for (let di = -3; di <= 3; di++) {
+      const i = toI(v.x) + di, j = toJ(v.z) + dj;
+      if (!inb(i, j) || Math.hypot(cx(i) - v.x, cz(j) - v.z) > 2.3) continue;
+      const k = idx(i, j);
+      extinguishCell(k, 0.95);
+    }
+    for (const b of world.buildings) if (b.fire > 0 && distToBuilding(b, v.x, v.z) < 1.6) coolBuilding(b, b.kind === 'tower' ? 0.5 : 0.6);
+    for (let q = 0; q < 90; q++) spray.emit(v.x, v.y - 1, v.z, (NATIVE_RANDOM() - 0.5) * 3, -1 - NATIVE_RANDOM() * 2, (NATIVE_RANDOM() - 0.5) * 3, 1.2);
+  }
+  v.tank = 0;
+}
+function fireNear(x, z, r) {
+  for (const k of burning) { const i = k % N, j = (k - i) / N; if (Math.hypot(cx(i) - x, cz(j) - z) < r) return true; }
+  for (const b of world.buildings) if (b.fire > 0 && !b.lost && distToBuilding(b, x, z) < r) return true;
+  return false;
+}
+function flyTo(v, x, z, alt, dt, speedMul) {
+  const dx = x - v.x, dz = z - v.z, d = Math.hypot(dx, dz);
+  const sp = v.def.speed * (speedMul || 1);
+  if (d > 0.05) {
+    const step = Math.min(d, sp * dt);
+    v.x += dx / d * step; v.z += dz / d * step;
+    v.heading = lerpAngle(v.heading, Math.atan2(dx, dz), Math.min(1, dt * (v.type === 'canadair' ? 2 : 4)));
+  }
+  const gy = Math.max(groundAt(v.x, v.z), world.waterLevel);
+  v.y = lerp(v.y, gy + alt, Math.min(1, dt * 1.5));
+  return d < 0.4;
+}
+function updateAir(v, dt) {
+  const d = v.def;
+  const rot = v.mesh.getObjectByName('rotor'); if (rot) rot.rotation.y += dt * (v.state === 'idle' ? 0 : 30);
+  if (v.state === 'hold') {           // canadair en attente : tourne au-dessus de l'eau
+    v.phase += dt * 0.45;
+    const tx = v.home.x + Math.cos(v.phase) * 4, tz = v.home.z + Math.sin(v.phase) * 4;
+    flyTo(v, tx, tz, d.alt, dt, 0.5);
+  } else if (v.state === 'idle') {
+    v.y = lerp(v.y, groundAt(v.x, v.z) + 0.55, Math.min(1, dt * 2));
+  } else if (v.state === 'fly') {
+    if (flyTo(v, v.target.x, v.target.z, d.alt * (v.type === 'canadair' ? 0.55 : 0.75), dt)) {
+      airDrop(v); goRefill(v);
+      flash(`💦 ${d.short} ${v.num} : largage`, 900);
+    }
+  } else if (v.state === 'refillGo') {
+    const r = v.refillAt;
+    if (flyTo(v, r.x, r.z, r.pad ? 0.55 : 0.6, dt)) { v.state = 'refill'; v.timer = v.type === 'canadair' ? 3 : 2.5; }
+  } else if (v.state === 'refill') {
+    v.timer -= dt;
+    if (v.type === 'canadair') { // écopage : glisse sur l'eau
+      v.x += Math.sin(v.heading) * dt * 2.5; v.z += Math.cos(v.heading) * dt * 2.5;
+      if (!(world.type[idx(Math.max(0, Math.min(N - 1, toI(v.x))), Math.max(0, Math.min(N - 1, toJ(v.z))))] === T.WATER)) v.heading += dt * 1.5;
+      v.y = world.waterLevel + 0.45;
+      if (NATIVE_RANDOM() < 0.5) spray.emit(v.x, v.y, v.z, (NATIVE_RANDOM() - 0.5), 1.5, (NATIVE_RANDOM() - 0.5), 0.5);
+    }
+    if (v.timer <= 0) {
+      v.tank = 1;
+      if (v.target && fireNear(v.target.x, v.target.z, 6)) v.state = 'fly';
+      else goHome(v);
+    }
+  } else if (v.state === 'ret') {
+    if (v.type === 'canadair') { v.state = 'hold'; v.phase = Math.atan2(v.z - v.home.z, v.x - v.home.x); }
+    else if (flyTo(v, v.home.x, v.home.z, 0.55, dt)) v.state = 'idle';
+  }
+}
+function updateGround(v, dt) {
+  const beacon = v.mesh.getObjectByName('beacon');
+  if (beacon) beacon.material.color.setHex(v.state !== 'idle' && Math.floor(elapsed * 6) % 2 ? 0xff1744 : 0x2196f3);
+  if (v.state === 'move') {
+    // en route : intervient dès qu'il passe à portée d'un feu proche de la cible
+    if (followPath(v, dt)) v.state = 'work';
+    else if (v.target && Math.hypot(v.x - v.target.x, v.z - v.target.z) < 4 && findWork(v)) { v.state = 'work'; }
+  } else if (v.state === 'work') {
+    workGround(v, dt);
+  } else if (v.state === 'refillGo') {
+    if (followPath(v, dt)) { v.state = 'refill'; v.timer = 3.5; }
+  } else if (v.state === 'refill') {
+    v.timer -= dt;
+    v.tank = Math.min(v.def.cap, v.tank + v.def.cap / 3.5 * dt);
+    if (v.timer <= 0) {
+      v.tank = v.def.cap;
+      if (v.target && nearestJob(v, v.target.x, v.target.z, 9)) { v.state = 'move'; pathTo(v, toI(v.target.x), toJ(v.target.z)); }
+      else goHome(v);
+    }
+  } else if (v.state === 'ret') {
+    if (followPath(v, dt)) { v.state = 'idle'; if (v.def.cap) v.tank = Math.max(v.tank, v.def.cap * 0.5); }
+  }
+}
+
+// ─── Fin de partie ─────────────────────────────────────────────
+function forestBurnedPct() {
+  if (world.forestTotal < 30) return 0;
+  let n = 0;
+  for (let k = 0; k < N * N; k++) if (world.type[k] === T.FOREST && world.burned[k]) n++;
+  return 100 * n / world.forestTotal;
+}
+function checkEnd() {
+  const fp = forestBurnedPct();
+  let why = null;
+  if (stats.lost > stats.maxLost) why = `Trop de bâtiments détruits (${stats.lost} / ${stats.maxLost} tolérés).`;
+  else if (world.forestTotal >= 30 && fp > L.forestPct) why = `Trop de forêt brûlée (${Math.round(fp)} % / ${Math.round(L.forestPct)} % toléré).`;
+  else if (stats.victims >= L.victims) why = `Trop de victimes (${stats.victims} ; ${L.victims - 1 ? 'tolérées : ' + (L.victims - 1) : 'aucune tolérée à ce niveau'}).`;
+  if (why) return endGame(false, why);
+  if (elapsed >= L.duration) endGame(true);
+}
+function endGame(win, why) {
+  gameOver = true;
+  const fp = Math.round(forestBurnedPct());
+  const score = Math.max(0, Math.round(stats.score + elapsed * 2 + (stats.buildTotal - stats.lost) * 10 - fp * 15 - stats.victims * 150));
+  stats.final = score;
+  const bestKey = 'best_' + currentMap, best = store.get(bestKey, 0);
+  if (score > best) store.set(bestKey, score);
+  if (win && currentLevel < 10) store.set('unlocked_' + currentMap, Math.max(unlocked(currentMap), currentLevel + 1));
+  const p = $('#end-panel');
+  p.innerHTML = `
+    <h2>${win ? '🏆 Mission accomplie' : '💀 Mission échouée'}</h2>
+    <div class="sub">${win ? `${MAPS[currentMap].name} — niveau ${currentLevel} réussi${currentLevel < 10 ? ' : niveau ' + (currentLevel + 1) + ' débloqué' : ''}` : why}</div>
+    <div class="stats">
+      ✅ Interventions réussies : <b>${stats.resolved}</b><br>
+      🏚️ Bâtiments détruits : <b>${stats.lost}</b> / ${stats.buildTotal}<br>
+      🌲 Forêt brûlée : <b>${fp} %</b><br>
+      🚑 Victimes secourues : <b>${stats.rescued}</b> · perdues : <b>${stats.victims}</b><br>
+      ⭐ Score : <b>${score}</b>${score > best ? ' — nouveau record !' : ''}
+    </div>
+    <div class="btns">
+      ${win && currentLevel < 10 ? '<button class="primary" data-a="next">▶ Niveau suivant</button>' : ''}
+      <button ${win ? '' : 'class="primary"'} data-a="again">↻ Rejouer</button>
+      <button data-a="menu">☰ Menu</button>
+    </div>`;
+  p.querySelectorAll('button').forEach(bt => bt.onclick = () => {
+    const a = bt.dataset.a;
+    if (a === 'next') startGame(currentMap, currentLevel + 1);
+    else if (a === 'again') startGame(currentMap, currentLevel);
+    else goToMenu();
+  });
+  $('#end-overlay').classList.add('show');
+  _checkDeferredAutoReload();
+}
+
+// ─── Interface ─────────────────────────────────────────────────
+function $(s) { return document.querySelector(s); }
+function flash(text, ms) {
+  const m = $('#message');
+  m.textContent = text; m.classList.add('show');
+  clearTimeout(m._t); m._t = setTimeout(() => m.classList.remove('show'), ms || 1600);
+}
+function fmt(t) { if (!isFinite(t)) return '∞'; t = Math.max(0, Math.ceil(t)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); }
+function buildFleetBar() {
+  const f = $('#fleet'); f.innerHTML = '';
+  for (const t of VTYPES) {
+    const n = MAPS[currentMap].fleet[t] || 0;
+    const b = document.createElement('button');
+    b.className = 'fbtn' + (n ? '' : ' disabled'); b.dataset.t = t;
+    b.innerHTML = `<span class="ic">${VEH[t].icon}</span><span class="nm">${VEH[t].short}</span><span class="ct"></span><span class="k">${VEH[t].key}</span>`;
+    b.title = VEH[t].name + ' — ' + VEH[t].help;
+    b.onclick = e => { e.stopPropagation(); if (n) { selectedType = t; selectedVehicle = null; updateUI(true); } };
+    f.appendChild(b);
+  }
+}
+function updateUI(force) {
+  if (!currentMap || !stats) return;
+  const fp = forestBurnedPct();
+  const burningB = world.buildings.filter(b => b.fire > 0 && !b.lost).length;
+  const act = incidents.filter(i => !i.over).length;
+  const row = (lbl, val, cls) => `<div class="row ${cls || ''}"><span>${lbl}</span><b>${val}</b></div>`;
+  const lostCls = stats.lost > stats.maxLost * 0.7 ? 'bad' : stats.lost > stats.maxLost * 0.4 ? 'warn' : '';
+  const fCls = fp > L.forestPct * 0.7 ? 'bad' : fp > L.forestPct * 0.4 ? 'warn' : '';
+  const vCls = stats.victims >= L.victims - 1 && stats.victims > 0 ? 'bad' : '';
+  $('#hud').innerHTML =
+    row('⏱️ Temps restant', fmt(L.duration - elapsed)) +
+    row('🚨 Interventions en cours', act) +
+    row('🔥 Cases en feu', burning.size + (burningB ? ` · ${burningB} bât.` : '')) +
+    row('🏚️ Bâtiments perdus', `${stats.lost} / ${stats.maxLost}`, lostCls) +
+    (world.forestTotal >= 30 ? row('🌲 Forêt brûlée', `${Math.round(fp)} % / ${Math.round(L.forestPct)} %`, fCls) : '') +
+    row('🚑 Victimes perdues', `${stats.victims} / ${L.victims - 1}`, vCls) +
+    row('⭐ Score', Math.round(stats.score));
+  const nextIn = Math.max(0, nextIncident - elapsed);
+  const accUrg = accidents.filter(a => !a.done && !a.lost).sort((a, b) => a.timer - b.timer)[0];
+  const b = $('#banner');
+  b.classList.toggle('alert', !!accUrg && accUrg.timer < 20);
+  b.textContent = `${MAPS[currentMap].icon} Niv. ${currentLevel} · ` +
+    (accUrg ? `🚗 Accident : ${fmt(accUrg.timer)} pour secourir · ` : '') +
+    (elapsed < L.duration ? `prochaine alerte ≈ ${Math.ceil(nextIn)} s` : 'fin de mission') +
+    (gameSpeed > 1 ? ' · ×2' : '');
+  // vent
+  $('#wind-arrow').setAttribute('transform', `rotate(${wind.a * 180 / Math.PI})`);   // la flèche montre où va le vent
+  $('#wind .wtxt').textContent = `vent ${Math.round(wind.s * 40)} km/h`;
+  // flotte
+  for (const el of document.querySelectorAll('.fbtn')) {
+    const t = el.dataset.t, list = vehicles.filter(v => v.type === t), av = list.filter(available).length;
+    el.classList.toggle('active', t === selectedType && !selectedVehicle);
+    const ct = el.querySelector('.ct');
+    ct.textContent = list.length ? `${av} / ${list.length}` : '—';
+    ct.classList.toggle('none', list.length > 0 && av === 0);
+  }
+  // liste des véhicules
+  const vl = $('#vlist');
+  if (force || !vl._rows) {
+    vl.innerHTML = '<h4>Véhicules — clic pour en choisir un</h4>';
+    vl._rows = vehicles.map(v => {
+      const r = document.createElement('div');
+      r.className = 'vrow';
+      r.innerHTML = `<span class="vi">${v.def.icon}</span><div><div class="vn">${v.def.short} ${v.num}</div><div class="vs"></div><div class="bar"><i></i></div></div>`;
+      r.onclick = e => { e.stopPropagation(); selectedVehicle = selectedVehicle === v ? null : v; if (selectedVehicle) selectedType = v.type; flash(selectedVehicle ? `${v.def.icon} ${v.def.short} ${v.num} sélectionné : clique sur la carte` : 'Sélection annulée', 1400); updateUI(true); };
+      vl.appendChild(r);
+      return r;
+    });
+  }
+  vehicles.forEach((v, q) => {
+    const r = vl._rows[q]; if (!r) return;
+    r.classList.toggle('sel', selectedVehicle === v);
+    r.querySelector('.vs').textContent = STATE_TXT[v.state] || v.state;
+    const cap = v.def.air ? 1 : v.def.cap;
+    r.querySelector('.bar').style.display = cap ? 'block' : 'none';
+    if (cap) r.querySelector('.bar i').style.width = Math.round(100 * Math.max(0, v.tank) / cap) + '%';
+  });
+  for (const v of vehicles) { const ring = v.mesh.getObjectByName('ring'); ring.visible = selectedVehicle === v || (!selectedVehicle && v.type === selectedType && available(v)); }
+}
+
+// ─── Saisie ────────────────────────────────────────────────────
+const raycaster = new THREE.Raycaster(), mouse = new THREE.Vector2();
+let downAt = null;
+renderer.domElement.addEventListener('pointerdown', e => { if (e.button === 0) downAt = [e.clientX, e.clientY]; });
+renderer.domElement.addEventListener('pointerup', e => {
+  if (e.button !== 0 || !downAt || !currentMap || gameOver || paused) return;
+  if (Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 6) return;
+  mouse.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+  raycaster.setFromCamera(mouse, camera);
+  const hit = raycaster.intersectObject(terrain)[0];
+  if (hit) dispatch(hit.point.x, hit.point.z);
+});
+addEventListener('keydown', e => {
+  if ($('#help-overlay').classList.contains('show')) { if (['Escape', 'h', 'H', '?'].includes(e.key)) toggleHelp(false); return; }
+  if (!currentMap) return;
+  const k = e.key.toLowerCase();
+  if (k === 'h' || k === '?') { toggleHelp(true); return; }
+  if (k === 'm') { goToMenu(); return; }
+  if (k === 'r') { startGame(currentMap, currentLevel); return; }
+  if (gameOver) return;
+  if (k === 'p' || k === 'escape') { paused = !paused; $('#pause-overlay').classList.toggle('show', paused); return; }
+  if (k === 'f') { gameSpeed = gameSpeed === 1 ? 2 : 1; flash(gameSpeed > 1 ? '⏩ Vitesse ×2' : '▶ Vitesse normale', 1000); return; }
+  const t = VTYPES.find(t => VEH[t].key === k);
+  if (t && MAPS[currentMap].fleet[t]) { selectedType = t; selectedVehicle = null; flash(`${VEH[t].icon} ${VEH[t].name}`, 900); updateUI(true); }
+});
+function toggleHelp(show) {
+  $('#help-overlay').classList.toggle('show', show);
+  if (show) {
+    paused = true;
+    $('#help-content').innerHTML = `<h2>🚒 Aide — Firefighter</h2>
+      <p>Des alertes tombent : feux de forêt, maisons, immeubles, entrepôts, bateaux, accidents de la route. Choisis un type de véhicule en bas (ou un véhicule précis dans la liste à droite), puis <b>clique sur la carte</b> : le plus proche disponible y va et intervient tout seul sur ce qui brûle autour.</p>
+      <h3>Véhicules</h3><table>${VTYPES.map(t => `<tr><td>${VEH[t].icon} <b>${VEH[t].name}</b> <kbd>${VEH[t].key}</kbd></td><td>${VEH[t].help}</td></tr>`).join('')}</table>
+      <h3>Eau</h3><p>Les camions ont une citerne (barre bleue) : à sec, ils vont se remplir à la caserne ou à la bouche d'incendie la plus proche, puis reviennent. Canadair et hélicoptère larguent une fois puis repartent se remplir, et reviennent tant que ça brûle près de leur cible.</p>
+      <h3>Feu</h3><p>Le feu se propage de case en case, plus vite dans la forêt et <b>dans le sens du vent</b> (boussole en haut à droite). Une case arrosée reste humide un moment et brûle mal : on peut faire des coupe-feu. Un bâtiment en feu perd peu à peu sa solidité, puis s'effondre.</p>
+      <h3>Accidents</h3><p>Un compte à rebours s'affiche dans le bandeau : envoie un véhicule léger (le plus rapide pour secourir) ou un camion de pompiers avant la fin.</p>
+      <h3>But</h3><p>Tenir jusqu'à la fin du temps sans dépasser les pertes tolérées (bâtiments, forêt, victimes : voir le panneau à gauche). Le niveau 10 est sans fin.</p>
+      <h3>Commandes</h3><p><kbd>Clic</kbd> envoyer · <kbd>Clic droit</kbd> pivoter · <kbd>Clic milieu</kbd> déplacer · <kbd>Molette</kbd> zoom · <kbd>1</kbd>–<kbd>6</kbd> type de véhicule · <kbd>F</kbd> vitesse ×2 · <kbd>P</kbd>/<kbd>Échap</kbd> pause · <kbd>R</kbd> recommencer · <kbd>M</kbd> menu</p>`;
+  } else { paused = false; }
+}
+$('#help-overlay .x').onclick = () => toggleHelp(false);
+
+// ─── Accueil ───────────────────────────────────────────────────
+function buildHome() {
+  const box = $('#map-cards'); box.innerHTML = '';
+  for (const [id, m] of Object.entries(MAPS)) {
+    const un = unlocked(id); let sel = un;
+    const card = document.createElement('div');
+    card.className = 'map-card glass';
+    const best = store.get('best_' + id, 0);
+    card.innerHTML = `
+      <div class="art" style="background:${{ village: 'linear-gradient(135deg,#2e5d2a,#6f9a48)', ville: 'linear-gradient(135deg,#37474f,#90a4ae)', port: 'linear-gradient(135deg,#0d47a1,#4fc3f7)', montagne: 'linear-gradient(135deg,#4e342e,#8d8a86)' }[id]}">
+        <img src="assets/map-${id}.jpg" alt="" onerror="this.remove()"><span style="position:relative">${m.icon}</span></div>
+      <div class="body">
+        <div class="top"><h3>${m.name}</h3><span class="badge b${m.diff}">${m.badge}</span></div>
+        <div class="desc">${m.desc}</div>
+        <div class="best">${best ? '🏆 Meilleur score : ' + best : 'Jamais jouée'}</div>
+        <div class="dots">${Array.from({ length: 10 }, (_, q) => `<button class="dot ${q + 1 === sel ? 'sel' : ''} ${q + 1 > un ? 'off' : ''}" data-l="${q + 1}">${q + 1}</button>`).join('')}</div>
+        <div class="lvl-info"></div>
+        <button class="play"></button>
+      </div>`;
+    const info = () => {
+      const c = levelCfg(id, sel);
+      card.querySelector('.lvl-info').textContent = `Niveau ${sel} · ` + (isFinite(c.duration) ? fmt(c.duration) + ' à tenir' : 'sans fin') + ` · alerte toutes les ~${Math.round(c.interval)} s`;
+      card.querySelector('.play').textContent = '▶ Jouer le niveau ' + sel;
+    };
+    info();
+    card.querySelectorAll('.dot').forEach(d => d.onclick = e => {
+      e.stopPropagation();
+      if (d.classList.contains('off')) return;
+      sel = +d.dataset.l;
+      card.querySelectorAll('.dot').forEach(o => o.classList.toggle('sel', o === d));
+      info();
+    });
+    card.querySelector('.play').onclick = e => { e.stopPropagation(); startGame(id, sel); };
+    card.onclick = () => startGame(id, sel);
+    box.appendChild(card);
+  }
+}
+
+// ─── Boucle ────────────────────────────────────────────────────
+let last = performance.now();
+function frame(now) {
+  requestAnimationFrame(frame);
+  let dt = Math.min(0.1, (now - last) / 1000); last = now;
+  const t = now / 1000;
+  if (currentMap && world) {
+    if (!paused && !gameOver) {
+      simStep(dt * gameSpeed);
+      uiAcc += dt;
+      if (uiAcc > 0.25) { uiAcc = 0; updateUI(); }
+    }
+    drawFire(t, dt);
+    smoke.update(paused ? 0 : dt); spray.update(paused ? 0 : dt);
+    for (const v of vehicles) {
+      const ring = v.mesh.getObjectByName('ring');
+      if (ring.visible) { ring.position.y = (v.def.air ? -v.y + groundAt(v.x, v.z) : 0) + 0.05; ring.scale.setScalar(1 + 0.1 * Math.sin(t * 5)); }
+    }
+  }
+  controls.update();
+  renderer.render(scene, camera);
+}
+// Une étape de simulation (aussi utilisée par les tests pour avancer vite)
+function simStep(sdt) {
+  elapsed += sdt;
+  // alertes
+  if (elapsed >= nextIncident && elapsed < L.duration) {
+    spawnIncident();
+    nextIncident = elapsed + L.interval * (0.7 + Math.random() * 0.6);
+  }
+  // vent qui tourne lentement
+  windAcc += sdt;
+  if (windAcc > 35) { windAcc = 0; wind.a += (Math.random() - 0.5) * 0.9; setWind(); }
+  fireAcc += sdt;
+  while (fireAcc >= 0.25) { fireAcc -= 0.25; fireTick(0.25); }
+  for (const v of vehicles) { if (v.def.air) updateAir(v, sdt); else updateGround(v, sdt); placeMesh(v); }
+  updateIncidents(sdt);
+  checkEnd();
+}
+function drawFire(t, dt) {
+  let q = 0;
+  const put = (x, y, z, s, hot, seed) => {
+    if (q >= MAX_FLAMES) return;
+    const f = 0.75 + 0.35 * Math.sin(t * 9 + seed * 1.7) + 0.15 * Math.sin(t * 23 + seed);
+    _m.compose(_v.set(x, y, z), _q.setFromAxisAngle(_v2.set(0, 1, 0), seed), _s.set(s * 0.9, s * f * 1.2, s * 0.9));
+    flameMesh.setMatrixAt(q, _m);
+    flameMesh.setColorAt(q, _c.setHex(hot > 0.7 ? 0xffc23d : hot > 0.4 ? 0xff8a1f : 0xff5a14));
+    q++;
+  };
+  for (const k of burning) {
+    const i = k % N, j = (k - i) / N, f = world.fire[k];
+    const y = cellH(i, j) + (world.type[k] === T.FOREST ? 0.35 : 0);
+    const s = (world.type[k] === T.FOREST ? 1.1 : 0.6) * (0.4 + f);
+    put(cx(i) + 0.15 * Math.sin(k), y, cz(j) + 0.15 * Math.cos(k), s, f, k);
+    if (f > 0.6 && world.type[k] === T.FOREST) put(cx(i) - 0.25, y, cz(j) + 0.2, s * 0.7, f, k + 0.5);
+    if (!paused && NATIVE_RANDOM() < dt * 3 * f) smoke.emit(cx(i), y + 1.2, cz(j));
+  }
+  for (const b of world.buildings) {
+    if (b.fire <= 0 || b.lost) continue;
+    const n = Math.max(1, Math.ceil(b.fire * b.wd * b.dp * 1.2));
+    for (let p = 0; p < n; p++) {
+      const ox = ((p * 0.618) % 1 - 0.5) * (b.wd - 0.4), oz = ((p * 0.382 + 0.3) % 1 - 0.5) * (b.dp - 0.4);
+      put(b.x + ox, b.y0 + b.h + (b.kind === 'house' ? 0.2 : 0), b.z + oz, 0.7 + b.fire * 0.9, b.fire, b.id * 3 + p);
+    }
+    if (b.kind === 'tower') for (let f = 1; f < b.floors; f += 2) put(b.x + b.wd / 2 - 0.05, b.y0 + f * 0.8, b.z, 0.45 * b.fire + 0.15, b.fire, b.id + f);
+    if (!paused && NATIVE_RANDOM() < dt * 6 * b.fire) smoke.emit(b.x, b.y0 + b.h + 1, b.z);
+  }
+  flameMesh.count = q;
+  flameMesh.instanceMatrix.needsUpdate = true;
+  if (flameMesh.instanceColor) flameMesh.instanceColor.needsUpdate = true;
+}
+const _v2 = new THREE.Vector3();
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+buildHome();
+requestAnimationFrame(frame);
+window.__ffProject = (x, z) => { const v = new THREE.Vector3(x, groundAt(x, z), z).project(camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; };
+window.__ff = { get world() { return world; }, get vehicles() { return vehicles; }, get stats() { return stats; }, get incidents() { return incidents; }, get accidents() { return accidents; },
+  startGame, dispatch, run(sec, ai) { paused = true; const n = Math.round(sec / 0.1); for (let q = 0; q < n && !gameOver; q++) { if (ai) ai(); simStep(0.1); } paused = false; }, spawnIncident, makeIncident, sendTo, get burning() { return burning; }, setElapsed: v => { elapsed = v; }, get elapsed() { return elapsed; }, setSpeed: s => { gameSpeed = s; } };
+
+</script>
+</body>
+</html>

@@ -5,6 +5,7 @@ A collection of self-contained web mini-games — pure HTML5/Canvas browser game
 | Game | Folder | Version | Notes |
 | ---- | ------ | ------- | ----- |
 | 🐱 **CatAdventure** | [`catadventure/`](catadventure/) | 2026.09.001-c2 | 2D platformer — a cat explores a city, collects fish and avoids obstacles. Pure HTML5 Canvas, no dependencies. |
+| 🚒 **Firefighter** | [`firefighter/`](firefighter/) | 2026.10.001 | 3D fire and rescue dispatch game — send canadairs, helicopters and fire engines to forest fires, burning buildings and road accidents. Three.js (loaded via import map). |
 | 🌊 **Flood City** | [`floodcity/`](floodcity/) | 2026.10.013 | 3D flood-defense game — build walls, dig trenches and protect your city from the waves. Three.js (loaded via import map). |
 | 🐸 **Frogger** | [`frogger/`](frogger/) | 2026.09.001-c2 | Remake of the classic arcade crossing game — five road lanes, five river lanes and six homes. Pure HTML5 Canvas, no dependencies. |
 
@@ -13,6 +14,7 @@ A collection of self-contained web mini-games — pure HTML5/Canvas browser game
 Each game is versioned independently with the `YEAR.MONTH.NNN` scheme and released from this repository with a per-game tag:
 
 - `catadventure-2026.09.001-c2`
+- `firefighter-2026.10.001`
 - `floodcity-2026.10.013`
 - `frogger-2026.09.001-c2`
 
@@ -24,16 +26,17 @@ Start any small static server, then open the game's folder:
 
 ```bash
 python3 -m http.server 8080
-# → http://localhost:8080/catadventure/   (or floodcity/, frogger/)
+# → http://localhost:8080/catadventure/   (or firefighter/, floodcity/, frogger/)
 ```
 
-You can also simply open the game's `index.html` in a browser (Flood City needs network access to fetch Three.js from its CDN).
+You can also simply open the game's `index.html` in a browser (Firefighter and Flood City need network access to fetch Three.js from their CDN).
 
 ## Repository layout
 
 ```
 .
 ├── catadventure/          # game + standalone Docker deployment (Nginx, Traefik-ready) + update client
+├── firefighter/           # game + map previews
 ├── floodcity/             # game + visual verification harness
 ├── frogger/               # game
 ├── VERSION                # repository version
@@ -47,6 +50,7 @@ You can also simply open the game's `index.html` in a browser (Flood City needs 
 The games are static files, served as subdirectories of a small games hub:
 
 - **CatAdventure** additionally ships a standalone Docker deployment (`Dockerfile`, `docker-compose.yml`, Nginx + Traefik-ready) and a browser-side update client that checks this repository's releases (`catadventure-` tags) against the deployed version.
+- **Firefighter** and **Flood City** check this repository's releases (`firefighter-` / `floodcity-` tags) from the browser and offer to reload.
 - **Flood City** ships a visual verification harness (`floodcity/visual-harness/`) — pixel assertions and a balance simulation used to check each change.
 
 ## License

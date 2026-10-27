@@ -4,6 +4,12 @@ Repository-level changes for the MiniGames collection. Each game keeps its own
 `CHANGELOG.md`, its own `VERSION` file and its own release tags
 (`<game>-YYYY.MM.NNN`).
 
+## [2026.10.001] — 2026-10-27
+
+### Added
+- `firefighter/` — new game: 3D fire and rescue dispatch (four maps, six vehicle types)
+- Release workflow: `firefighter-` tags
+
 ## [2026.09.001] — 2026-09-13
 
 ### Added
