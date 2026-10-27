@@ -8,6 +8,15 @@
 |---|---|---|
 | **Littoral** | ⭐ Easy | Coastal city with a wide beach — waves come from the ocean to the south, a single front |
 | **Île** | ⭐⭐ Medium | Large island with an irregular coastline — waves alternate between north and south, two fronts |
+| **Barrage** | ⭐⭐⭐ Hard | A reservoir lake held by a dam overlooks the city — a **single breach** per game, somewhere along the dam |
+
+### 🧱 Barrage
+
+- About **45 s of preparation** (a little less at higher levels) with 1.8× the starting resources (resource cap 400) to build a levee
+- **One breach per game**: a section of the dam gives way and the lake pours through it — 60 % of the width at level 1, wider at higher levels, taller and stronger than a normal wave
+- **10 s before**, identical leaks (crack + water jet) appear at 2 to 4 places along the dam (more at higher levels): **only one** is where the dam will break
+- **Defeat** if 60 % of the buildings or fewer remain; **victory** once the water has passed and the city holds
+- No landing-zone marker on this map: reading the leaks is the whole game
 
 Best scores are kept per map and shown on the home screen.
 
@@ -117,7 +126,7 @@ grep "const GAME_VERSION" index.html && cat version.json
 
 The `version` field (in `version.json`) and `GAME_VERSION` (in `index.html`) must be identical.
 
-**⚠️ Assets:** the `assets/` directory (map preview images) must be copied alongside `index.html` — the home screen references `assets/map-littoral.jpg` and `assets/map-ile.jpg` at runtime.
+**⚠️ Assets:** the `assets/` directory (map preview images) must be copied alongside `index.html` — the home screen references `assets/map-littoral.jpg`, `assets/map-ile.jpg` and `assets/map-barrage.jpg` at runtime.
 
 ## 🔬 Visual verification harness
 
@@ -156,6 +165,11 @@ https://games.cloudfr.net/floodcity/?seed=42
 The seed controls the layout of the city, buildings, street furniture and beach. Same seed and same level = same map, every time. Without the parameter, a random map is generated as before. Handy for comparing strategies, sharing a configuration or reproducing a bug.
 
 ## 📋 Release notes
+
+### 2026.10.004
+- New **Barrage** map: a dam holds back a lake above the city; one breach per game after about 45 s of preparation, somewhere along the dam
+- 10 s before the breach, leaks appear at several places — only one is the real one
+- The wave launch message now names the sector consistently with the compass
 
 ### 2026.10.003
 - See roughly where the next wave will hit: an arrow and a coloured band on the sea, from the start of the countdown (amber, then red 10 s before impact)

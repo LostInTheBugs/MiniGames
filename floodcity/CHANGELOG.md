@@ -2,6 +2,22 @@
 
 All notable changes to Flood City are documented in this file.
 
+## [2026.10.004] — 2026-10-27
+
+### Added
+- **Barrage** map (⭐⭐⭐): dam built from 1-unit segments with coping and city-side buttresses, reservoir lake just under the top, concrete apron instead of the beach, no beach life; city-side starting camera; preview `assets/map-barrage.jpg`
+- Barrage gameplay: a single breach per game (`levelWaveCount()` = 1) after `prepTime` 45 s (−1.5 s per level, min 30 s); starting resources ×1.8 with a 400 cap (`resourceCap()`); breach 60 % of the width at level 1 (+2 % per level), 1.3× taller and 2× HP; the dam segments it covers disappear with debris and a short camera shake
+- Leaks 10 s before the breach: 2 (levels 1–3), 3 (4–7) or 4 (8–10) identical cracks with pulsing water jets, only one at the breach; removed at the breach, game over or menu
+- Banner on Barrage: preparation countdown, « Fissures sur le barrage ! », « Le barrage a cédé — tenez bon ! »; level picker shows « une seule rupture »; help panel section
+- Defeat threshold and HUD gauge colours follow the map (`defeatRatio` 0.6 on Barrage)
+
+### Fixed
+- Wave launch message: sector named consistently with the compass (west/east were swapped)
+- Three.js objects are no longer created at load time in the seeded RNG window, so `?seed=N` maps of Littoral and Île are unchanged
+
+### Changed
+- Visual harness: maps selected by name (the home screen now has three cards); Île east sand point moved off the first wave's path
+
 ## [2026.10.003] — 2026-10-26
 
 ### Added
