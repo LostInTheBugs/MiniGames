@@ -514,6 +514,24 @@
     overflow: hidden;
     position: relative;
   }
+  /* Tuile « Aléatoire » : mosaïque des cartes + dé */
+  .random-mosaic {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    aspect-ratio: 16 / 9;
+    border-radius: 16px 16px 0 0;
+    overflow: hidden;
+    background: #0d1a33;
+  }
+  .random-mosaic img { width: 100%; height: 100%; object-fit: cover; display: block; filter: saturate(0.8) brightness(0.75); }
+  .random-dice {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 64px; text-shadow: 0 4px 18px rgba(0,0,0,0.6);
+    transition: transform 0.35s cubic-bezier(.4,0,.2,1);
+  }
+  .map-card:hover .random-dice { transform: rotate(-12deg) scale(1.1); }
+  .diff-random { background: linear-gradient(90deg, #7e57c2, #42a5f5); }
 
   /* ── Card body ───────────────────────────────────────── */
   .map-card-body {
@@ -7635,6 +7653,38 @@ function buildHomeScreen() {
     card.addEventListener('click', () => startGame(id, sel));
     $mapCards.appendChild(card);
   }
+
+  // ── Tuile « Aléatoire » : une carte au hasard, à son plus haut niveau débloqué ──
+  const ids = Object.keys(MAPS);
+  const rnd = document.createElement('div');
+  rnd.className = 'map-card random-card';
+  rnd.innerHTML = `
+    <div class="map-card-img-wrap">
+      <div class="random-mosaic">${ids.slice(0, 8).map(id =>
+        `<img src="assets/map-${id}.jpg" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`).join('')}</div>
+      <div class="random-dice">🎲</div>
+    </div>
+    <div class="map-card-body">
+      <div class="map-card-top">
+        <h3>Aléatoire</h3>
+        <span class="diff-badge diff-random">🎲 Surprise</span>
+      </div>
+      <div class="desc">Une carte tirée au hasard parmi les ${ids.length}, jamais deux fois de suite la même, au plus haut niveau que vous y avez débloqué.</div>
+      <button class="map-card-play" aria-label="Jouer une carte au hasard">▶ Carte au hasard</button>
+    </div>
+  `;
+  const playRandom = (e) => {
+    if (e) e.stopPropagation();
+    // NATIVE_RANDOM : le tirage ne doit pas consommer la graine (?seed=N) qui génère la ville
+    const pool = ids.length > 1 ? ids.filter(id => id !== lastMap) : ids;
+    const id = pool[Math.floor(NATIVE_RANDOM() * pool.length)];
+    const lvl = getUnlockedLevel(id);
+    startGame(id, lvl);
+    flashMessage('🎲 ' + MAPS[id].name + ' — niveau ' + lvl, 2500);
+  };
+  rnd.querySelector('.map-card-play').addEventListener('click', playRandom);
+  rnd.addEventListener('click', playRandom);
+  $mapCards.appendChild(rnd);
 }
 
 // ─── Resize ─────────────────────────────────────────────────
