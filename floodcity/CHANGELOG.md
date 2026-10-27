@@ -2,6 +2,11 @@
 
 All notable changes to Flood City are documented in this file.
 
+## [2026.10.009] — 2026-10-27
+
+### Added
+- **Aléatoire** tile after the map cards (mosaic of the map previews and a die): starts a map drawn at random — never the last one played — at its highest unlocked level, and announces the draw. The draw uses the native RNG, so `?seed=N` maps are unchanged
+
 ## [2026.10.008] — 2026-10-27
 
 ### Added

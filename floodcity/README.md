@@ -46,6 +46,10 @@
 - With every wave, a tidal bore runs up **each** channel and overflows onto both banks, weakening as it crosses the island
 - Nothing can be built in the channels; walls on the banks protect the buildings behind
 
+### 🎲 Aléatoire
+
+The last tile on the home screen starts a map drawn at random (never the same one twice in a row), at the highest level you have unlocked on it.
+
 Best scores are kept per map and shown on the home screen.
 
 ## 🎯 Levels
@@ -193,6 +197,9 @@ https://games.cloudfr.net/floodcity/?seed=42
 The seed controls the layout of the city, buildings, street furniture and beach. Same seed and same level = same map, every time. Without the parameter, a random map is generated as before. Handy for comparing strategies, sharing a configuration or reproducing a bug.
 
 ## 📋 Release notes
+
+### 2026.10.009
+- New **Aléatoire** tile on the home screen: a random map at its highest unlocked level
 
 ### 2026.10.008
 - New **Archipel** map: the island split in three by two channels, with a tidal bore in each channel at every wave
