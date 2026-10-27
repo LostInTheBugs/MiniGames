@@ -2133,6 +2133,19 @@ let currentMap = null;
 let currentMapId = null;
 let resources = 150;
 let score = 0;
+
+// ─── Barrage helpers ──────────────────────────────────────
+const DAM_RESOURCE_CAP = 400;
+
+// Returns wave count for the current map: 1 on Barrage, levelCfgGlobal.waves elsewhere.
+function levelWaveCount() {
+  return currentMap && currentMap.isDam ? 1 : levelCfgGlobal.waves;
+}
+
+// Returns resource cap for the current map: DAM_RESOURCE_CAP on Barrage, RESOURCE_CAP elsewhere.
+function resourceCap() {
+  return currentMap && currentMap.isDam ? DAM_RESOURCE_CAP : RESOURCE_CAP;
+}
 let buildings = [];
 let walls = [];
 let trenches = [];
@@ -2159,6 +2172,18 @@ let oceanPlanes = []; // animated ocean meshes
 let oceanMaterials = []; // tracked for night emissive
 let waveFoamMaterials = []; // wave crest foam for night emissive
 let damGroup = null; // dam wall segments (barrage map)
+
+// ─── Barrage geometry ───────────────────────────────────
+const DAM_HEIGHT = 4.5;    // nettement plus haut que les vagues : le lac domine la ville
+const DAM_THICKNESS = 1.4;
+let DAM_Z = -18.75;        // fixé par generateMap (bord sud du glacis)
+
+// ─── Barrage breach state ───────────────────────────────
+let breachX = 0;     // X centre de la brèche (Barrage)
+let breachWidth = 0; // largeur de la brèche (Barrage)
+let breachActivated = false; // rupture déjà survenue
+let leakIntervals = []; // [IntervalID] pour les fuites actives
+let leakMeshes = [];    // géométries/matériaux de fuites à libérer
 let beachVendors = []; // { group, cartGroup, x, z, ... }
 let alertPanicTime = 0;   // performance.now() when alert was triggered
 let lastWaveClearTime = 0; // time when all waves left the map
@@ -3524,9 +3549,7 @@ function generateMap(map) {
       mapGroup.add(farLake);
 
       // ── Dam wall: concrete segments + buttresses + coping ──
-      const DAM_HEIGHT = 4.5; // nettement plus haut que les vagues : le lac domine la ville
-      const DAM_THICKNESS = 1.4;
-      const DAM_Z = beachSouthEdge; // −18.75
+      DAM_Z = beachSouthEdge; // −18.75 (DAM_HEIGHT / DAM_THICKNESS : constantes du module)
       const DAM_COLOR = 0xb8b5ac;
       const DAM_BUTTRESS_COLOR = 0xb8b5ac;
       const DAM_COPING_COLOR = 0xd4d1c8;
@@ -4057,11 +4080,21 @@ function generateMap(map) {
   map._alertThreshold = Math.max(5, Math.floor(totalBuildingsInitial * alertFrac));
   console.log(`Carte ${map.name}: ${totalBuildingsInitial} bâtiments, défaite ≤${map._defeatThreshold} (${Math.round(defeatFrac*100)}%), alerte ≤${map._alertThreshold} (${Math.round(alertFrac*100)}%)`);
 
-  resources = levelCfgGlobal.startRes; // ressources de départ selon le niveau
+  resources = levelCfgGlobal.startRes * (map.startResMul || 1); // ressources de départ × multiplicateur carte
+  // Barrage : préparation avant rupture
+  if (map.isDam) {
+    resources = Math.round(resources);
+    waveCountdown = waveCountdownMax = Math.max(30, map.prepTime - (currentLevel - 1) * 1.5);
+    // Pas de marqueur de zone sur le Barrage
+    disposeWaveMarker();
+    nextWavePlan = null;
+  }
   score = 0;
   gameOver = false;
-  waveCountdown = 20;
-  waveCountdownMax = 20;
+  if (!map.isDam) {
+    waveCountdown = 20;
+    waveCountdownMax = 20;
+  }
   waveNumber = 0;
   wallsBuiltTotal = 0;
   trenchesBuiltTotal = 0;
@@ -4251,6 +4284,20 @@ function createWaveFoamGeometry(segWidth, waveH, depth) {
 function planNextWave() {
   if (!currentMap) return;
   const map = currentMap;
+  // ── Barrage : planifie la rupture unique ─────────────
+  if (map.isDam) {
+    breachWidth = map.terrainHalf * 2 * (0.6 + 0.02 * (currentLevel - 1)); // ≈ 20 niv.1 → ≈ 27 niv.10 : sans digue, la brèche fait perdre
+    const half = map.terrainHalf;
+    // Position X aléatoire pour que la brèche reste entière
+    const minBreachX = -half + breachWidth / 2;
+    const maxBreachX = half - breachWidth / 2;
+    breachX = Math.random() * (maxBreachX - minBreachX) + minBreachX;
+    breachActivated = false; // nouvelle partie : le barrage est intact
+    destroyAllLeaks();
+    nextWavePlan = { dir: 'south', x: breachX, width: breachWidth };
+    // Pas de buildWaveMarker sur le Barrage
+    return;
+  }
   const nextNum = waveNumber + 1;
   const difficulty = (nextNum <= 5
     ? nextNum / 5
@@ -4356,13 +4403,47 @@ function spawnWave() {
   const difficulty = (waveNumber <= 5
     ? waveNumber / 5
     : 1 + Math.log2(waveNumber / 5) * 0.8) * levelCfgGlobal.diffMul;
-  const waveH = 1.5 + difficulty * 5;
+  let waveH = 1.5 + difficulty * 5;
+  let segHp = (80 + difficulty * 200) / Math.max(1, Math.ceil(plan.width / 1.0)); // même formule qu'avant (÷ nombre de segments)
+  // Barrage : vague plus haute et plus résistante
+  if (map.isDam) {
+    waveH *= 1.3;
+    segHp *= 2;
+    // ── Déclencher la rupture ──────────────────────────
+    if (!breachActivated) {
+      breachActivated = true;
+      // Masquer segments et contreforts dans la brèche
+      if (damGroup) {
+        damGroup.traverse(child => {
+          if (child.userData && (child.userData.isDamSegment || child.userData.x != null)
+              && Math.abs(child.userData.x - breachX) <= breachWidth / 2) {
+            child.visible = false;
+          }
+        });
+      }
+      // Nuage de débris au centre de la brèche
+      spawnDestroyParticles(breachX, DAM_HEIGHT * 0.5, DAM_Z);
+      spawnDestroyParticles(breachX - breachWidth * 0.25, DAM_HEIGHT * 0.4, DAM_Z);
+      spawnDestroyParticles(breachX + breachWidth * 0.25, DAM_HEIGHT * 0.4, DAM_Z);
+      // Message flash
+      flashMessage('💥 Le barrage a cédé !', 2500);
+      // Libérer les fuites
+      destroyAllLeaks();
+      // Petite secousse de caméra
+      try {
+        const cam = camera;
+        if (cam) {
+          cam.position.y += 0.3;
+          setTimeout(() => { if (camera) camera.position.y -= 0.3; }, 200);
+        }
+      } catch(e) {}
+    }
+  }
   const speed = 3 + difficulty * 4;
   const waveX = plan.x;
 
   const SEG_W = 1.0;
   const n = Math.max(1, Math.ceil(waveWidth / SEG_W));
-  const segHp = (80 + difficulty * 200) / n;
   const segments = [];
   const segMeshes = [];
 
@@ -4410,9 +4491,15 @@ function spawnWave() {
     dirSign, dir,
   });
 
-  const dirLabel = dir === 'north' ? 'NORD' : 'SUD';
-  const offsetLabel = waveX < -5 ? "à l'ouest" : waveX > 5 ? "à l'est" : "au centre";
-  flashMessage(`🌊 Vague #${waveNumber} — front ${dirLabel} (${offsetLabel}) !`, 1800);
+  // Message de lancement — Barrage : pas de "ouest/est"
+  if (map.isDam) {
+    // Le message de rupture sera affiché par le code de rupture
+    flashMessage(`🌊 Vague #${waveNumber} — front ${dir === 'north' ? 'NORD' : 'SUD'} !`, 1800);
+  } else {
+    // Littoral / Île : utiliser getWaveSector(plan) pour le secteur
+    const sector = getWaveSector(plan);
+    flashMessage(`🌊 Vague #${waveNumber} — front ${dir === 'north' ? 'NORD' : 'SUD'}, secteur ${sector} !`, 1800);
+  }
 
   // Hide marker — real wave takes over
   disposeWaveMarker();
@@ -4448,6 +4535,8 @@ function spawnParticle(x, y, z, vx, vy, vz, life, type) {
   if (p.mesh.material.opacity !== undefined) p.mesh.material.opacity = 0.7;
   p.vx = vx; p.vy = vy; p.vz = vz;
   p.life = life; p.maxLife = life;
+  if (type === 'spray' && p.mesh.material.color) p.mesh.material.color.setHex(0xffffff); // couleur par défaut (les fuites la passent en bleu)
+  return p;
 }
 
 function spawnSpray(x, y, z) {
@@ -4482,6 +4571,80 @@ function spawnSweepParticles(x, y, z) {
       (Math.random() - 0.5) * 1.5, 2 + Math.random() * 3, (Math.random() - 0.5) * 1.5,
       0.5 + Math.random() * 0.4, 'debris');
   }
+}
+
+// ─── Barrage leaks (fissures + jets d'eau) ──────────────────
+// Crack texture (dark vertical plane on dam face, city side)
+// Créés à la première fuite (pas au chargement) : chaque objet three.js tire un UUID via Math.random,
+// ce qui décalerait la graine des cartes (?seed=N) s'ils étaient créés avant la génération.
+let leakCrackGeo = null, leakCrackMat = null;
+
+function createDamLeak(x, z) {
+  if (!leakCrackGeo) {
+    leakCrackGeo = new THREE.PlaneGeometry(0.35, 3.2); // fissure bien visible à distance de jeu
+    leakCrackMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.95, depthWrite: false });
+  }
+  // Crack plane on dam city-facing side (+Z face)
+  const crack = new THREE.Mesh(leakCrackGeo, leakCrackMat.clone());
+  crack.position.set(x, DAM_HEIGHT * 0.35, DAM_Z + DAM_THICKNESS / 2 + 0.01);
+  // Face city: +Z direction, no rotation needed (default plane faces +Z)
+  scene.add(crack);
+  leakMeshes.push(crack);
+
+  // Jet d'eau visible : nappe bleue translucide qui jaillit de la fissure vers la ville et pulse
+  const jet = new THREE.Mesh(
+    new THREE.ConeGeometry(0.45, 2.2, 10, 1, true),
+    new THREE.MeshBasicMaterial({ color: 0x9fd8ff, transparent: true, opacity: 0.75, depthWrite: false, side: THREE.DoubleSide })
+  );
+  jet.rotation.x = -Math.PI / 2;                       // pointe vers la fissure, s'évase côté ville (+Z)
+  jet.position.set(x, DAM_HEIGHT * 0.35, DAM_Z + DAM_THICKNESS / 2 + 1.1);
+  jet.userData.isLeakJet = true;
+  scene.add(jet);
+  leakMeshes.push(jet);
+
+  // Water spray: emit blue particles from crack toward city (+Z)
+  const interval = setInterval(() => {
+    if (gameOver || breachActivated) return;
+    const originY = DAM_HEIGHT * 0.35 + (Math.random() - 0.5) * 2.0;
+    const p = spawnParticle(x + (Math.random() - 0.5) * 0.05, originY, z,
+      (Math.random() - 0.5) * 0.3, -0.3 + Math.random() * 1.5, 0.8 + Math.random() * 1.2,
+      1.2 + Math.random() * 0.6, 'spray');
+    if (p && p.mesh.material && p.mesh.material.color) p.mesh.material.color.setHex(0x88ccff); // jet bleu clair
+  }, 80);
+  leakIntervals.push(interval);
+
+  return { crack, interval };
+}
+
+function activateLeaks() {
+  // K leaks: 2 (niv 1-3), 3 (niv 4-7), 4 (niv 8-10)
+  const K = currentLevel <= 3 ? 2 : currentLevel <= 7 ? 3 : 4;
+  const half = currentMap.terrainHalf;
+  // True leak at breachX ± jitter
+  const trueLeak = createDamLeak(breachX + (Math.random() * 2 - 1) * 1.0, DAM_Z + DAM_THICKNESS / 2);
+  trueLeak.isReal = true;
+  const positions = [breachX + (Math.random() * 2 - 1) * 1.0];
+  // Create decoy leaks
+  for (let i = 1; i < K; i++) {
+    let dx;
+    let attempts = 0;
+    do {
+      // Random X within dam width, at least breachWidth*0.6 from real leak and other leaks
+      dx = (Math.random() * 2 - 1) * (half - 1); // leurres sur toute la longueur du barrage
+      attempts++;
+    } while (attempts < 300 && positions.some(p => Math.abs(p - dx) < Math.min(breachWidth * 0.5, 6)));
+    positions.push(dx);
+    createDamLeak(dx, DAM_Z + DAM_THICKNESS / 2);
+  }
+  // DEBUG: log breachX for test verification
+  // console.log('[BARRAGE] breachX=', breachX.toFixed(2), 'breachW=', breachWidth.toFixed(2), 'leakPositions=', positions.map(x=>x.toFixed(2)));
+}
+
+function destroyAllLeaks() {
+  leakIntervals.forEach(id => clearInterval(id));
+  leakIntervals = [];
+  leakMeshes.forEach(m => { if (m.parent) m.parent.remove(m); if (m.material) m.material.dispose(); if (m.userData.isLeakJet) m.geometry.dispose(); });
+  leakMeshes = [];
 }
 
 function updateWaves(dt) {
@@ -4621,10 +4784,10 @@ function updateWaves(dt) {
       if (pastNorth || pastSouth) {
         const alive = buildings.filter(b => b.alive).length;
         score += 10 + waveNumber * 2 + alive + diffBonus * 2;
-        resources = Math.min(RESOURCE_CAP, resources + 15 + waveNumber * 2 + diffBonus);
+        resources = Math.min(resourceCap(), resources + 15 + waveNumber * 2 + diffBonus);
       } else {
         score += 20 + waveNumber * 3 + diffBonus * 2;
-        resources = Math.min(RESOURCE_CAP, resources + 25 + waveNumber * 3 + diffBonus);
+        resources = Math.min(resourceCap(), resources + 25 + waveNumber * 3 + diffBonus);
       }
       wave.segMeshes.forEach(m => { scene.remove(m.body); m.body.geometry.dispose(); m.body.material.dispose(); scene.remove(m.foam); m.foam.geometry.dispose(); m.foam.material.dispose(); });
       waves.splice(wi, 1);
@@ -5132,10 +5295,12 @@ function gameLoop() {
   if (dt > 0.2) dt = 0.2;
 
   if (!gameOver && currentMap) {
-    resources = Math.min(RESOURCE_CAP, resources + RESOURCE_REGEN * dt);
+    resources = Math.min(resourceCap(), resources + RESOURCE_REGEN * dt);
 
     // Niveau : on ne lance que le nombre de vagues prévu ; une fois la dernière lancée, plus de compte à rebours
-    const moreWaves = !isFinite(levelCfgGlobal.waves) || waveNumber < levelCfgGlobal.waves;
+    const moreWaves = currentMap && currentMap.isDam
+      ? !breachActivated
+      : !isFinite(levelCfgGlobal.waves) || waveNumber < levelCfgGlobal.waves;
     if (moreWaves) waveCountdown -= dt;
     // Alert at 10s — use pre-planned direction
     if (moreWaves && !alertTriggered && waveCountdown <= 10 && waveCountdown > 0) {
@@ -5144,12 +5309,14 @@ function gameLoop() {
       nextWaveDir = nextWavePlan ? nextWavePlan.dir : currentMap.waveDirections[0];
       document.body.style.animation = 'alertFlash 0.5s ease-in-out 3';
       setTimeout(() => document.body.style.animation = '', 2000);
+      // Barrage : activer les fuites
+      if (currentMap.isDam) activateLeaks();
     }
     if (moreWaves && waveCountdown <= 0) {
       spawnWave();
       alertTriggered = false;
       // Planifie la suivante seulement s'il reste des vagues à lancer dans ce niveau
-      if (!isFinite(levelCfgGlobal.waves) || waveNumber < levelCfgGlobal.waves) planNextWave();
+      if (!isFinite(levelWaveCount()) || waveNumber < levelWaveCount()) planNextWave();
       const baseInterval = WAVE_INTERVAL_MIN + Math.random() * (WAVE_INTERVAL_MAX - WAVE_INTERVAL_MIN);
       // Interval floor raised to 20s; difficulty scales via wave width/height/speed/HP, not interval compression.
       // Decay slope softened from 0.5 to 0.15 so the floor is never hit before wave ~140.
@@ -5161,7 +5328,10 @@ function gameLoop() {
 
     // Victoire de niveau : toutes les vagues du niveau ont été lancées et aucune n'est encore en cours
     // (vérifié à chaque image : sur l'Île, les vagues se chevauchent, un test au seul retrait d'une vague ne suffisait pas)
-    if (!gameOver && isFinite(levelCfgGlobal.waves) && waveNumber >= levelCfgGlobal.waves && waves.length === 0
+    const winOk = currentMap && currentMap.isDam
+      ? breachActivated && waveNumber >= 1 && waves.length === 0
+      : isFinite(levelWaveCount()) && waveNumber >= levelWaveCount() && waves.length === 0;
+    if (!gameOver && winOk
         && buildings.filter(b => b.alive).length > currentMap._defeatThreshold) {
       gameOver = true;
       unlockLevel(currentMapId, Math.min(10, currentLevel + 1));
@@ -6241,12 +6411,32 @@ function gameLoop() {
 
     // Update 3D wave marker (arrow + band)
     updateWaveMarker(now); // masque aussi le marqueur pendant la fin de partie / victoire
+    // Fuites du barrage : jets qui pulsent (tous identiques, la vraie est indiscernable)
+    for (const m of leakMeshes) if (m.userData.isLeakJet) {
+      const k = 1.7 * (1 + Math.sin(now * 9 + m.position.x) * 0.18); // gros jets, visibles de loin
+      m.scale.set(k, k, k);
+    }
 
     updateHUD();
     const cd = Math.ceil(Math.max(0, waveCountdown));
     $waveTimer.textContent = cd;
     // Wave banner update
-    if (isFinite(levelCfgGlobal.waves) && waveNumber >= levelCfgGlobal.waves) {
+    if (currentMap && currentMap.isDam) {
+      // ── Barrage : texte spécifique ──────────────────────
+      if (breachActivated) {
+        $wbPill.classList.remove('alert');
+        $wbText.textContent = 'Niv. ' + currentLevel + ' · 💥 Le barrage a cédé — tenez bon !';
+        $wbProg.style.width = '0%';
+      } else if (alertTriggered) {
+        $wbPill.classList.add('alert');
+        $wbText.textContent = 'Niv. ' + currentLevel + ' · ⚠️ Fissures sur le barrage ! · ' + cd + ' s';
+        $wbProg.style.width = Math.min(100, Math.max(0, (waveCountdown / waveCountdownMax) * 100)) + '%';
+      } else {
+        $wbPill.classList.remove('alert');
+        $wbText.textContent = 'Niv. ' + currentLevel + ' · 🧱 Rupture du barrage dans ' + cd + ' s';
+        $wbProg.style.width = Math.min(100, Math.max(0, (waveCountdown / waveCountdownMax) * 100)) + '%';
+      }
+    } else if (isFinite(levelCfgGlobal.waves) && waveNumber >= levelCfgGlobal.waves) {
       // toutes les vagues du niveau sont lancées : plus de compte à rebours
       $wbPill.classList.remove('alert');
       $wbText.textContent = 'Niv. ' + currentLevel + ' · Vague ' + waveNumber + '/' + levelCfgGlobal.waves + ' · 🌊 Dernière vague — tenez bon !';
@@ -6558,7 +6748,9 @@ function buildHomeScreen() {
       dotsHtml += `<button class="level-dot ${cls}" data-level="${n}"${aria}${tip}>${n}</button>`;
     }
     dotsHtml += '</div>';
-    const levelInfoText = isEndless ? 'Niveau ' + sel + ' · sans fin' : 'Niveau ' + sel + ' · ' + cfg.waves + ' vagues à tenir';
+    const levelInfoText = isEndless ? 'Niveau ' + sel + ' · sans fin' :
+                          id === 'barrage' ? 'Niveau ' + sel + ' · une seule rupture' :
+                          'Niveau ' + sel + ' · ' + cfg.waves + ' vagues à tenir';
 
     // Play button text
     const playLabel = 'Jouer le niveau ' + sel;
@@ -6596,7 +6788,9 @@ function buildHomeScreen() {
         const cfg2 = LEVELS[n - 1];
         const isEndless2 = cfg2.waves === Infinity;
         const infoEl = card.querySelector('.level-desc');
-        if (infoEl) infoEl.textContent = isEndless2 ? 'Niveau ' + n + ' · sans fin' : 'Niveau ' + n + ' · ' + cfg2.waves + ' vagues à tenir';
+        if (infoEl) infoEl.textContent = isEndless2 ? 'Niveau ' + n + ' · sans fin' :
+                    id === 'barrage' ? 'Niveau ' + n + ' · une seule rupture' :
+                    'Niveau ' + n + ' · ' + cfg2.waves + ' vagues à tenir';
         const playBtn = card.querySelector('.map-card-play');
         if (playBtn) {
           playBtn.textContent = '▶ Jouer le niveau ' + n;
@@ -6701,6 +6895,7 @@ function showEndCard(kind) {
   if ($message) $message.classList.remove('visible');
   if ($buildToolbar) $buildToolbar.classList.remove('visible');
   disposeWaveMarker();
+  destroyAllLeaks();
 }
 
 function victoryNextLevel() {
@@ -6742,6 +6937,8 @@ function buildHelpContent() {
     '<p>Une alerte sonore et visuelle précède l\'arrivée. La boussole indique le front. Sur l\'Île, les vagues alternent entre le <strong>nord</strong> et le <strong>sud</strong>. <strong>Une zone colorée et une flèche sur la mer indiquent à peu près où la prochaine vague va frapper</strong> (ambre, puis rouge 10 s avant) ; la zone est volontairement approximative.</p>' +
     '<h3 style="color:#64b5f6;margin:12px 0 8px">📷 Caméra</h3>' +
     '<p><kbd>Clic droit</kbd> + glisser pour tourner, <kbd>Molette</kbd> pour zoomer.</p>' +
+    '<h3 style="color:#64b5f6;margin:12px 0 8px">🧱 Barrage</h3>' +
+    '<p><strong>Une seule rupture par partie.</strong> ~45 s de préparation avant la rupture. Des <strong>fissures</strong> apparaissent 10 s avant : une seule est la vraie, les autres sont des leurres — toutes identiques visuellement. <strong>Défaite</strong> s\'il reste <strong>60 %</strong> des bâtiments ou moins après la rupture. Construisez une digue continue devant la ville.</p>' +
     '<h3 style="color:#64b5f6;margin:12px 0 8px">⚡ Ressources</h3>' +
     '<p>Recharge passive de <strong>' + RESOURCE_REGEN + ' ☼/s</strong>, plafond <strong>' + RESOURCE_CAP + '</strong>. Bonus de ressources après chaque vague stoppée.</p>' +
     '<h3 style="color:#64b5f6;margin:12px 0 8px">🏆 Niveaux</h3>' +
