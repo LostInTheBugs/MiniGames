@@ -1,5 +1,5 @@
 {
-  "version": "2026.10.012",
+  "version": "2026.10.013",
   "date": "2026-10-27",
-  "notes": "Estuaire: waves enter the river mouth, run up the river and overflow at random spots on the quays"
+  "notes": "Walls can be turned north-south (key E), and are laid along the quay automatically next to a river or channel"
 }

@@ -34,6 +34,7 @@
 - The sea does not hit the beach: each wave **enters the river mouth** and runs up the river; nothing can stop it in the bed
 - It **overflows** on 1 to 4 sections of the quays drawn at random (the banner says how many); a section boils red about 3 s before the wave reaches it
 - Buildings reached by the water are destroyed, unless a **wall on the quay** stands between them and the river; losing 20 % of the city ends the game
+- Next to the river, walls are laid **along the quay** automatically (north–south); press **E** to turn walls elsewhere
 
 ### ⛈️ Tempête
 
@@ -87,6 +88,7 @@ The level picker on the home screen shows dots (1–10) per map; click to select
 | 🖱️ **Mouse wheel** | Zoom |
 | ⌨️ **1 / 2 / 3** | Choose the wall tier |
 | ⌨️ **T** | Toggle trench mode |
+| ⌨️ **E** | Turn walls east–west / north–south (automatic along rivers and channels) |
 | ⌨️ **N** | Toggle day / night |
 | ⌨️ **R** | Restart the game |
 | ⌨️ **M** | Back to the map menu |
@@ -204,6 +206,9 @@ https://games.cloudfr.net/floodcity/?seed=42
 The seed controls the layout of the city, buildings, street furniture and beach. Same seed and same level = same map, every time. Without the parameter, a random map is generated as before. Handy for comparing strategies, sharing a configuration or reproducing a bug.
 
 ## 📋 Release notes
+
+### 2026.10.013
+- Walls can be turned north–south with **E**; next to a river or channel they are laid along the quay automatically
 
 ### 2026.10.012
 - **Estuaire**: waves now enter the river mouth, run up the river and overflow at random spots on the quays, with a short red warning just before

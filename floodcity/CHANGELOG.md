@@ -2,6 +2,13 @@
 
 All notable changes to Flood City are documented in this file.
 
+## [2026.10.013] — 2026-10-27
+
+### Added
+- Wall orientation: next to a river or channel bed (within 1.6) walls are laid north–south, along the quay, to stop a side overflow; elsewhere **E** toggles east–west / north–south. The placement ghost shows the orientation
+- A north–south wall protects a building over its whole depth against Estuaire overflows and Archipel bores; against a sea wave it only blocks a thin strip
+- Controls bar and help panel list the key
+
 ## [2026.10.012] — 2026-10-27
 
 ### Changed
