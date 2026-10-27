@@ -9,6 +9,7 @@
 | **Littoral** | ⭐ Easy | Coastal city with a wide beach — waves come from the ocean to the south, a single front |
 | **Île** | ⭐⭐ Medium | Large island with an irregular coastline — waves alternate between north and south, two fronts |
 | **Barrage** | ⭐⭐⭐ Hard | A reservoir lake held by a dam overlooks the city — a **single breach** per game, somewhere along the dam |
+| **Marée montante** | ⭐⭐⭐ Hard | Coastal city where the **sea rises after each wave** — the beach, then the first streets disappear |
 
 ### 🧱 Barrage
 
@@ -17,6 +18,12 @@
 - **10 s before**, identical leaks (crack + water jet) appear at 2 to 4 places along the dam (more at higher levels): **only one** is where the dam will break
 - **Defeat** if 60 % of the buildings or fewer remain; **victory** once the water has passed and the city holds
 - No landing-zone marker on this map: reading the leaks is the whole game
+
+### 🌊 Marée montante
+
+- Same coast as Littoral, but after each wave held the sea **rises** and swallows everything under the water line: buildings (they count towards defeat), walls, trenches, cars, pedestrians
+- At level 1 it only takes the beach and the coast road; at level 9 it reaches about 40 % of the city. No rise after the last wave of a level
+- You cannot build under water, and waves start from the current water line: the higher the sea, the less time to react
 
 Best scores are kept per map and shown on the home screen.
 
@@ -165,6 +172,10 @@ https://games.cloudfr.net/floodcity/?seed=42
 The seed controls the layout of the city, buildings, street furniture and beach. Same seed and same level = same map, every time. Without the parameter, a random map is generated as before. Handy for comparing strategies, sharing a configuration or reproducing a bug.
 
 ## 📋 Release notes
+
+### 2026.10.005
+- New **Marée montante** map: the sea rises after each wave and swallows the beach, then the first streets
+- Home screen: three map cards per row
 
 ### 2026.10.004
 - New **Barrage** map: a dam holds back a lake above the city; one breach per game after about 45 s of preparation, somewhere along the dam

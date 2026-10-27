@@ -2,6 +2,18 @@
 
 All notable changes to Flood City are documented in this file.
 
+## [2026.10.005] — 2026-10-27
+
+### Added
+- **Marée montante** map (⭐⭐⭐): Littoral layout, but the sea rises after each wave held. By the level's last wave it has gained 12 units + 1.6 per level (beach and coast road at level 1, about 40 % of the city at level 9); endless level: 2.5 per wave; it never goes past buildZMax − 10 and does not rise after the last wave
+- Anything under the water line is swallowed: buildings (counted towards defeat), walls, trenches, parked and moving cars, pedestrians, beach life
+- No building under the water (red ghost); waves start 3 units off the current water line and the landing-zone marker follows it
+- Banner « · mer +N », level picker « la mer monte », help panel section, home preview `assets/map-maree.jpg`
+
+### Changed
+- Home screen: three map cards per row
+- `destroyBuilding()` factorised (used by waves and by the tide)
+
 ## [2026.10.004] — 2026-10-27
 
 ### Added
