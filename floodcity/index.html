@@ -1905,6 +1905,8 @@ function disposeGroup(group) {
 //   prepTime  (default 0):      seconds of preparation phase before dam rupture (step 2)
 //   startResMul (default 1):    starting resource multiplier (step 2)
 //   storm   (default false):    storm map — rain, dark fog, wind drift, late marker, gusts
+//   polder  (default false):    sea dike map — dike across the coast that waves wear down;
+//                               { dikeZ, height } per-map override for dike Z and dike height
 const MAPS = {
   littoral: {
     name: 'Littoral',
@@ -2250,6 +2252,49 @@ const MAPS = {
     // (default 0.035 for Estuaire, lower for Archipel so bores last longer)
     boreLoss: 0.012,
   },
+  polder: {
+    name: 'Polder',
+    description: 'La ville est sous le niveau de la mer, derrière une digue. Chaque vague l\'use : réparez-la avant qu\'elle cède, sinon l\'eau s\'engouffre par la brèche.',
+    difficulty: '⭐⭐⭐ Difficile',
+    difficultyStars: 3,
+    terrainHalf: 17,
+    groundColor: 0x6b9e45,
+    // Coastline params (identiques à Littoral)
+    beachZ: -15.5,
+    beachWidth: 40,
+    beachDepth: 6.5,
+    // Buildable zone
+    buildXMin: -17,
+    buildXMax: 17,
+    buildZMin: -3,
+    buildZMax: 17,
+    beachRoadZ: -11,
+    beachEdgeZ: -12.25,
+    oceanWidth: 48,
+    oceanDepth: 14,
+    // Wave config
+    waveDirections: ['south'],
+    waveSpawnZ: { south: -20 },
+    // Camera & view settings (vue de départ côté mer)
+    cameraPos: { x: 6, y: 22, z: -40 },
+    fogNear: 25,
+    fogFar: 70,
+    camMinDist: 8,
+    camMaxDist: 50,
+    // Roads (identiques à Littoral)
+    roads: [
+      { x1: -8, z1: -12, x2: -8, z2: 17 },
+      { x1: 3, z1: -12, x2: 3, z2: 17 },
+      { x1: -17, z1: -4, x2: 17, z2: -4 },
+      { x1: -17, z1: 5, x2: 17, z2: 5 },
+      { x1: -17, z1: -11, x2: 17, z2: -11 },
+    ],
+    crossingRoadClear: 1.1,
+    // ── Sea dike fields ───────────────────────────────────
+    // dikeZ: Z position of the dike center line (between beach and city)
+    // height: height of the dike mesh
+    polder: { dikeZ: -12.6, height: 1.4 },
+  },
 };
 
 // Helper to check if a point is within an island's buildable zone.
@@ -2370,6 +2415,27 @@ let tideSteps = 0;       // number of tide rises in this game
 
 // ─── Barrage helpers ──────────────────────────────────────
 const DAM_RESOURCE_CAP = 400;
+
+// ─── Polder dike state ─────────────────────────────────────
+let dikeSegs = [];
+// Rendu de l'usure d'un tronçon : plus sombre et plus bas quand il s'abîme, caché en brèche
+// Tronçon de digue sous l'abscisse x (le plus proche ; les bords x entiers comptent aussi)
+function dikeAt(x) {
+  if (!dikeSegs.length || !currentMap) return null;
+  const i = Math.floor(x + currentMap.terrainHalf);
+  return dikeSegs[Math.max(0, Math.min(dikeSegs.length - 1, i))];
+}
+function setDikeLook(ds) {
+  const r = Math.max(0, ds.hp / ds.maxHp);
+  const up = ds.hp > 0;
+  ds.mesh.visible = ds.meshTop.visible = up;
+  if (!up) return;
+  const sy = Math.max(0.25, r);
+  ds.mesh.scale.y = sy;
+  ds.mesh.position.y = ds.h * sy / 2;
+  ds.meshTop.position.y = ds.h * sy + 0.04;
+  ds.mesh.material.color.copy(ds.baseColor).multiplyScalar(0.35 + 0.65 * r);
+}
 
 // Returns wave count for the current map: 1 on Barrage, levelCfgGlobal.waves elsewhere.
 function levelWaveCount() {
@@ -3924,6 +3990,47 @@ function generateMap(map) {
       foamLine.name = 'foamLine';
       mapGroup.add(foamLine);
 
+      // ── Polder sea dike ────────────────────────────────
+      if (map.polder) {
+        dikeSegs = [];
+        const dikeZ = map.polder.dikeZ;
+        const dikeH = map.polder.height;
+        const th = map.terrainHalf;
+        const maxHp = 40 + 4 * (currentLevel - 1);
+        const grassColor = new THREE.Color(0x6f8f4a);
+        const stoneColor = new THREE.Color(0x808080);
+
+        for (let x = -th + 0.5; x < th; x++) {
+          const seg = { x: Math.round(x * 10) / 10, hp: maxHp, maxHp, mesh: null, rubble: null, destroyed: false };
+
+          // Dike body (grassy green)
+          const bodyGeo = new THREE.BoxGeometry(1, dikeH, 1.6);
+          const bodyMat = new THREE.MeshStandardMaterial({ color: grassColor.clone(), roughness: 0.85 });
+          const body = new THREE.Mesh(bodyGeo, bodyMat);
+          body.position.set(x, dikeH / 2, dikeZ);
+          body.castShadow = true;
+          body.receiveShadow = true;
+          body.name = 'dikeBody';
+          mapGroup.add(body);
+
+          // Dike top (grey stone)
+          const topGeo = new THREE.BoxGeometry(1.02, 0.08, 1.62);
+          const topMat = new THREE.MeshStandardMaterial({ color: stoneColor, roughness: 0.9 });
+          const top = new THREE.Mesh(topGeo, topMat);
+          top.position.set(x, dikeH + 0.04, dikeZ);
+          top.castShadow = true;
+          top.receiveShadow = true;
+          top.name = 'dikeTop';
+          mapGroup.add(top);
+
+          seg.mesh = body;
+          seg.meshTop = top;
+          seg.baseColor = grassColor.clone();
+          seg.h = dikeH;
+          dikeSegs.push(seg);
+        }
+      }
+
       // ── Rising tide objects (maree map only) ────────────
       // Created here (inside generateMap), NOT at script load, to preserve seed determinism.
       if (map.rising) {
@@ -4327,7 +4434,7 @@ function generateMap(map) {
   }
 
   // Beach items (only for maps with a beach zone — no beach props on dam maps)
-  if (!map.isDam) createBeachItems(map);
+  if (!map.isDam && !map.polder) createBeachItems(map);
 
   // Waterfront promenade (littoral only — fills the defense zone between beach and city)
   if (!map.islandRadius && !map.isDam) createWaterfrontDecor(map);
@@ -4336,7 +4443,7 @@ function generateMap(map) {
   if (!map.islandRadius && !map.isDam) createParkingLot(map);
 
   // Beach vendors — placed on sand, peripheral for island, along littoral beach
-  if (!map.isDam) {
+  if (!map.isDam && !map.polder) {
     beachVendors = [];
     const vendorCount = 2 + Math.floor(Math.random() * 2); // 2–3
     for (let vi = 0; vi < vendorCount; vi++) {
@@ -4365,8 +4472,8 @@ function generateMap(map) {
   }
 
   // ── Beach/sea population ────────────────────────────────
-  // No beach people on dam maps (no swimmers, walkers, or ball players)
-  if (!map.isDam) {
+  // No beach people on dam or polder maps (no swimmers, walkers, or ball players)
+  if (!map.isDam && !map.polder) {
     beachPeople = [];
     const swimColors = [0xff4444, 0x44ff44, 0xffaa00, 0xff66cc, 0x44ddff, 0xffdd44];
     const walkColors = [0xff5533, 0x33aaff, 0x88dd44, 0xff8833, 0xcc44ff, 0xdd4444, 0xdddd44, 0x44ccaa];
@@ -4454,7 +4561,7 @@ function generateMap(map) {
   }
 
   // ── Sunbathers on the beach ──────────────────────────────
-  if (!map.islandRadius && !map.isDam) {
+  if (!map.islandRadius && !map.isDam && !map.polder) {
     const beachZ = map.beachZ;
     const spreadZ = map.beachDepth - 1;
     for (let i = 0; i < 20; i++) {
@@ -4567,6 +4674,35 @@ function generateMap(map) {
 // ─── Wall placement ─────────────────────────────────────────
 function placeWall(worldPos) {
   if (gameOver || !currentMap) return false;
+  // ── Polder: dike repair (before normal wall placement) ──
+  if (currentMap.polder) {
+    const dikeZ = currentMap.polder.dikeZ;
+    if (Math.abs(worldPos.z - dikeZ) < 1.0) {
+      // Find the dike segment under cursor
+      const target = dikeAt(worldPos.x);
+      if (target) {
+        const tier = WALL_TIERS[currentTier];
+        const repairRatio = currentTier === 1 ? 0.5 : currentTier === 2 ? 0.75 : 1.0;
+        const cost = currentTier === 1 ? 12 : currentTier === 2 ? 28 : 52;
+        if (target.hp >= target.maxHp) {
+          flashMessage('Digue intacte');
+          return false;
+        }
+        if (resources < cost) {
+          flashMessage(`Pas assez de ressources (${cost}☼ pour ${tier.name}) !`);
+          return false;
+        }
+        const hpGain = target.maxHp * repairRatio;
+        target.hp = Math.min(target.maxHp, target.hp + hpGain);
+        target.destroyed = false;
+        setDikeLook(target);
+        resources -= cost;
+        flashMessage('🧱 Digue réparée');
+        updateHUD();
+        return true;
+      }
+    }
+  }
   const tier = WALL_TIERS[currentTier];
   if (resources < tier.cost) {
     flashMessage(`Pas assez de ressources (${tier.cost}☼ pour ${tier.name}) !`);
@@ -4606,6 +4742,8 @@ function placeTrench(worldPos) {
   if (resources < TRENCH_COST) { flashMessage('Pas assez de ressources !'); return false; }
   if (Math.abs(worldPos.x) > currentMap.terrainHalf || Math.abs(worldPos.z) > currentMap.terrainHalf) return false;
   if (!isInBuildZoneForPlacement(worldPos.x, worldPos.z)) return false;
+  // Polder : pas de tranchée dans la digue (on la répare avec un mur)
+  if (currentMap.polder && Math.abs(worldPos.z - currentMap.polder.dikeZ) < 1.0) return false;
 
   const geo = new THREE.BoxGeometry(1.0, 0.15, 0.9);
   const mat = new THREE.MeshStandardMaterial({ color: 0x4a3520, roughness: 1.0, metalness: 0 });
@@ -4635,6 +4773,8 @@ function isInBuildZoneForPlacement(px, pz) {
   if (!currentMap) return false;
   // Marée montante : rien sous la ligne d'eau (marge 0.5)
   if (currentMap.rising && pz < tideZ + 0.5) return false;
+  // Polder : rien côté mer de la digue
+  if (currentMap.polder && pz < currentMap.polder.dikeZ - 1) return false;
   // River exclusion — no building in any river (multi-river maps supported)
   if (mapRivers(currentMap).length && inRiver(px, pz, currentMap, 0.2)) return false;
   if (currentMap.islandRadius) {
@@ -4904,6 +5044,10 @@ function spawnWave() {
         }
       } catch(e) {}
     }
+  }
+  // Polder: waves stronger to wear the dike
+  if (map.polder) {
+    segHp *= 1.2;
   }
   const speed = 3 + difficulty * 4;
   const waveX = plan.x;
@@ -5359,6 +5503,47 @@ function updateWaves(dt) {
         }
       }
 
+      // ── Polder: wave vs sea dike ────────────────────────
+      if (map.polder) {
+        const dikeZ = map.polder.dikeZ;
+        for (const seg of wave.segments) {
+          if (!seg.alive) continue;
+          if (seg.dikeDone) continue;
+          if (Math.abs(seg.x - wave.x) > wave.width * 0.5) continue;
+          // Check if segment just crossed the dike Z
+          const prevZ = wave.z - wave.speed * wave.dirSign * subDt;
+          const crossed = wave.dirSign === 1
+            ? (prevZ < dikeZ && wave.z >= dikeZ)
+            : (prevZ > dikeZ && wave.z <= dikeZ);
+          if (!crossed) continue;
+          seg.dikeDone = true;
+          // Find the dike segment under this wave segment
+          const dikeSeg = dikeAt(seg.x);
+          if (!dikeSeg) continue;
+          if (dikeSeg.hp <= 0) {
+            // Dike already breached: wave passes through
+            continue;
+          }
+          // Dike takes damage
+          dikeSeg.hp -= seg.hp;
+          if (dikeSeg.hp > 0) {
+            // Dike still standing: wave segment dies
+            seg.alive = false;
+            setDikeLook(dikeSeg);
+          } else {
+            // Dike breached!
+            const breachDmg = -dikeSeg.hp;
+            dikeSeg.hp = 0;
+            dikeSeg.destroyed = true;
+            setDikeLook(dikeSeg);
+            flashMessage('💥 Brèche dans la digue !');
+            spawnDestroyParticles(dikeSeg.x, 0, dikeZ);
+            // Wave continues through with remaining HP
+            seg.hp = breachDmg;
+          }
+        }
+      }
+
       // ── Mascaret (Estuaire / Archipel) : affaiblissement et débordement ──
       if (wave.isBore && wave.river) {
         const rv = wave.river;
@@ -5725,8 +5910,17 @@ function isValidPlacement(x, z) {
 function updateGhost(snapped) {
   ghostGroup.clear();
   const valid = isValidPlacement(snapped.x, snapped.z);
-  ghostMat.color.set(valid ? 0x44ff44 : 0xff4444);
-  ghostMat.opacity = valid ? 0.45 : 0.35;
+  // Polder: show green ghost if hovering over a repairable dike segment
+  let onDikeRepair = false;
+  if (currentMap.polder) {
+    const dikeZ = currentMap.polder.dikeZ;
+    if (Math.abs(snapped.z - dikeZ) < 1.0) {
+      const ds = dikeAt(snapped.x);
+      onDikeRepair = !!ds && ds.hp < ds.maxHp;
+    }
+  }
+  ghostMat.color.set(onDikeRepair ? 0x44ff44 : (valid ? 0x44ff44 : 0xff4444));
+  ghostMat.opacity = (onDikeRepair || valid) ? 0.45 : 0.35;
 
   if (trenchMode) {
     const geo = new THREE.BoxGeometry(1.0, 0.15, 0.9);
@@ -7283,6 +7477,20 @@ function gameLoop() {
     const t = $wbText.textContent;
     if (!t.includes('mer +')) $wbText.textContent = t + ' · mer +' + tideSteps;
   }
+  // ── Polder: dike HP % and breach count ────────────────
+  if (currentMap && currentMap.polder && dikeSegs.length > 0) {
+    const t = $wbText.textContent;
+    const totalHp = dikeSegs.reduce((a, d) => a + d.hp, 0);
+    const totalMax = dikeSegs.reduce((a, d) => a + d.maxHp, 0);
+    const breaches = dikeSegs.filter(d => d.hp <= 0).length;
+    const pct = Math.round(totalHp / totalMax * 100);
+    const dikeText = '· digue ' + pct + '%';
+    if (!t.includes('digue')) $wbText.textContent = t + ' ' + dikeText;
+    if (breaches > 0) {
+      const breachText = ' · ' + breaches + ' brèche(s)';
+      if (!t.includes('brèche')) $wbText.textContent = $wbText.textContent + breachText;
+    }
+  }
   // ── Storm wind direction ──────────────────────────────
   if (currentMap && currentMap.storm && nextWavePlan && nextWavePlan.drift) {
     const t = $wbText.textContent;
@@ -7546,7 +7754,7 @@ function buildHomeScreen() {
     card.className = 'map-card' + (id === lastMap ? ' last-played' : '');
 
     // Map image by id
-    const imgId = ['littoral', 'ile', 'barrage', 'maree', 'estuaire', 'tempete', 'archipel'].includes(id) ? 'map-' + id : null;
+    const imgId = ['littoral', 'ile', 'barrage', 'maree', 'estuaire', 'tempete', 'archipel', 'polder'].includes(id) ? 'map-' + id : null;
     const imgUrl = imgId ? `assets/${imgId}.jpg` : '';
     const altText = id === 'littoral' ? 'Carte Littoral — ville côtière avec plage' :
                     id === 'ile' ? 'Carte Île — île entourée d\'eau' :
@@ -7587,6 +7795,7 @@ function buildHomeScreen() {
     const levelInfoText = isEndless ? 'Niveau ' + sel + ' · sans fin' :
                           id === 'barrage' ? 'Niveau ' + sel + ' · une seule rupture' :
                           id === 'maree' ? 'Niveau ' + sel + ' · ' + cfg.waves + ' vagues · la mer monte' :
+                          id === 'polder' ? 'Niveau ' + sel + ' · ' + cfg.waves + ' vagues · digue' :
                           id === 'estuaire' ? 'Niveau ' + sel + ' · ' + cfg.waves + ' vagues · mascaret' :
                           id === 'archipel' ? 'Niveau ' + sel + ' · ' + cfg.waves + ' vagues · 2 chenaux' :
                           id === 'tempete' ? 'Niveau ' + sel + ' · ' + cfg.waves + ' vagues · tempête' :
@@ -7633,6 +7842,7 @@ function buildHomeScreen() {
                     id === 'maree' ? 'Niveau ' + n + ' · ' + cfg2.waves + ' vagues · la mer monte' :
                     id === 'estuaire' ? 'Niveau ' + n + ' · ' + cfg2.waves + ' vagues · mascaret' :
                     id === 'archipel' ? 'Niveau ' + n + ' · ' + cfg2.waves + ' vagues · 2 chenaux' :
+                    id === 'polder' ? 'Niveau ' + n + ' · ' + cfg2.waves + ' vagues · digue' :
                     id === 'tempete' ? 'Niveau ' + n + ' · ' + cfg2.waves + ' vagues · tempête' :
                     'Niveau ' + n + ' · ' + cfg2.waves + ' vagues à tenir';
         const playBtn = card.querySelector('.map-card-play');
@@ -7823,6 +8033,8 @@ function buildHelpContent() {
     '<p>On voit mal (brouillard), il pleut et le vent pousse les vagues de côté (sens affiché dans le bandeau). La zone d\'impact n\'apparaît que dans les 8 dernières secondes. Dès le niveau 4, une vague sur deux est suivie d\'une <strong>rafale</strong> (vague plus petite, ailleurs) qui ne rapporte rien.</p>' +
     '<h3 style="color:#64b5f6;margin:12px 0 8px">🏝️ Archipel</h3>' +
     '<p>L\'Île coupée en trois par deux chenaux nord-sud. À chaque vague, un <strong>mascaret</strong> s\'engouffre dans chaque chenal et <strong>déborde sur les rives</strong>. Trois îles, quatre rives intérieures et deux fronts (nord et sud). Les chenaux sont inconstructibles — les murs de rive protègent les quais. Le mascaret s\'affaiblit en avançant sur l\'île.</p>' +
+    '<h3 style="color:#64b5f6;margin:12px 0 8px">🌷 Polder</h3>' +
+    '<p>La ville est sous le niveau de la mer, derrière une <strong>digue</strong>. Chaque vague qui la frappe l\'use (elle s\'abaisse et s\'assombrit) ; quand un tronçon cède, c\'est une <strong>brèche</strong> et les vagues suivantes passent par là. Cliquer sur la digue la répare : Sac de sable 50 %, Renforcé 75 %, Béton 100 % des PV du tronçon (fantôme vert sur un tronçon abîmé). On ne construit rien côté mer. Le bandeau indique l\'état de la digue et le nombre de brèches.</p>' +
     '<h3 style="color:#64b5f6;margin:12px 0 8px">⚡ Ressources</h3>' +
     '<p>Recharge passive de <strong>' + RESOURCE_REGEN + ' ☼/s</strong>, plafond <strong>' + RESOURCE_CAP + '</strong>. Bonus de ressources après chaque vague stoppée.</p>' +
     '<h3 style="color:#64b5f6;margin:12px 0 8px">🏆 Niveaux</h3>' +
