@@ -2087,6 +2087,52 @@ const MAPS = {
     // rising.step: units of Z the tide advances after each wave (before level scaling)
     rising: { step: 1.5 },
   },
+  estuaire: {
+    name: 'Estuaire',
+    description: 'Un fleuve traverse la ville. À chaque vague, un mascaret remonte son lit et déborde sur les berges : protégez la plage ET les quais.',
+    difficulty: '⭐⭐⭐ Difficile',
+    difficultyStars: 3,
+    terrainHalf: 17,
+    groundColor: 0x6b9e45,
+    // Coastline params (identiques à Littoral)
+    beachZ: -15.5,
+    beachWidth: 40,
+    beachDepth: 6.5,
+    buildXMin: -17,
+    buildXMax: 17,
+    buildZMin: -3,
+    buildZMax: 17,
+    beachRoadZ: -11,
+    beachEdgeZ: -12.25,
+    oceanWidth: 48,
+    oceanDepth: 14,
+    // Wave config
+    waveDirections: ['south'],
+    waveSpawnZ: { south: -20 },
+    // Camera & view settings (vue de départ côté mer)
+    cameraPos: { x: 6, y: 22, z: -40 },
+    fogNear: 25,
+    fogFar: 70,
+    camMinDist: 8,
+    camMaxDist: 50,
+    // Roads (identiques à Littoral)
+    roads: [
+      { x1: -8, z1: -12, x2: -8, z2: 17 },
+      { x1: 3, z1: -12, x2: 3, z2: 17 },
+      { x1: -17, z1: -4, x2: 17, z2: -4 },
+      { x1: -17, z1: 5, x2: 17, z2: 5 },
+      { x1: -17, z1: -11, x2: 17, z2: -11 },
+    ],
+    crossingRoadClear: 1.1,
+    // ── River fields ──────────────────────────────────────
+    // River runs south→north. River center X, half-width.
+    // Lit: river.x − halfWidth … river.x + halfWidth
+    // Banks at river.x ± halfWidth (0.3-wide stone embankments).
+    // Bridge roads (z = −11, −4, 5) get guardrails on both sides.
+    // No buildings/trees/lights/cars/parking/beach items in river margin.
+    // Build zone: |x − river.x| < halfWidth + 0.2 is forbidden (walls on banks OK).
+    river: { x: -2.5, halfWidth: 1.6 },
+  },
 };
 
 // Helper to check if a point is within an island's buildable zone.
@@ -2100,6 +2146,15 @@ function isOnIsland(px, pz, map) {
   }
   // Legacy circular island
   return (px * px + pz * pz) <= map.islandRadius * map.islandRadius;
+}
+
+// ─── River helpers ────────────────────────────────────────
+// Returns true if point is inside the river (with optional margin).
+// margin is added to halfWidth for placement checks.
+function inRiver(px, pz, map, margin = 0) {
+  if (!map.river) return false;
+  const hw = map.river.halfWidth + margin;
+  return Math.abs(px - map.river.x) < hw;
 }
 
 // ─── Map content group (ALL map objects go here) ────────────
@@ -2180,6 +2235,10 @@ let score = 0;
 
 // ─── Rising tide objects (maree map only) ──────────────────
 let tideWater = null;
+
+// River objects (estuaire map only)
+let riverWater = null;
+let riverEmbankments = null; // THREE.Group
 let tideFoamEdge = null;
 let tideZ = 0;           // current tide water line Z
 let tideTargetZ = 0;     // animated target Z
@@ -2915,6 +2974,9 @@ function createBeachItems(map) {
     const bx = -14 + Math.random() * 28;
     const bz = beachZ + (Math.random() - 0.5) * spreadZ;
 
+    // River exclusion (estuaire only)
+    if (map.river && inRiver(bx, bz, map, 0.6)) continue;
+
     // ── Parasol: total height ~0.34, canopy diameter ~0.40 ──
     const paraGroup = new THREE.Group();
     const poleGeo = new THREE.CylinderGeometry(0.008, 0.01, 0.20, 6);
@@ -3384,6 +3446,9 @@ function generateMap(map) {
   if (damGroup) { disposeGroup(damGroup); damGroup = null; }
   scene.remove(mapGroup);
 
+  // Marée / fleuve : leurs objets étaient dans mapGroup (déjà libéré)
+  tideWater = tideFoamEdge = riverWater = riverEmbankments = null;
+
   mapGroup = new THREE.Group();
   scene.add(mapGroup);
 
@@ -3716,6 +3781,41 @@ function generateMap(map) {
         // Track destroyed buildings for this map
       }
 
+      // ── River (estuaire map only) ───────────────────────
+      if (map.river) {
+        const rv = map.river;
+        const riverStartZ = beachSouthEdge; // z = sud de la plage
+        const riverEndZ = map.terrainHalf;  // z = terrainHalf (nord)
+        const riverLen = riverEndZ - riverStartZ;
+        // River water plane
+        const riverGeo = new THREE.PlaneGeometry(rv.halfWidth * 2, riverLen, Math.floor(rv.halfWidth * 2), Math.floor(riverLen));
+        const riverMat = new THREE.MeshStandardMaterial({
+          color: 0x0d47a1, roughness: 0.15, metalness: 0.1,
+          transparent: true, opacity: 0.88
+        });
+        riverWater = new THREE.Mesh(riverGeo, riverMat);
+        riverWater.rotation.x = -Math.PI / 2;
+        riverWater.position.set(rv.x, 0.08, riverStartZ + riverLen / 2);
+        riverWater.receiveShadow = true;
+        riverWater.name = 'riverWater';
+        mapGroup.add(riverWater);
+
+        // Stone embankments (0.3-wide, 0.35-high) on both sides
+        riverEmbankments = new THREE.Group();
+        riverEmbankments.name = 'riverEmbankments';
+        const embMat = new THREE.MeshStandardMaterial({ color: 0x8a8a8a, roughness: 0.85 });
+        const embH = 0.35, embW = 0.3;
+        for (const side of [-1, 1]) {
+          const embGeo = new THREE.BoxGeometry(embW, embH, riverLen + embW);
+          const emb = new THREE.Mesh(embGeo, embMat);
+          emb.position.set(rv.x + side * (rv.halfWidth + embW / 2), embH / 2, riverStartZ + riverLen / 2);
+          emb.castShadow = true;
+          emb.receiveShadow = true;
+          riverEmbankments.add(emb);
+        }
+        mapGroup.add(riverEmbankments);
+      }
+
       // Far ocean (seamless horizon — matches near ocean material, extends far south)
       const farOceanGeo2 = new THREE.PlaneGeometry(400, 200);
       const farOceanMat2 = new THREE.MeshStandardMaterial({
@@ -3811,6 +3911,34 @@ function generateMap(map) {
     if (clipped) createRoad(clipped.x1, clipped.z1, clipped.x2, clipped.z2);
   }
 
+  // ── Ponts : garde-corps des routes est-ouest au-dessus du fleuve ──
+  if (map.river) {
+    const rv = map.river;
+    const railMat = new THREE.MeshStandardMaterial({ color: 0x9a9a9a, roughness: 0.7 });
+    const railGeo = new THREE.BoxGeometry(rv.halfWidth * 2 + 0.6, 0.08, 0.06);
+    const postGeo = new THREE.BoxGeometry(0.06, 0.3, 0.06);
+    for (const r of (map.roads || [])) {
+      if (r.z1 !== r.z2) continue;
+      if (Math.min(r.x1, r.x2) > rv.x - rv.halfWidth || Math.max(r.x1, r.x2) < rv.x + rv.halfWidth) continue;
+      const deck = new THREE.Mesh(new THREE.BoxGeometry(rv.halfWidth * 2 + 0.6, 0.06, 1.3),
+        new THREE.MeshStandardMaterial({ color: 0x4a4a52, roughness: 0.9 }));
+      deck.position.set(rv.x, 0.1, r.z1);  // tablier au-dessus de l'eau (y 0.08)
+      deck.receiveShadow = true;
+      cityGroup.add(deck);
+      for (const side of [-1, 1]) {
+        const z = r.z1 + side * 0.65;
+        const rail = new THREE.Mesh(railGeo, railMat);
+        rail.position.set(rv.x, 0.3, z);
+        cityGroup.add(rail);
+        for (let px = rv.x - rv.halfWidth - 0.2; px <= rv.x + rv.halfWidth + 0.21; px += 0.6) {
+          const post = new THREE.Mesh(postGeo, railMat);
+          post.position.set(px, 0.15, z);
+          cityGroup.add(post);
+        }
+      }
+    }
+  }
+
   // ── Buildings along roads ──────────────────────────────
   const placed = [];
 
@@ -3832,10 +3960,17 @@ function generateMap(map) {
     return placed.some(p => Math.hypot(p.x - px, p.z - pz) < margin);
   }
 
+  // Estuaire : l'emprise d'un bâtiment (demi-diagonale) ne touche pas le lit, marge 0.4
+  function riverClash(px, halfDiag) {
+    return !!map.river && Math.abs(px - map.river.x) - halfDiag < map.river.halfWidth + 0.4;
+  }
+
   function inBuildZone(px, pz) {
     if (px < map.buildXMin || px > map.buildXMax) return false;
     if (pz < map.buildZMin || pz > map.buildZMax) return false;
     if (!isOnIsland(px, pz, map)) return false;
+    // River exclusion (estuaire only) — no objects in or near the river
+    if (map.river && inRiver(px, pz, map, 0.6)) return false;
     return true;
   }
 
@@ -3852,7 +3987,7 @@ function generateMap(map) {
         x = centers[i] + (Math.random() - 0.5) * 5.0;
         z = -2 + Math.random() * 5;
         attempts++;
-      } while (attempts < 200 && (distToRoad(x, z) < roadClear || tooClose(x, z, 2.5)));
+      } while (attempts < 200 && (distToRoad(x, z) < roadClear || tooClose(x, z, 2.5) || riverClash(x, halfDiag)));
       if (attempts >= 200) continue;
       let h = 5 + Math.random() * 7;
       h = Math.max(1, Math.round(h * levelCfgGlobal.heightMul));
@@ -3888,6 +4023,7 @@ function generateMap(map) {
 
         if (Math.abs(bx) > map.terrainHalf - 0.5 || Math.abs(bz) > map.terrainHalf - 0.5) continue;
         if (!inBuildZone(bx, bz)) continue;
+        if (riverClash(bx, halfDiag)) continue;
         if (tooClose(bx, bz, 2.5)) continue;
         // Also clear perpendicular roads: road surface + sidewalk. The base
         // clearance is road half-width (0.55); maps with dense intersections
@@ -3924,7 +4060,8 @@ function generateMap(map) {
       tooClose(x, z, 2.5) ||
       distToRoad(x, z) < roadClear ||
       distToRoad(x, z) > 12 ||
-      !inBuildZone(x, z)
+      !inBuildZone(x, z) ||
+      riverClash(x, halfDiag)
     ));
     if (attempts >= 200) continue;
 
@@ -3953,7 +4090,8 @@ function generateMap(map) {
       tooClose(x, z, 2.5) ||
       distToRoad(x, z) < roadClear ||
       distToRoad(x, z) > 12 ||
-      !inBuildZone(x, z)
+      !inBuildZone(x, z) ||
+      riverClash(x, halfDiag)
     ));
     if (attempts >= 200) break;
     let h = 1.5 + Math.random() * 4.5;
@@ -3970,7 +4108,7 @@ function generateMap(map) {
       const tx = b.x + (Math.random() - 0.5) * (b.w + 4);
       const tz = b.z + (Math.random() - 0.5) * (b.d + 4);
       // Tree canopy max radius: max cone radius (0.85) × max scale (0.80) = 0.68
-      if (!tooClose(tx, tz, 1.8) && distToRoad(tx, tz) > 1.1 + 0.68 && inBuildZone(tx, tz)) {
+      if (!tooClose(tx, tz, 1.8) && distToRoad(tx, tz) > 1.1 + 0.68 && inBuildZone(tx, tz) && !riverClash(tx, 0.7)) {
         createTree(tx, tz);
         placed.push({ x: tx, z: tz });
       }
@@ -4068,6 +4206,7 @@ function generateMap(map) {
       for (let s = 0; s < 9; s++) {
         const sx = -14 + Math.random() * 28;
         const sz = beachSouthEdge - 0.8 - Math.random() * 2.5;
+        if (map.river && inRiver(sx, sz, map, 0.6)) continue;
         beachPeople.push(createSwimmer(sx, sz, swimColors[s % swimColors.length]));
       }
       // Walkers on the beach sand
@@ -4077,20 +4216,29 @@ function generateMap(map) {
         const zMin = map.beachZ - map.beachDepth / 2 + margin;
         const zMax = map.beachZ + map.beachDepth / 2 - margin;
         const wz = zMin + Math.random() * (zMax - zMin);
+        if (map.river && inRiver(wx, wz, map, 0.6)) continue;
         beachPeople.push(createBeachWalker(wx, wz, walkColors[w % walkColors.length]));
       }
       // Ball player: create a dedicated ball
-      const bx = -8 + Math.random() * 16;
-      const bz = map.beachZ + (Math.random() - 0.5) * (map.beachDepth - 1);
-      const bGeo2 = new THREE.SphereGeometry(0.03, 8, 8);
-      const bMat2 = new THREE.MeshStandardMaterial({ color: 0xff6644, roughness: 0.3 });
-      const playerBall = new THREE.Mesh(bGeo2, bMat2);
-      playerBall.position.set(bx, 0.06, bz);
-      playerBall.castShadow = true;
-      playerBall.scale.setScalar(LEGIBILITY_FACTOR);
-      cityGroup.add(playerBall);
-      beachPeople.push(createBallPlayer(playerBall, bx + 0.5, bz));
-      ballGroup = playerBall;
+      {
+        let bx, bz, attempts = 0;
+        do {
+          bx = -8 + Math.random() * 16;
+          bz = map.beachZ + (Math.random() - 0.5) * (map.beachDepth - 1);
+          attempts++;
+        } while (attempts < 50 && (map.river && inRiver(bx, bz, map, 0.6)));
+        if (attempts < 50) {
+          const bGeo2 = new THREE.SphereGeometry(0.03, 8, 8);
+          const bMat2 = new THREE.MeshStandardMaterial({ color: 0xff6644, roughness: 0.3 });
+          const playerBall = new THREE.Mesh(bGeo2, bMat2);
+          playerBall.position.set(bx, 0.06, bz);
+          playerBall.castShadow = true;
+          playerBall.scale.setScalar(LEGIBILITY_FACTOR);
+          cityGroup.add(playerBall);
+          beachPeople.push(createBallPlayer(playerBall, bx + 0.5, bz));
+          ballGroup = playerBall;
+        }
+      }
     }
   }
 
@@ -4101,6 +4249,7 @@ function generateMap(map) {
     for (let i = 0; i < 20; i++) {
       const sx = -14 + Math.random() * 28;
       const sz = beachZ + (Math.random() - 0.5) * spreadZ;
+      if (map.river && inRiver(sx, sz, map, 0.6)) continue;
       beachPeople.push(createSunbather(sx + 0.14, sz + 0.12, sx + 0.14, sz + 0.12));
     }
   }
@@ -4153,6 +4302,8 @@ function generateMap(map) {
       const angle = Math.atan2(dx, dz);
       const offX = Math.cos(angle) * 1.2 * side;
       const offZ = -Math.sin(angle) * 1.2 * side;
+      // River exclusion (estuaire only)
+      if (map.river && inRiver(sx + offX, sz + offZ, map, 0.6)) continue;
       createStreetLamp(sx + offX, sz + offZ);
     }
   }
@@ -4273,6 +4424,8 @@ function isInBuildZoneForPlacement(px, pz) {
   if (!currentMap) return false;
   // Marée montante : rien sous la ligne d'eau (marge 0.5)
   if (currentMap.rising && pz < tideZ + 0.5) return false;
+  // Estuaire : interdiction de construire dans le lit du fleuve (marge 0.2)
+  if (currentMap.river && inRiver(px, pz, currentMap, 0.2)) return false;
   if (currentMap.islandRadius) {
     if (currentMap.coastFn) {
       const angle = Math.atan2(pz, px);
@@ -4581,10 +4734,65 @@ function spawnWave() {
     dirSign, dir,
   });
 
+  // ── Tidal bore (estuaire only) ──────────────────────────
+  if (map.river) {
+    const rv = map.river;
+    const boreSpeed = speed; // same speed as normal wave
+    const boreH = waveH * 0.6;
+    const boreSegHp = segHp * 2;
+    const boreN = Math.ceil(rv.halfWidth * 2 / 1.0); // segments d'environ 1 sur la largeur du lit
+    const boreSegW = rv.halfWidth * 2 / boreN;
+    const boreSegments = [];
+    const boreSegMeshes = [];
+
+    for (let i = 0; i < boreN; i++) {
+      const sx = rv.x - rv.halfWidth + (i + 0.5) * boreSegW;
+      boreSegments.push({ x: sx, hp: boreSegHp, maxHp: boreSegHp, alive: true });
+
+      const { geometry: bodyGeo } = createWaveSegmentGeometry(boreSegW, boreH, depth);
+      const bodyMat = new THREE.MeshStandardMaterial({
+        color: 0x1e5a8e, roughness: 0.18, metalness: 0.1,
+        transparent: true, opacity: 0.72
+      });
+      const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
+      bodyMesh.position.set(sx, 0, spawnZ);
+      bodyMesh.castShadow = true;
+      bodyMesh.receiveShadow = true;
+      scene.add(bodyMesh);
+
+      const foamGeo = createWaveFoamGeometry(boreSegW, boreH, depth);
+      const foamMat = new THREE.MeshStandardMaterial({
+        color: 0xffffff, roughness: 0.08, metalness: 0.0,
+        emissive: new THREE.Color(0xffffff), emissiveIntensity: 0.08,
+        transparent: true, opacity: 0.85, depthWrite: false
+      });
+      waveFoamMaterials.push(foamMat);
+      const foamMesh = new THREE.Mesh(foamGeo, foamMat);
+      foamMesh.position.copy(bodyMesh.position);
+      scene.add(foamMesh);
+
+      boreSegMeshes.push({ body: bodyMesh, foam: foamMesh });
+    }
+
+    // Bore starts northward (up the river)
+    waves.push({
+      segments: boreSegments, segMeshes: boreSegMeshes,
+      speed: boreSpeed, z: spawnZ, x: rv.x,
+      width: rv.halfWidth * 2, height: boreH,
+      destroyedBuildings: 0,
+      dirSign: 1, dir: 'north',
+      isBore: true,
+      maxHp: boreSegHp, // initial max HP per segment
+    });
+  }
+
   // Message de lancement — Barrage : pas de "ouest/est"
   if (map.isDam) {
     // Le message de rupture sera affiché par le code de rupture
     flashMessage(`🌊 Vague #${waveNumber} — front ${dir === 'north' ? 'NORD' : 'SUD'} !`, 1800);
+  } else if (map.river) {
+    const sector = getWaveSector(plan);
+    flashMessage(`🌊 Vague #${waveNumber} — front ${dir === 'north' ? 'NORD' : 'SUD'}, secteur ${sector} + mascaret !`, 1800);
   } else {
     // Littoral / Île : utiliser getWaveSector(plan) pour le secteur
     const sector = getWaveSector(plan);
@@ -4866,6 +5074,45 @@ function updateWaves(dt) {
           }
         }
       }
+
+      // ── Mascaret (Estuaire) : affaiblissement et débordement sur les berges ──
+      if (wave.isBore && map.river) {
+        const rv = map.river;
+        const live = wave.segments.filter(sg => sg.alive);
+        // Pleine force jusqu'au haut de la plage, puis −3.5 % des PV max par unité parcourue en ville
+        const loss = wave.z > map.beachEdgeZ ? wave.maxHp * 0.035 * wave.speed * subDt : 0;
+        for (const sg of live) { sg.hp -= loss; if (sg.hp <= 0) sg.alive = false; }
+        const strength = live.length
+          ? live.reduce((a, sg) => a + Math.max(0, sg.hp), 0) / (wave.segments.length * wave.maxHp) : 0;
+        const reach = 0.5 + 2.5 * strength;
+        if (strength > 0) for (const b of buildings) {
+          if (!b.alive || Math.abs(b.z - wave.z) > 1) continue;
+          const side = Math.sign(b.x - rv.x);
+          const d = Math.abs(b.x - rv.x) - b.w / 2 - rv.halfWidth;
+          if (d >= reach) continue;
+          // Un mur sur la berge, du même côté et plus près du fleuve, encaisse à la place du bâtiment
+          const wall = walls.find(w => Math.abs(w.z - b.z) < 1.2 && Math.sign(w.x - rv.x) === side
+                                      && Math.abs(w.x - rv.x) < Math.abs(b.x - rv.x));
+          if (wall) {
+            wall.hp -= 15 * subDt;
+            const ratio = Math.max(0, wall.hp / wall.maxHp);
+            const dmgCol = new THREE.Color(WALL_TIERS[wall.tier]?.color || 0xd4b896).multiplyScalar(0.3 + ratio * 0.7);
+            wall.group.children.forEach(c => { if (c.material && c.material.color) c.material.color.copy(dmgCol); });
+            wall.group.scale.y = Math.max(0.3, ratio);
+            if (wall.hp <= 0) {
+              scene.remove(wall.group);
+              wall.group.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
+              walls.splice(walls.indexOf(wall), 1);
+            }
+            continue;
+          }
+          spawnSweepParticles(b.x, 0.5, b.z);
+          destroyBuilding(b);
+          wave.destroyedBuildings++;
+          const per = b.h * 4 / Math.max(1, live.length);
+          for (const sg of live) { sg.hp -= per; if (sg.hp <= 0) sg.alive = false; }
+        }
+      }
     } // end sub-step loop
 
     // Spray (cosmetic)
@@ -4886,6 +5133,13 @@ function updateWaves(dt) {
     const allDead = !wave.segments.some(s => s.alive);
 
     if (pastNorth || pastSouth || allDead) {
+      // Tidal bore: no score, no resources, no wavesHeld
+      if (wave.isBore) {
+        // Just clean up bore meshes
+        wave.segMeshes.forEach(m => { scene.remove(m.body); m.body.geometry.dispose(); m.body.material.dispose(); scene.remove(m.foam); m.foam.geometry.dispose(); m.foam.material.dispose(); });
+        waves.splice(wi, 1);
+        continue; // skip reward and victory check — handled outside loop
+      }
       // Reward scales with difficulty (same formula as spawnWave)
       const diffFactor = waveNumber <= 5 ? waveNumber / 5 : 1 + Math.log2(waveNumber / 5) * 0.8;
       const diffBonus = Math.floor(diffFactor * 8);
@@ -6943,7 +7197,7 @@ function buildHomeScreen() {
     card.className = 'map-card' + (id === lastMap ? ' last-played' : '');
 
     // Map image by id
-    const imgId = ['littoral', 'ile', 'barrage', 'maree'].includes(id) ? 'map-' + id : null;
+    const imgId = ['littoral', 'ile', 'barrage', 'maree', 'estuaire'].includes(id) ? 'map-' + id : null;
     const imgUrl = imgId ? `assets/${imgId}.jpg` : '';
     const altText = id === 'littoral' ? 'Carte Littoral — ville côtière avec plage' :
                     id === 'ile' ? 'Carte Île — île entourée d\'eau' :
@@ -6984,6 +7238,7 @@ function buildHomeScreen() {
     const levelInfoText = isEndless ? 'Niveau ' + sel + ' · sans fin' :
                           id === 'barrage' ? 'Niveau ' + sel + ' · une seule rupture' :
                           id === 'maree' ? 'Niveau ' + sel + ' · ' + cfg.waves + ' vagues · la mer monte' :
+                          id === 'estuaire' ? 'Niveau ' + sel + ' · ' + cfg.waves + ' vagues · mascaret' :
                           'Niveau ' + sel + ' · ' + cfg.waves + ' vagues à tenir';
 
     // Play button text
@@ -7025,6 +7280,7 @@ function buildHomeScreen() {
         if (infoEl) infoEl.textContent = isEndless2 ? 'Niveau ' + n + ' · sans fin' :
                     id === 'barrage' ? 'Niveau ' + n + ' · une seule rupture' :
                     id === 'maree' ? 'Niveau ' + n + ' · ' + cfg2.waves + ' vagues · la mer monte' :
+                    id === 'estuaire' ? 'Niveau ' + n + ' · ' + cfg2.waves + ' vagues · mascaret' :
                     'Niveau ' + n + ' · ' + cfg2.waves + ' vagues à tenir';
         const playBtn = card.querySelector('.map-card-play');
         if (playBtn) {
@@ -7176,6 +7432,8 @@ function buildHelpContent() {
     '<p><strong>Une seule rupture par partie.</strong> ~45 s de préparation avant la rupture. Des <strong>fissures</strong> apparaissent 10 s avant : une seule est la vraie, les autres sont des leurres — toutes identiques visuellement. <strong>Défaite</strong> s\'il reste <strong>60 %</strong> des bâtiments ou moins après la rupture. Construisez une digue continue devant la ville.</p>' +
     '<h3 style="color:#64b5f6;margin:12px 0 8px">🌊 Marée montante</h3>' +
     '<p>La mer monte après chaque vague et engloutit ce qui se trouve sous la ligne d\'eau. On ne peut pas construire sous l\'eau (fantôme rouge). Les vagues partent de la ligne d\'eau : plus la mer monte, plus elles frappent vite. Pas de montée après la dernière vague du niveau. Les bâtiments, murs et tranchées engloutis sont détruits.</p>' +
+    '<h3 style="color:#64b5f6;margin:12px 0 8px">🏞️ Estuaire</h3>' +
+    '<p>Un fleuve traverse la ville du sud au nord. À chaque vague, un <strong>mascaret</strong> remonte son lit et <strong>déborde sur les berges</strong> : protégez les quais avec des murs. Le mascaret est plus fort près de la mer et s\'affaiblit en remontant. On ne construit pas dans le lit du fleuve.</p>' +
     '<h3 style="color:#64b5f6;margin:12px 0 8px">⚡ Ressources</h3>' +
     '<p>Recharge passive de <strong>' + RESOURCE_REGEN + ' ☼/s</strong>, plafond <strong>' + RESOURCE_CAP + '</strong>. Bonus de ressources après chaque vague stoppée.</p>' +
     '<h3 style="color:#64b5f6;margin:12px 0 8px">🏆 Niveaux</h3>' +
