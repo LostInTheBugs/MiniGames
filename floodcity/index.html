@@ -3505,25 +3505,6 @@ function generateMap(map) {
     // Leaving storm map → restore normal sky
     scene.background = skyDayTex;
   }
-  // Storm rain — particle system created on demand (never at script load)
-  if (map.storm && !rainSystem) {
-    const COUNT = 1500;
-    const positions = new Float32Array(COUNT * 3);
-    const terrainH = map.terrainHalf || 17;
-    for (let i = 0; i < COUNT; i++) {
-      positions[i * 3] = (Math.random() - 0.5) * terrainH * 2;
-      positions[i * 3 + 1] = Math.random() * 14;
-      positions[i * 3 + 2] = (Math.random() - 0.5) * terrainH * 2;
-    }
-    const rainGeo = new THREE.BufferGeometry();
-    rainGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    const rainMat = new THREE.PointsMaterial({
-      color: 0x99aabb, size: 0.15, transparent: true, opacity: 0.5,
-      depthWrite: false, blending: THREE.AdditiveBlending,
-    });
-    rainSystem = new THREE.Points(rainGeo, rainMat);
-    mapGroup.add(rainSystem);
-  }
   if (map.camMinDist != null) controls.minDistance = map.camMinDist;
   if (map.camMaxDist != null) controls.maxDistance = map.camMaxDist;
   // Données d'échelle de carte pour l'interface de vérification
@@ -3547,7 +3528,7 @@ function generateMap(map) {
   scene.remove(mapGroup);
 
   // Marée / fleuve : leurs objets étaient dans mapGroup (déjà libéré)
-  tideWater = tideFoamEdge = riverWater = riverEmbankments = null;
+  tideWater = tideFoamEdge = riverWater = riverEmbankments = rainSystem = null;
 
   mapGroup = new THREE.Group();
   scene.add(mapGroup);
@@ -3557,6 +3538,26 @@ function generateMap(map) {
 
   oceanGroup = new THREE.Group();
   mapGroup.add(oceanGroup);
+
+  // Storm rain — particle system created on demand (never at script load)
+  if (map.storm) {
+    const COUNT = 1500;
+    const positions = new Float32Array(COUNT * 3);
+    const terrainH = map.terrainHalf || 17;
+    for (let i = 0; i < COUNT; i++) {
+      positions[i * 3] = (Math.random() - 0.5) * terrainH * 2;
+      positions[i * 3 + 1] = Math.random() * 14;
+      positions[i * 3 + 2] = (Math.random() - 0.5) * terrainH * 2;
+    }
+    const rainGeo = new THREE.BufferGeometry();
+    rainGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    const rainMat = new THREE.PointsMaterial({
+      color: 0x99aabb, size: 0.15, transparent: true, opacity: 0.5,
+      depthWrite: false, blending: THREE.AdditiveBlending,
+    });
+    rainSystem = new THREE.Points(rainGeo, rainMat);
+    mapGroup.add(rainSystem);
+  }
 
   oceanPlanes = [];
   oceanMaterials = [];
@@ -4858,7 +4859,7 @@ function spawnWave() {
     const maxGustOffset = Math.max(0, map.terrainHalf - gustWidth / 2);
     const gustX = (Math.random() * 2 - 1) * maxGustOffset;
     const gustSpeed = speed;
-    const gustZ = spawnZ + 6; // 6 units behind (more south)
+    const gustZ = spawnZ - dirSign * 6; // 6 unités derrière, côté large
     const gustSegments = [];
     const gustSegMeshes = [];
     for (let i = 0; i < gustN; i++) {
@@ -5157,6 +5158,7 @@ function updateWaves(dt) {
 
     for (let step = 0; step < steps; step++) {
       wave.z += wave.speed * wave.dirSign * subDt;
+      if (wave.drift) wave.x += wave.drift * subDt; // Tempête : le vent pousse la vague de côté
 
       // Update segment meshes
       for (let si = 0; si < wave.segments.length; si++) {
@@ -5167,7 +5169,6 @@ function updateWaves(dt) {
         // Storm wind drift: shift seg.x, wave.x, and mesh.x each sub-step
         if (wave.drift) {
           seg.x += wave.drift * subDt;
-          wave.x = seg.x;
           sm.body.position.x = seg.x;
           sm.foam.position.x = seg.x;
         }
@@ -5890,8 +5891,8 @@ function gameLoop() {
       if (nowMs - lastLightningMs >= interval && !gameOver) {
         const origAmbient = ambient.intensity;
         const origHemi = hemi.intensity;
-        ambient.intensity = 5;
-        hemi.intensity = 2;
+        ambient.intensity = origAmbient * 3 + 0.6;
+        hemi.intensity = origHemi * 2.5 + 0.3;
         lastLightningMs = nowMs;
         lightningIntervalMs = 8000 + NATIVE_RANDOM() * 7000; // 8–15 s
         setTimeout(() => {
@@ -7665,7 +7666,7 @@ function buildHelpContent() {
     '<h3 style="color:#64b5f6;margin:12px 0 8px">🏞️ Estuaire</h3>' +
     '<p>Un fleuve traverse la ville du sud au nord. À chaque vague, un <strong>mascaret</strong> remonte son lit et <strong>déborde sur les berges</strong> : protégez les quais avec des murs. Le mascaret est plus fort près de la mer et s\'affaiblit en remontant. On ne construit pas dans le lit du fleuve.</p>' +
     '<h3 style="color:#64b5f6;margin:12px 0 8px">⛈️ Tempête</h3>' +
-    '<p>On voit mal (brouillard), il pleut et le vent pousse les vagues de côté (sens affiché dans le bandeau). Le marqueur de zone n'apparaît que dans les 8 dernières secondes. Dès le niveau 4, des <strong>rafales</strong> (vagues plus petites) suivent certaines vagues : ni score ni ressources.</p>' +
+    '<p>On voit mal (brouillard), il pleut et le vent pousse les vagues de côté (sens affiché dans le bandeau). La zone d\'impact n\'apparaît que dans les 8 dernières secondes. Dès le niveau 4, une vague sur deux est suivie d\'une <strong>rafale</strong> (vague plus petite, ailleurs) qui ne rapporte rien.</p>' +
     '<h3 style="color:#64b5f6;margin:12px 0 8px">⚡ Ressources</h3>' +
     '<p>Recharge passive de <strong>' + RESOURCE_REGEN + ' ☼/s</strong>, plafond <strong>' + RESOURCE_CAP + '</strong>. Bonus de ressources après chaque vague stoppée.</p>' +
     '<h3 style="color:#64b5f6;margin:12px 0 8px">🏆 Niveaux</h3>' +
