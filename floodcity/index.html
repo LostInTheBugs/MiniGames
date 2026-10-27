@@ -2116,7 +2116,7 @@ const MAPS = {
   },
   estuaire: {
     name: 'Estuaire',
-    description: 'Un fleuve traverse la ville. À chaque vague, il entre en crue et déborde sur des tronçons de berge annoncés juste avant : protégez la plage ET les quais.',
+    description: 'La mer n\'attaque pas la plage : chaque vague s\'engouffre dans l\'estuaire, remonte le fleuve et déborde quelque part sur les quais. Protégez les berges !',
     difficulty: '⭐⭐⭐ Difficile',
     difficultyStars: 3,
     terrainHalf: 17,
@@ -2159,7 +2159,9 @@ const MAPS = {
     // No buildings/trees/lights/cars/parking/beach items in river margin.
     // Build zone: |x − river.x| < halfWidth + 0.2 is forbidden (walls on banks OK).
     river: { x: -2.5, halfWidth: 1.6 },
-    riverFlood: true,   // crue par tronçons à chaque vague (pas de mascaret)
+    riverFlood: true,
+    defeatRatio: 0.8,   // la menace est localisée sur les quais : défaite si 20 % de la ville est perdue
+    alertRatio: 0.9,   // la vague entre dans le fleuve et déborde à des endroits tirés au hasard
   },
   tempete: {
     name: 'Tempête',
@@ -2417,14 +2419,15 @@ let tideSteps = 0;       // number of tide rises in this game
 // ─── Barrage helpers ──────────────────────────────────────
 const DAM_RESOURCE_CAP = 400;
 
-// ─── Estuaire : crue du fleuve par tronçons ─────────────────
-// À chaque vague, le fleuve déborde sur 1 à 4 tronçons de berge (plus au fil des
-// niveaux). Les tronçons sont tirés au début du compte à rebours et montrés pendant
-// les 8 dernières secondes ; au lancement de la vague, l'eau s'étale sur la berge
-// jusqu'à floodReach() et détruit les bâtiments, sauf derrière un mur de quai.
+// ─── Estuaire : la vague remonte le fleuve et déborde ───────
+// Sur l'Estuaire, la vague ne frappe pas la plage : elle entre par l'embouchure et
+// remonte le lit. 1 à 4 tronçons de berge (plus au fil des niveaux) sont tirés au
+// début du compte à rebours, sans être montrés ; chacun bouillonne ~3 s avant que le
+// front de la vague ne l'atteigne, puis l'eau s'étale jusqu'à floodReach() et détruit
+// les bâtiments, sauf derrière un mur de quai.
 let floodPlan = null;   // [{ side, z0, z1, reach, strip }]
 let floodSheets = [];   // nappes d'eau animées après le débordement
-function floodReach() { return 2.0 + 0.15 * (currentLevel - 1); }
+function floodReach() { return 3.5 + 0.35 * (currentLevel - 1); }
 function disposeFloodPlan() {
   if (floodPlan) for (const f of floodPlan) { f.strip.removeFromParent(); f.strip.geometry.dispose(); f.strip.material.dispose(); }
   floodPlan = null;
@@ -2432,9 +2435,9 @@ function disposeFloodPlan() {
 function planFlood(map) {
   disposeFloodPlan();
   const rv = map.river;
-  const n = 1 + Math.floor((currentLevel - 1) / 3);   // 1 (niv. 1-3) … 4 (niv. 10)
-  const len = 5 + 0.3 * (currentLevel - 1);
-  const zMin = map.beachEdgeZ + 1, zMax = map.terrainHalf - 1;
+  const n = 1 + Math.floor((currentLevel + 1) / 3);   // 1 (niv. 1) · 2 (2-4) · 3 (5-7) · 4 (8-10)
+  const len = 6 + 0.4 * (currentLevel - 1);
+  const zMin = map.buildZMin, zMax = map.terrainHalf - 1;   // là où il y a des bâtiments
   const reach = floodReach();
   floodPlan = [];
   for (let i = 0; i < n; i++) {
@@ -2455,11 +2458,10 @@ function planFlood(map) {
   }
 }
 function updateFloodMarkers(time) {
-  if (!floodPlan) return;
-  const show = !gameOver && waveCountdown <= 8;
-  for (const f of floodPlan) {
-    f.strip.visible = show;
-    if (show) f.strip.material.opacity = 0.5 + 0.2 * Math.sin(time * 5);
+  for (const w of waves) if (w.floods) for (const f of w.floods) {
+    if (f.done) continue;
+    f.strip.visible = f.warn && !gameOver;
+    if (f.strip.visible) f.strip.material.opacity = 0.45 + 0.25 * Math.sin(time * 9);
   }
 }
 function damageWallBy(wall, amount) {
@@ -2474,32 +2476,29 @@ function damageWallBy(wall, amount) {
     walls.splice(walls.indexOf(wall), 1);
   }
 }
-function triggerFlood(map) {
-  if (!floodPlan) return;
+function floodSection(map, f) {
   const rv = map.river;
-  for (const f of floodPlan) {
-    for (const b of buildings) {
-      if (!b.alive || Math.sign(b.x - rv.x) !== f.side) continue;
-      if (b.z + b.d / 2 < f.z0 || b.z - b.d / 2 > f.z1) continue;
-      const d = Math.abs(b.x - rv.x) - b.w / 2 - rv.halfWidth;
-      if (d >= f.reach) continue;
-      // Un mur sur la même berge, plus près du fleuve et à la hauteur du bâtiment, encaisse l'eau
-      const wall = walls.find(w => Math.sign(w.x - rv.x) === f.side && Math.abs(w.z - b.z) < 1.2
-                                  && Math.abs(w.x - rv.x) < Math.abs(b.x - rv.x));
-      if (wall) { damageWallBy(wall, 80); continue; }
-      spawnSweepParticles(b.x, 0.5, b.z);
-      destroyBuilding(b);
-    }
-    // Nappe d'eau en relief (0.45 de haut) qui s'étale depuis la berge
-    const geo = new THREE.BoxGeometry(f.reach, 0.45, f.z1 - f.z0);
-    geo.translate(f.side * f.reach / 2, 0.225, 0);
-    const sheet = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0x1e6fb8, roughness: 0.15, metalness: 0.1, transparent: true, opacity: 0.8, depthWrite: false, fog: false }));
-    sheet.position.set(rv.x + f.side * rv.halfWidth, 0, (f.z0 + f.z1) / 2);
-    sheet.scale.x = 0.05;
-    mapGroup.add(sheet);
-    floodSheets.push({ mesh: sheet, t: 0 });
+  f.strip.removeFromParent(); f.strip.geometry.dispose(); f.strip.material.dispose();
+  for (const b of buildings) {
+    if (!b.alive || Math.sign(b.x - rv.x) !== f.side) continue;
+    if (b.z + b.d / 2 < f.z0 || b.z - b.d / 2 > f.z1) continue;
+    const d = Math.abs(b.x - rv.x) - b.w / 2 - rv.halfWidth;
+    if (d >= f.reach) continue;
+    // Un mur sur la même berge, plus près du fleuve et à la hauteur du bâtiment, encaisse l'eau
+    const wall = walls.find(w => Math.sign(w.x - rv.x) === f.side && Math.abs(w.z - b.z) < 1.2
+                                && Math.abs(w.x - rv.x) < Math.abs(b.x - rv.x));
+    if (wall) { damageWallBy(wall, 80); continue; }
+    spawnSweepParticles(b.x, 0.5, b.z);
+    destroyBuilding(b);
   }
-  disposeFloodPlan();
+  // Nappe d'eau en relief (0.45 de haut) qui s'étale depuis la berge
+  const geo = new THREE.BoxGeometry(f.reach, 0.45, f.z1 - f.z0);
+  geo.translate(f.side * f.reach / 2, 0.225, 0);
+  const sheet = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0x1e6fb8, roughness: 0.15, metalness: 0.1, transparent: true, opacity: 0.8, depthWrite: false, fog: false }));
+  sheet.position.set(rv.x + f.side * rv.halfWidth, 0, (f.z0 + f.z1) / 2);
+  sheet.scale.x = 0.05;
+  mapGroup.add(sheet);
+  floodSheets.push({ mesh: sheet, t: 0 });
 }
 function updateFloodSheets(dt) {
   for (let i = floodSheets.length - 1; i >= 0; i--) {
@@ -5005,7 +5004,12 @@ function planNextWave() {
   const halfLimit = map.terrainHalf - bandW / 2;
   const bandX = Math.max(-halfLimit, Math.min(halfLimit, waveX + jitter));
   nextWavePlan = { dir, width: waveWidth, x: waveX, bandX, bandW };
-  if (map.riverFlood) planFlood(map);
+  if (map.riverFlood) {
+    // Estuaire : la vague ne frappe pas la plage, elle s'engouffre dans l'embouchure
+    const rv = map.river;
+    nextWavePlan = { dir, width: rv.halfWidth * 2, x: rv.x, bandX: rv.x, bandW: rv.halfWidth * 2 + 2 };
+    planFlood(map);
+  }
   // Storm drift: positive = west (+X), negative = east (-X)
   if (map.storm) {
     const sign = Math.random() < 0.5 ? 1 : -1;
@@ -5312,9 +5316,17 @@ function spawnWave() {
   } else if (map.river || map.rivers) {
     const sector = getWaveSector(plan);
     const riverCount = mapRivers(map).length;
-    const boreText = map.riverFlood ? 'crue du fleuve !' : riverCount > 1 ? `${riverCount} chenaux, mascaret ×${riverCount} !` : 'mascaret !';
-    if (map.riverFlood) triggerFlood(map);
-    flashMessage(`🌊 Vague #${waveNumber} — front ${dir === 'north' ? 'NORD' : 'SUD'}, secteur ${sector} + ${boreText}`, 1800);
+    const boreText = riverCount > 1 ? `${riverCount} chenaux, mascaret ×${riverCount} !` : 'mascaret !';
+    if (map.riverFlood) {
+      // La vague (déjà poussée dans waves) emporte les débordements prévus ; floodPlan est libéré
+      // pour que planNextWave() n'efface pas leurs marqueurs
+      waves[waves.length - 1].floods = floodPlan || [];
+      waves[waves.length - 1].inRiver = true;
+      floodPlan = null;
+      flashMessage(`🌊 Vague #${waveNumber} — elle s'engouffre dans l'estuaire !`, 1800);
+    } else {
+      flashMessage(`🌊 Vague #${waveNumber} — front ${dir === 'north' ? 'NORD' : 'SUD'}, secteur ${sector} + ${boreText}`, 1800);
+    }
   } else {
     // Littoral / Île : utiliser getWaveSector(plan) pour le secteur
     const sector = getWaveSector(plan);
@@ -5537,8 +5549,10 @@ function updateWaves(dt) {
         sm.foam.material.opacity = segHp * 0.75;
       }
 
+      // Estuaire : la vague est dans le lit du fleuve, rien ne la touche (ni murs de quai, ni tranchées)
+      const solid = !wave.inRiver;
       // Trench vs segments
-      for (let ti = trenches.length - 1; ti >= 0; ti--) {
+      for (let ti = solid ? trenches.length - 1 : -1; ti >= 0; ti--) {
         const trench = trenches[ti];
         if (Math.abs(trench.z - wave.z) > 1.2) continue;
         for (const seg of wave.segments) {
@@ -5559,7 +5573,7 @@ function updateWaves(dt) {
       }
 
       // Walls vs segments
-      for (let i = walls.length - 1; i >= 0; i--) {
+      for (let i = solid ? walls.length - 1 : -1; i >= 0; i--) {
         const wall = walls[i];
         if (Math.abs(wall.z - wave.z) > 1.5) continue;
         let hitAny = false;
@@ -5589,7 +5603,7 @@ function updateWaves(dt) {
       }
 
       // Buildings vs segments
-      for (const building of buildings) {
+      if (solid) for (const building of buildings) {
         if (!building.alive) continue;
         if (Math.abs(building.z - wave.z) > 2) continue;
         for (const seg of wave.segments) {
@@ -5642,6 +5656,17 @@ function updateWaves(dt) {
             // Wave continues through with remaining HP
             seg.hp = breachDmg;
           }
+        }
+      }
+
+      // ── Estuaire : la vague remonte le fleuve et déborde aux tronçons tirés ──
+      // La berge bouillonne (bloc rouge) ~3 s avant que le front n'arrive, puis l'eau s'étale.
+      if (wave.floods && wave.floods.length) {
+        for (const f of wave.floods) {
+          if (f.done) continue;
+          const mid = (f.z0 + f.z1) / 2;
+          if (!f.warn && wave.z >= mid - 3 * wave.speed) { f.warn = true; flashMessage('⚠️ La berge déborde bientôt !', 1500); }
+          if (wave.z >= mid) { f.done = true; floodSection(map, f); }
         }
       }
 
@@ -7581,9 +7606,10 @@ function gameLoop() {
     if (!t.includes('mer +')) $wbText.textContent = t + ' · mer +' + tideSteps;
   }
   // ── Estuaire : tronçons de crue annoncés ─────────────
-  if (currentMap && currentMap.riverFlood && floodPlan && waveCountdown <= 8) {
+  if (currentMap && currentMap.riverFlood && floodPlan) {
     const t = $wbText.textContent;
-    if (!t.includes('crue')) $wbText.textContent = t + ' · crue : ' + floodPlan.length + ' tronçon' + (floodPlan.length > 1 ? 's' : '');
+    const n = floodPlan.length;
+    if (!t.includes('débordement')) $wbText.textContent = t + ' · ' + n + ' débordement' + (n > 1 ? 's' : '');
   }
   // ── Polder: dike HP % and breach count ────────────────
   if (currentMap && currentMap.polder && dikeSegs.length > 0) {
@@ -7904,7 +7930,7 @@ function buildHomeScreen() {
                           id === 'barrage' ? 'Niveau ' + sel + ' · une seule rupture' :
                           id === 'maree' ? 'Niveau ' + sel + ' · ' + cfg.waves + ' vagues · la mer monte' :
                           id === 'polder' ? 'Niveau ' + sel + ' · ' + cfg.waves + ' vagues · digue' :
-                          id === 'estuaire' ? 'Niveau ' + sel + ' · ' + cfg.waves + ' vagues · crue' :
+                          id === 'estuaire' ? 'Niveau ' + sel + ' · ' + cfg.waves + ' vagues · par le fleuve' :
                           id === 'archipel' ? 'Niveau ' + sel + ' · ' + cfg.waves + ' vagues · 2 chenaux' :
                           id === 'tempete' ? 'Niveau ' + sel + ' · ' + cfg.waves + ' vagues · tempête' :
                           'Niveau ' + sel + ' · ' + cfg.waves + ' vagues à tenir';
@@ -7948,7 +7974,7 @@ function buildHomeScreen() {
         if (infoEl) infoEl.textContent = isEndless2 ? 'Niveau ' + n + ' · sans fin' :
                     id === 'barrage' ? 'Niveau ' + n + ' · une seule rupture' :
                     id === 'maree' ? 'Niveau ' + n + ' · ' + cfg2.waves + ' vagues · la mer monte' :
-                    id === 'estuaire' ? 'Niveau ' + n + ' · ' + cfg2.waves + ' vagues · crue' :
+                    id === 'estuaire' ? 'Niveau ' + n + ' · ' + cfg2.waves + ' vagues · par le fleuve' :
                     id === 'archipel' ? 'Niveau ' + n + ' · ' + cfg2.waves + ' vagues · 2 chenaux' :
                     id === 'polder' ? 'Niveau ' + n + ' · ' + cfg2.waves + ' vagues · digue' :
                     id === 'tempete' ? 'Niveau ' + n + ' · ' + cfg2.waves + ' vagues · tempête' :
@@ -8136,7 +8162,7 @@ function buildHelpContent() {
     '<h3 style="color:#64b5f6;margin:12px 0 8px">🌊 Marée montante</h3>' +
     '<p>La mer monte après chaque vague et engloutit ce qui se trouve sous la ligne d\'eau. On ne peut pas construire sous l\'eau (fantôme rouge). Les vagues partent de la ligne d\'eau : plus la mer monte, plus elles frappent vite. Pas de montée après la dernière vague du niveau. Les bâtiments, murs et tranchées engloutis sont détruits.</p>' +
     '<h3 style="color:#64b5f6;margin:12px 0 8px">🏞️ Estuaire</h3>' +
-    '<p>Un fleuve traverse la ville du sud au nord. À chaque vague, il <strong>entre en crue</strong> et déborde sur 1 à 4 tronçons de berge (plus au fil des niveaux). Les tronçons menacés s\'allument en rouge pendant les 8 dernières secondes du compte à rebours ; l\'eau s\'étale alors sur 2 à 3,5 unités et détruit les bâtiments, sauf ceux protégés par un <strong>mur sur le quai</strong> (le mur s\'use). On ne construit pas dans le lit du fleuve.</p>' +
+    '<p>La mer n\'attaque pas la plage : chaque vague <strong>s\'engouffre dans l\'estuaire</strong> et remonte le fleuve (rien ne l\'arrête, on ne construit pas dans le lit). Elle <strong>déborde</strong> sur 1 à 4 tronçons de berge tirés au hasard (plus au fil des niveaux ; le bandeau annonce combien). Un tronçon <strong>bouillonne en rouge environ 3 s avant</strong> le passage de la vague : il reste juste le temps d\'y poser un mur. L\'eau détruit les bâtiments proches du quai, sauf derrière un <strong>mur de quai</strong> (le mur s\'use).</p>' +
     '<h3 style="color:#64b5f6;margin:12px 0 8px">⛈️ Tempête</h3>' +
     '<p>On voit mal (brouillard), il pleut et le vent pousse les vagues de côté (sens affiché dans le bandeau). La zone d\'impact n\'apparaît que dans les 8 dernières secondes. Dès le niveau 4, une vague sur deux est suivie d\'une <strong>rafale</strong> (vague plus petite, ailleurs) qui ne rapporte rien.</p>' +
     '<h3 style="color:#64b5f6;margin:12px 0 8px">🏝️ Archipel</h3>' +
