@@ -2230,7 +2230,7 @@ const MAPS = {
     ],
     // Bore HP loss per unit when inside the island radius
     // (default 0.035 for Estuaire, lower for Archipel so bores last longer)
-    boreLoss: 0.02,
+    boreLoss: 0.012,
   },
 };
 
@@ -3939,72 +3939,6 @@ function generateMap(map) {
         // Track destroyed buildings for this map
       }
 
-      // ── Rivers ──────────────────────────────────────────
-      const rivers = mapRivers(map);
-      if (rivers.length) {
-        // Determine river Z range: estuaire uses beachSouthEdge..terrainHalf,
-        // multi-river maps (archipel) use full terrain (-terrainHalf..terrainHalf).
-        const isMulti = !!map.rivers;
-        const riverStartZ = isMulti ? -map.terrainHalf : (beachZ !== undefined ? beachZ - map.beachDepth / 2 : -map.terrainHalf);
-        const riverEndZ = map.terrainHalf;
-        const riverLen = riverEndZ - riverStartZ;
-        const embMat = new THREE.MeshStandardMaterial({ color: 0x8a8a8a, roughness: 0.85 });
-        const embH = 0.35, embW = 0.3;
-        for (const rv of rivers) {
-          // River water plane (full length)
-          const riverGeo = new THREE.PlaneGeometry(rv.halfWidth * 2, riverLen, Math.floor(rv.halfWidth * 2), Math.floor(riverLen));
-          const riverMat = new THREE.MeshStandardMaterial({
-            color: 0x0d47a1, roughness: 0.15, metalness: 0.1,
-            transparent: true, opacity: 0.88
-          });
-          const riverWaterMesh = new THREE.Mesh(riverGeo, riverMat);
-          riverWaterMesh.rotation.x = -Math.PI / 2;
-          riverWaterMesh.position.set(rv.x, 0.08, riverStartZ + riverLen / 2);
-          riverWaterMesh.receiveShadow = true;
-          riverWaterMesh.name = 'riverWater';
-          mapGroup.add(riverWaterMesh);
-
-          // Embankments/quays
-          if (isMulti && map.coastFn) {
-            // For archipel: quays only where the channel crosses the island
-            // Find the Z range where isOnIsland(rv.x, z, map) is true
-            let islandZMin = 0, islandZMax = 0;
-            // Binary search from center outward
-            for (let z = 0; z <= map.terrainHalf; z += 0.5) {
-              if (!isOnIsland(rv.x, z, map)) { islandZMax = z - 0.5; break; }
-              if (z === map.terrainHalf - 0.5) islandZMax = z;
-            }
-            for (let z = 0; z <= map.terrainHalf; z += 0.5) {
-              if (!isOnIsland(rv.x, -z, map)) { islandZMin = -(z - 0.5); break; }
-              if (z === map.terrainHalf - 0.5) islandZMin = -z;
-            }
-            const qLen = islandZMax - islandZMin;
-            if (qLen > 0) {
-              for (const side of [-1, 1]) {
-                const embGeo = new THREE.BoxGeometry(embW, embH, qLen + embW);
-                const emb = new THREE.Mesh(embGeo, embMat);
-                emb.position.set(rv.x + side * (rv.halfWidth + embW / 2), embH / 2, (islandZMin + islandZMax) / 2);
-                emb.castShadow = true;
-                emb.receiveShadow = true;
-                if (!riverEmbankments) { riverEmbankments = new THREE.Group(); riverEmbankments.name = 'riverEmbankments'; }
-                riverEmbankments.add(emb);
-              }
-            }
-          } else {
-            // Estuaire: full-length embankments
-            for (const side of [-1, 1]) {
-              const embGeo = new THREE.BoxGeometry(embW, embH, riverLen + embW);
-              const emb = new THREE.Mesh(embGeo, embMat);
-              emb.position.set(rv.x + side * (rv.halfWidth + embW / 2), embH / 2, riverStartZ + riverLen / 2);
-              emb.castShadow = true;
-              emb.receiveShadow = true;
-              if (!riverEmbankments) { riverEmbankments = new THREE.Group(); riverEmbankments.name = 'riverEmbankments'; }
-              riverEmbankments.add(emb);
-            }
-          }
-        }
-        if (riverEmbankments.children.length) mapGroup.add(riverEmbankments);
-      }
 
       // Far ocean (seamless horizon — matches near ocean material, extends far south)
       const farOceanGeo2 = new THREE.PlaneGeometry(400, 200);
@@ -4094,6 +4028,73 @@ function generateMap(map) {
 
     return { x1: x1 + dx * tIn, z1: z1 + dz * tIn,
              x2: x1 + dx * tOut, z2: z1 + dz * tOut };
+  }
+
+  // ── Rivers ──────────────────────────────────────────
+  const rivers = mapRivers(map);
+  if (rivers.length) {
+    // Determine river Z range: estuaire uses beachSouthEdge..terrainHalf,
+    // multi-river maps (archipel) use full terrain (-terrainHalf..terrainHalf).
+    const isMulti = !!map.rivers;
+    const riverStartZ = isMulti ? -map.terrainHalf : map.beachZ - map.beachDepth / 2;
+    const riverEndZ = map.terrainHalf;
+    const riverLen = riverEndZ - riverStartZ;
+    const embMat = new THREE.MeshStandardMaterial({ color: 0x8a8a8a, roughness: 0.85 });
+    const embH = 0.35, embW = 0.3;
+    for (const rv of rivers) {
+      // River water plane (full length)
+      const riverGeo = new THREE.PlaneGeometry(rv.halfWidth * 2, riverLen, Math.floor(rv.halfWidth * 2), Math.floor(riverLen));
+      const riverMat = new THREE.MeshStandardMaterial({
+        color: 0x0d47a1, roughness: 0.15, metalness: 0.1,
+        transparent: true, opacity: 0.88
+      });
+      const riverWaterMesh = new THREE.Mesh(riverGeo, riverMat);
+      riverWaterMesh.rotation.x = -Math.PI / 2;
+      riverWaterMesh.position.set(rv.x, 0.08, riverStartZ + riverLen / 2);
+      riverWaterMesh.receiveShadow = true;
+      riverWaterMesh.name = 'riverWater';
+      mapGroup.add(riverWaterMesh);
+
+      // Embankments/quays
+      if (isMulti && map.coastFn) {
+        // For archipel: quays only where the channel crosses the island
+        // Find the Z range where isOnIsland(rv.x, z, map) is true
+        let islandZMin = 0, islandZMax = 0;
+        // Binary search from center outward
+        for (let z = 0; z <= map.terrainHalf; z += 0.5) {
+          if (!isOnIsland(rv.x, z, map)) { islandZMax = z - 0.5; break; }
+          if (z === map.terrainHalf - 0.5) islandZMax = z;
+        }
+        for (let z = 0; z <= map.terrainHalf; z += 0.5) {
+          if (!isOnIsland(rv.x, -z, map)) { islandZMin = -(z - 0.5); break; }
+          if (z === map.terrainHalf - 0.5) islandZMin = -z;
+        }
+        const qLen = islandZMax - islandZMin;
+        if (qLen > 0) {
+          for (const side of [-1, 1]) {
+            const embGeo = new THREE.BoxGeometry(embW, embH, qLen + embW);
+            const emb = new THREE.Mesh(embGeo, embMat);
+            emb.position.set(rv.x + side * (rv.halfWidth + embW / 2), embH / 2, (islandZMin + islandZMax) / 2);
+            emb.castShadow = true;
+            emb.receiveShadow = true;
+            if (!riverEmbankments) { riverEmbankments = new THREE.Group(); riverEmbankments.name = 'riverEmbankments'; }
+            riverEmbankments.add(emb);
+          }
+        }
+      } else {
+        // Estuaire: full-length embankments
+        for (const side of [-1, 1]) {
+          const embGeo = new THREE.BoxGeometry(embW, embH, riverLen + embW);
+          const emb = new THREE.Mesh(embGeo, embMat);
+          emb.position.set(rv.x + side * (rv.halfWidth + embW / 2), embH / 2, riverStartZ + riverLen / 2);
+          emb.castShadow = true;
+          emb.receiveShadow = true;
+          if (!riverEmbankments) { riverEmbankments = new THREE.Group(); riverEmbankments.name = 'riverEmbankments'; }
+          riverEmbankments.add(emb);
+        }
+      }
+    }
+    if (riverEmbankments && riverEmbankments.children.length) mapGroup.add(riverEmbankments);
   }
 
   for (const r of (map.roads || [])) {
@@ -5346,7 +5347,7 @@ function updateWaves(dt) {
         const live = wave.segments.filter(sg => sg.alive);
         // Affaiblissement : sur Estuaire, −3.5 % des PV max par unité parcourue en ville
         // (wave.z > map.beachEdgeZ). Sur une carte île avec chenaux,
-        // perte de map.boreLoss (0.02 par défaut) des PV max par unité
+        // perte de map.boreLoss (0.012 sur Archipel) des PV max par unité
         // seulement quand Math.abs(wave.z) < map.islandRadius.
         let loss = 0;
         if (map.boreLoss != null && map.islandRadius && Math.abs(wave.z) < map.islandRadius) {
