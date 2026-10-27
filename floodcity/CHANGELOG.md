@@ -2,6 +2,15 @@
 
 All notable changes to Flood City are documented in this file.
 
+## [2026.10.007] — 2026-10-27
+
+### Added
+- **Tempête** map (⭐⭐⭐): Littoral coast under a storm — dark grey sky and fog (near 18, far 52), rain (1,500 particles leaning with the wind), lightning flashes every 8–15 s
+- The landing-zone marker only appears during the last 8 s of the countdown
+- Wind: each wave drifts sideways at 0.4–0.8 units/s (+5 % per level); the banner shows « vent → ouest / est » during the countdown
+- Gusts from level 4: every other wave is followed by a smaller one (width ×0.6, height ×0.8) elsewhere along the coast, 6 units further out; gusts give no score, resources or held wave
+- Level picker « tempête », help panel section, home preview `assets/map-tempete.jpg`
+
 ## [2026.10.006] — 2026-10-27
 
 ### Added

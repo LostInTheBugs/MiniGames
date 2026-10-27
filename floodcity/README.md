@@ -11,6 +11,7 @@
 | **Barrage** | ⭐⭐⭐ Hard | A reservoir lake held by a dam overlooks the city — a **single breach** per game, somewhere along the dam |
 | **Marée montante** | ⭐⭐⭐ Hard | Coastal city where the **sea rises after each wave** — the beach, then the first streets disappear |
 | **Estuaire** | ⭐⭐⭐ Hard | A river crosses the city — with every wave a **tidal bore** runs up it and overflows onto the banks |
+| **Tempête** | ⭐⭐⭐ Hard | Coast under a storm — the wave zone shows up late, **wind pushes waves sideways**, gusts double some waves |
 
 ### 🧱 Barrage
 
@@ -31,6 +32,12 @@
 - Same coast as Littoral, with a river crossing the city from the beach to the north edge; nothing can be built in its bed
 - With every wave, a **tidal bore** runs up the river at the same time. It cannot be stopped and **overflows onto the banks**, destroying nearby buildings
 - It is strongest near the sea and weakens as it goes up; a wall on the quay protects the buildings behind it
+
+### ⛈️ Tempête
+
+- Same coast as Littoral, in rain and fog; the landing zone of the next wave only shows up **8 s before impact**
+- The **wind** pushes each wave sideways while it travels — the banner tells which way
+- From level 4, every other wave is followed by a **gust**: a smaller wave hitting elsewhere
 
 Best scores are kept per map and shown on the home screen.
 
@@ -179,6 +186,9 @@ https://games.cloudfr.net/floodcity/?seed=42
 The seed controls the layout of the city, buildings, street furniture and beach. Same seed and same level = same map, every time. Without the parameter, a random map is generated as before. Handy for comparing strategies, sharing a configuration or reproducing a bug.
 
 ## 📋 Release notes
+
+### 2026.10.007
+- New **Tempête** map: rain and fog, the wave zone shows up only 8 s before impact, the wind pushes waves sideways and gusts double some of them
 
 ### 2026.10.006
 - New **Estuaire** map: a tidal bore runs up the river with every wave and overflows onto the banks — protect the quays
