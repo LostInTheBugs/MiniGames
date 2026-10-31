@@ -2,7 +2,7 @@
 
 3D fire and rescue dispatch game — send canadairs, water-bombing helicopters and fire engines to forest fires, burning houses and towers, and road accidents.
 
-Part of the [MiniGames](../README.md) collection. Current version: **2026.10.010** — [releases](https://github.com/LostInTheBugs/MiniGames/releases?q=firefighter&expanded=true).
+Part of the [MiniGames](../README.md) collection. Current version: **2026.11.001** — [releases](https://github.com/LostInTheBugs/MiniGames/releases?q=firefighter&expanded=true).
 
 ## 🗺️ Maps
 
@@ -71,13 +71,13 @@ Trucks carry water (blue gauge): when empty they refill at the fire station or t
 
 ### 🎲 Aléatoire
 
-The last tile on the home screen starts a map drawn at random (never the same one twice in a row), at the highest level you have unlocked on it.
+« Au hasard », at the bottom of the map list, starts a map drawn at random (never the same one twice in a row), at the highest level you have unlocked on it.
 
 ### 👥 Multijoueur (co-op)
 
 Up to **4 players online**, each with their **own town and fire station**, far apart on a **192 × 192** map, winning or losing together:
 
-1. one player opens the **Multijoueur** tile, creates a room and shares the 4-letter code (or the link `…/firefighter/?join=CODE`)
+1. one player opens the **Multijoueur** tab of the home screen (« Ouvrir le salon »), creates a room and shares the 4-letter code (or the link `…/firefighter/?join=CODE`)
 2. the others join; the host picks the map and the level — the map is generated with one town per player
 3. each station has its own fleet (fire engines, ladder, light vehicle, forest trucks, helicopter); **Canadairs and the retardant aircraft are shared** at the airfield, first come first served. A « flotte partagée » option lets everyone command everything
 4. alerts fall in turn in each player's sector; anyone can send reinforcements anywhere
@@ -111,7 +111,7 @@ Static files, no build step: serve the `firefighter/` folder (with `assets/`) fr
 python3 -m http.server 8080   # → http://localhost:8080/firefighter/
 ```
 
-On the games hub it is served at `https://games.cloudfr.net/firefighter/`. Files to deploy: `index.html`, `version.json`, `preview.png`, `assets/map-*.jpg` (six maps).
+On the games hub it is served at `https://games.cloudfr.net/firefighter/`. Files to deploy: `index.html`, `version.json`, `preview.png`, `assets/map-*.jpg` (ten maps).
 
 ### 👥 Multiplayer relay
 

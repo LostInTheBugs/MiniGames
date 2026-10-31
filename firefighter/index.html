@@ -233,6 +233,56 @@
   .pub input { padding: 7px 10px; border-radius: 8px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.22); color: #fff; font: inherit; width: 150px; }
   .pub-out { margin-top: 8px; font-size: 0.85em; }
   .pub-rank { font-weight: 700; color: #ffd54f; }
+  /* ─── Accueil : barre du haut, liste, détail ─────────── */
+  #home { padding: 20px 20px 28px; }
+  #home-top { margin-top: auto; width: 100%; max-width: 1180px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin-bottom: 18px; }
+  .ht-logo { font-weight: 800; font-size: 1.7em; letter-spacing: 2px; }
+  .ht-logo span { background: linear-gradient(90deg, #ffb347, #ff5f2e 55%, #ff2e4d); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .ht-tabs { display: flex; gap: 4px; background: rgba(255,255,255,0.06); padding: 4px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); }
+  .ht-tabs button { padding: 8px 18px; border: none; border-radius: 9px; background: none; color: #fff; font: 700 0.92em Inter, sans-serif; cursor: pointer; opacity: 0.65; }
+  .ht-tabs button:hover { opacity: 1; }
+  .ht-tabs button.on { background: linear-gradient(90deg, #ff8a3d, #ff4b2b); opacity: 1; }
+  .ht-tools { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+  .ht-tools button { padding: 7px 13px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.9); font: 600 0.84em Inter, sans-serif; cursor: pointer; }
+  .ht-tools button:hover { background: rgba(255,140,60,0.2); }
+  #home-main { width: 100%; max-width: 1180px; display: grid; grid-template-columns: 330px 1fr; gap: 18px; align-items: start; }
+  #map-list { padding: 8px 10px 12px; display: flex; flex-direction: column; gap: 3px; }
+  .ml-h { font-size: 0.7em; text-transform: uppercase; letter-spacing: 1.2px; color: rgba(255,255,255,0.45); margin: 10px 8px 4px; }
+  .ml-row { display: grid; grid-template-columns: 58px 1fr auto; gap: 10px; align-items: center; padding: 7px 8px; border-radius: 10px; border: 1px solid transparent; background: none; color: #fff; text-align: left; cursor: pointer; font-family: inherit; }
+  .ml-row:hover { background: rgba(255,255,255,0.06); }
+  .ml-row.on { background: rgba(255,120,50,0.18); border-color: rgba(255,140,60,0.6); }
+  .ml-ic { width: 58px; height: 40px; border-radius: 7px; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+  .ml-ic img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .ml-ic img + i { position: absolute; right: 3px; bottom: 1px; font-size: 13px; font-style: normal; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+  .ml-ic i { font-style: normal; }
+  .ml-tx b { display: block; font-size: 0.95em; }
+  .ml-tx small { color: rgba(255,255,255,0.55); font-size: 0.74em; }
+  .ml-st { font-size: 0.68em; white-space: nowrap; }
+  .ml-sep { height: 1px; background: rgba(255,255,255,0.1); margin: 8px 4px; }
+  #map-detail { overflow: hidden; display: flex; flex-direction: column; }
+  .md-art { height: clamp(150px, 34vh, 320px); position: relative; display: flex; align-items: center; justify-content: center; font-size: 76px; overflow: hidden; }
+  .md-art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .md-art > span { position: relative; text-shadow: 0 4px 22px rgba(0,0,0,0.55); }
+  .md-art img ~ span { display: none; }
+  .md-body { padding: 16px 22px 20px; display: flex; flex-direction: column; gap: 10px; }
+  .md-top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .md-top h2 { font-size: 1.55em; }
+  .md-desc { color: rgba(255,255,255,0.75); line-height: 1.5; }
+  .md-lvl { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 0.9em; color: rgba(255,255,255,0.7); }
+  .md-lvl .dots { grid-template-columns: repeat(10, 30px); justify-content: start; }
+  .md-info, .md-best, .md-note { font-size: 0.85em; color: rgba(255,255,255,0.6); }
+  .md-night { display: flex; gap: 8px; align-items: center; cursor: pointer; font-size: 0.92em; }
+  .md-night small { color: rgba(255,255,255,0.5); }
+  .md-facts { margin: 0 0 0 18px; line-height: 1.75; color: rgba(255,255,255,0.82); font-size: 0.92em; }
+  .md-play { margin-top: 4px; padding: 13px; font: 800 1.08em Inter, sans-serif; border: none; border-radius: 12px; background: linear-gradient(90deg, #ff8a3d, #ff4b2b); color: #fff; cursor: pointer; }
+  .md-play:hover { filter: brightness(1.1); }
+  #home > #home-version { margin-bottom: auto; }
+  @media (min-width: 1600px) { #home-top, #home-main { max-width: 1340px; } #home-main { grid-template-columns: 370px 1fr; } }
+  @media (max-width: 860px) {
+    #home-main { grid-template-columns: 1fr; }
+    .ht-tools { margin-left: 0; }
+    .md-lvl .dots { grid-template-columns: repeat(5, 30px); }
+  }
   /* ─── Version update notification ──────────────────────── */
   #version-banner {
     position: fixed; bottom: 24px; right: 24px;
@@ -492,7 +542,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 // ─── Version ──────────────────────────────────────────────────
-const GAME_VERSION = "2026.10.010";
+const GAME_VERSION = "2026.11.001";
 document.querySelector("meta[name=version]").setAttribute("content", GAME_VERSION);
 document.getElementById('home-version').textContent = 'v' + GAME_VERSION;
 console.log("Firefighter v" + GAME_VERSION);
@@ -3312,85 +3362,16 @@ function toggleHelp(show) {
       <h3>Eau</h3><p>Les camions ont une citerne (barre bleue) : à sec, ils vont se remplir à une caserne ou à la bouche d'incendie la plus proche, puis reviennent ; de retour à la caserne, ils refont le plein. Ils contournent les flammes (sauf le camion feu de forêt). Pris dans la chaleur, un camion s'abîme, se replie pour réparer, voire est perdu (le CCF est protégé). Canadair et hélicoptère se remplissent sur l'eau, l'avion de retardant à l'aérodrome. En survolant la carte avec un moyen aérien, tu vois où il larguera.</p>
       <h3>Feu et météo</h3><p>Le feu se propage de case en case, plus vite dans la forêt et <b>dans le sens du vent</b> (boussole en haut à droite). La <b>sécheresse</b> l'accélère et fait sécher l'eau plus vite ; par vent fort, des <b>brandons</b> allument la végétation ou un toit plusieurs cases plus loin : c'est ainsi qu'un feu de forêt gagne la ville. Les <b>rafales</b> l'emballent, la <b>pluie</b> le freine et éteint les petits foyers. Une case arrosée reste humide un moment ; un camion envoyé là où rien ne brûle mouille la végétation (coupe-feu). Le <b>retardant</b> (rouge) protège 2 minutes.</p>
       <h3>But</h3><p>Tenir jusqu'à la fin du temps sans dépasser les pertes tolérées (bâtiments, forêt, victimes : voir le panneau à gauche). Le niveau 10 est sans fin. Les grandes cartes ont deux casernes et un aérodrome.</p>
-      <h3>Nouveautés</h3><p>🚜 <b>Bulldozer</b> (<kbd>8</kbd>) : clique où creuser, il trace une tranchée de terre nue de 13 cases en travers du vent (aperçu brun) — le feu ne la franchit pas, sauf brandons. 🏃 <b>Évacuer</b> (<kbd>E</kbd>, 3 ordres par mission) : les habitants d'un quartier (rayon 7) sortent avant l'arrivée du feu ; chaque personne épargnée rapporte 40 points. ⚠️ <b>Incidents majeurs</b> (dès le niveau 2) : incendie d'usine qui explose s'il chauffe trop longtemps, carambolage (plusieurs fourgons puis des VL), feu menaçant un camping (tous les camions évacuent les campeurs). 🌙 <b>Missions de nuit</b> (case à cocher sur chaque carte) : avions au sol, feu un peu plus lent, points ×1,3. 🔧 <b>Caserne</b> : les crédits gagnés en mission (score ÷ 10) achètent des améliorations en solo.</p>
-      <h3>Graphismes, spectateur, classement</h3><p>⚙️ <kbd>Q</kbd> (ou le bouton de l'accueil) change la qualité graphique : Haute, Moyenne (résolution normale, 60 % des arbres) ou Basse (sans ombres, 35 % des arbres). 👁 Dans le salon, « Regarder » rejoint une partie en spectateur, même commencée : <kbd>C</kbd> passe d'une caserne à l'autre. 🏆 En fin de mission, « Publier » envoie ton score (ou celui de l'équipe) au classement en ligne, visible depuis la tuile Classement.</p>
-      <h3>Multijoueur (coopération)</h3><p>Tuile <b>Multijoueur</b> de l'accueil : crée un salon et partage son code (ou le lien), jusqu'à 4 joueurs. L'hôte choisit une des 4 cartes multijoueur (192 × 192 cases) et le niveau : chaque pompier a <b>sa ville et sa caserne</b> (pompiers, échelle, VL, CCF, hélico), loin des autres ; Canadair et avion de retardant sont <b>communs</b>, à l'aérodrome — le premier qui les demande les prend. Les alertes tombent à tour de rôle dans chaque secteur, et chacun peut envoyer ses véhicules en renfort chez les autres. Tu ne commandes que tes véhicules ; ceux des autres portent la couleur de leur pompier. La <b>mini-carte</b> (en bas à gauche) montre feux, casernes et véhicules : un clic dessus y déplace la vue, <kbd>C</kbd> ramène sur ta caserne. <b>Entraide</b> : <kbd>B</kbd> (ou 🆘 Renforts) demande un type de véhicule à un endroit — le premier coéquipier qui y envoie le sien répond à l'appel ; <kbd>T</kbd> ouvre les messages rapides ; 🔒 dans la liste réserve un avion commun 60 s. Une fois par mission, un <b>feu majeur</b> démarre entre deux secteurs. En fin de partie, un <b>bilan par pompier</b> (ordres, renforts, évacués, secours, bâtiments sauvés, foyers éteints, dégâts). Coupure ou page rechargée : tu as 2 minutes pour reprendre ta place. <kbd>Maj</kbd> + clic (ou <kbd>G</kbd>) pose un repère visible par toute l'équipe. <kbd>P</kbd> met la partie en pause pour tout le monde ; seul l'hôte règle la vitesse et relance.</p>
-      <h3>Commandes</h3><p><kbd>Clic</kbd> envoyer · <kbd>Clic droit</kbd> pivoter · <kbd>Clic milieu</kbd> déplacer · <kbd>Molette</kbd> zoom · <kbd>1</kbd>–<kbd>7</kbd> type de véhicule · <kbd>F</kbd> vitesse ×2 · <kbd>P</kbd>/<kbd>Échap</kbd> pause · <kbd>R</kbd> recommencer · <kbd>M</kbd> menu</p>`;
+      <h3>Nouveautés</h3><p>🚜 <b>Bulldozer</b> (<kbd>8</kbd>) : clique où creuser, il trace une tranchée de terre nue de 13 cases en travers du vent (aperçu brun) — le feu ne la franchit pas, sauf brandons. 🏃 <b>Évacuer</b> (<kbd>E</kbd>, 3 ordres par mission) : les habitants d'un quartier (rayon 7) sortent avant l'arrivée du feu ; chaque personne épargnée rapporte 40 points. ⚠️ <b>Incidents majeurs</b> (dès le niveau 2) : incendie d'usine qui explose s'il chauffe trop longtemps, carambolage (plusieurs fourgons puis des VL), feu menaçant un camping (tous les camions évacuent les campeurs). 🌙 <b>Missions de nuit</b> (case à cocher sous la carte choisie) : avions au sol, feu un peu plus lent, points ×1,3. 🔧 <b>Caserne</b> (bouton de l'accueil) : les crédits gagnés en mission (score ÷ 10) achètent des améliorations en solo.</p>
+      <h3>Graphismes, spectateur, classement</h3><p>⚙️ <kbd>Q</kbd> (ou le bouton de l'accueil) change la qualité graphique : Haute, Moyenne (résolution normale, 60 % des arbres) ou Basse (sans ombres, 35 % des arbres). 👁 Dans le salon, « Regarder » rejoint une partie en spectateur, même commencée : <kbd>C</kbd> passe d'une caserne à l'autre. 🏆 En fin de mission, « Publier » envoie ton score (ou celui de l'équipe) au classement en ligne, visible depuis le bouton 🏆 Classement de l'accueil.</p>
+      <h3>Multijoueur (coopération)</h3><p>Onglet <b>Multijoueur</b> de l'accueil, puis « Ouvrir le salon » : crée un salon et partage son code (ou le lien), jusqu'à 4 joueurs. L'hôte choisit une des 4 cartes multijoueur (192 × 192 cases) et le niveau : chaque pompier a <b>sa ville et sa caserne</b> (pompiers, échelle, VL, CCF, hélico), loin des autres ; Canadair et avion de retardant sont <b>communs</b>, à l'aérodrome — le premier qui les demande les prend. Les alertes tombent à tour de rôle dans chaque secteur, et chacun peut envoyer ses véhicules en renfort chez les autres. Tu ne commandes que tes véhicules ; ceux des autres portent la couleur de leur pompier. La <b>mini-carte</b> (en bas à gauche) montre feux, casernes et véhicules : un clic dessus y déplace la vue, <kbd>C</kbd> ramène sur ta caserne. <b>Entraide</b> : <kbd>B</kbd> (ou 🆘 Renforts) demande un type de véhicule à un endroit — le premier coéquipier qui y envoie le sien répond à l'appel ; <kbd>T</kbd> ouvre les messages rapides ; 🔒 dans la liste réserve un avion commun 60 s. Une fois par mission, un <b>feu majeur</b> démarre entre deux secteurs. En fin de partie, un <b>bilan par pompier</b> (ordres, renforts, évacués, secours, bâtiments sauvés, foyers éteints, dégâts). Coupure ou page rechargée : tu as 2 minutes pour reprendre ta place. <kbd>Maj</kbd> + clic (ou <kbd>G</kbd>) pose un repère visible par toute l'équipe. <kbd>P</kbd> met la partie en pause pour tout le monde ; seul l'hôte règle la vitesse et relance.</p>
+      <h3>Commandes</h3><p><kbd>Clic</kbd> envoyer · <kbd>Clic droit</kbd> pivoter · <kbd>Clic milieu</kbd> déplacer · <kbd>Molette</kbd> zoom · <kbd>1</kbd>–<kbd>8</kbd> type de véhicule · <kbd>E</kbd> évacuer · <kbd>C</kbd> caserne · <kbd>Q</kbd> qualité · <kbd>F</kbd> vitesse ×2 · <kbd>P</kbd>/<kbd>Échap</kbd> pause · <kbd>R</kbd> recommencer · <kbd>M</kbd> menu · à l'accueil, <kbd>Entrée</kbd> lance la carte choisie</p>`;
   } else if (!MP.active) { paused = false; }
 }
 $('#help-overlay .x').onclick = () => toggleHelp(false);
 
 // ─── Accueil ───────────────────────────────────────────────────
-function buildHome() {
-  const box = $('#map-cards'); box.innerHTML = '';
-  for (const [id, m] of Object.entries(MAPS)) {
-    if (m.mp) continue;   // cartes multijoueur : depuis le salon
-    const un = unlocked(id); let sel = un;
-    const card = document.createElement('div');
-    card.className = 'map-card glass';
-    const best = store.get('best_' + id, 0);
-    card.innerHTML = `
-      <div class="art" style="background:${{ village: 'linear-gradient(135deg,#2e5d2a,#6f9a48)', ville: 'linear-gradient(135deg,#37474f,#90a4ae)', port: 'linear-gradient(135deg,#0d47a1,#4fc3f7)', montagne: 'linear-gradient(135deg,#4e342e,#8d8a86)', massif: 'linear-gradient(135deg,#1b3d18,#5b7d3a)', cote: 'linear-gradient(135deg,#c9a86a,#2f7fc4)' }[id]}">
-        <img src="assets/map-${id}.jpg" alt="" onerror="this.remove()"><span style="position:relative">${m.icon}</span></div>
-      <div class="body">
-        <div class="top"><h3>${m.name}</h3><span class="badge b${m.diff}">${m.badge}</span></div>
-        <div class="desc">${m.desc}</div>
-        <div class="best">${best ? '🏆 Meilleur score : ' + best : 'Jamais jouée'}</div>
-        <div class="dots">${Array.from({ length: 10 }, (_, q) => `<button class="dot ${q + 1 === sel ? 'sel' : ''} ${q + 1 > un ? 'off' : ''}" data-l="${q + 1}">${q + 1}</button>`).join('')}</div>
-        <div class="lvl-info"></div>
-        <label class="night-chk" title="De nuit, Canadair, hélicos et avion de retardant restent au sol ; le feu est un peu plus lent ; points ×1,3"><input type="checkbox"> 🌙 De nuit (sans avions, points ×1,3)</label>
-        <button class="play"></button>
-      </div>`;
-    const info = () => {
-      const c = levelCfg(id, sel);
-      card.querySelector('.lvl-info').textContent = `Niveau ${sel} · ` + (isFinite(c.duration) ? fmt(c.duration) + ' à tenir' : 'sans fin') + ` · alerte toutes les ~${Math.round(c.interval)} s`;
-      card.querySelector('.play').textContent = '▶ Jouer le niveau ' + sel;
-    };
-    info();
-    card.querySelectorAll('.dot').forEach(d => d.onclick = e => {
-      e.stopPropagation();
-      if (d.classList.contains('off')) return;
-      sel = +d.dataset.l;
-      card.querySelectorAll('.dot').forEach(o => o.classList.toggle('sel', o === d));
-      info();
-    });
-    const chk = card.querySelector('.night-chk input');
-    card.querySelector('.night-chk').onclick = e => e.stopPropagation();
-    const go = () => { nightMode = chk.checked; startGame(id, sel); };
-    card.querySelector('.play').onclick = e => { e.stopPropagation(); go(); };
-    card.onclick = go;
-    box.appendChild(card);
-  }
-
-  // ── Tuile « Aléatoire » : une carte au hasard, à son plus haut niveau débloqué ──
-  const ids = Object.keys(MAPS).filter(id => !MAPS[id].mp), lastMap = store.get('last_map', null);
-  const rnd = document.createElement('div');
-  rnd.className = 'map-card glass random-card';
-  rnd.innerHTML = `
-    <div class="art random-art">
-      <div class="mosaic">${ids.map(id => `<img src="assets/map-${id}.jpg" alt="" onerror="this.style.visibility='hidden'">`).join('')}</div>
-      <span class="dice">🎲</span></div>
-    <div class="body">
-      <div class="top"><h3>Aléatoire</h3><span class="badge brnd">🎲 Surprise</span></div>
-      <div class="desc">Une carte tirée au hasard parmi les ${ids.length}, jamais deux fois de suite la même, au plus haut niveau que vous y avez débloqué.</div>
-      <button class="play">▶ Carte au hasard</button>
-    </div>`;
-  const playRandom = e => {
-    if (e) e.stopPropagation();
-    // NATIVE_RANDOM : le tirage ne consomme pas la graine (?seed=N) qui génère la carte
-    const pool = ids.length > 1 ? ids.filter(id => id !== lastMap) : ids;
-    const id = pool[Math.floor(NATIVE_RANDOM() * pool.length)], lvl = unlocked(id);
-    nightMode = false; startGame(id, lvl);
-    flash(`🎲 ${MAPS[id].icon} ${MAPS[id].name} — niveau ${lvl}`, 2600);
-  };
-  rnd.querySelector('.play').onclick = playRandom;
-  rnd.onclick = playRandom;
-  box.appendChild(rnd);
-  mpHomeCard(box);
-  garageCard(box);
-  leaderCard(box);
-  qualityPill();
-}
+// (accueil : voir menu.js)
 
 // ─── Boucle ────────────────────────────────────────────────────
 let last = performance.now();
@@ -5005,6 +4986,116 @@ async function openLeaders() {
 }
 
 
+// ═══════════════════════════════════════════════════════════════
+// Accueil : barre du haut, liste des cartes à gauche, carte choisie en détail à droite
+// ═══════════════════════════════════════════════════════════════
+const ART = { village: 'linear-gradient(135deg,#2e5d2a,#6f9a48)', ville: 'linear-gradient(135deg,#37474f,#90a4ae)', port: 'linear-gradient(135deg,#0d47a1,#4fc3f7)', montagne: 'linear-gradient(135deg,#4e342e,#8d8a86)', massif: 'linear-gradient(135deg,#1b3d18,#5b7d3a)', cote: 'linear-gradient(135deg,#c9a86a,#2f7fc4)', mp_foret: 'linear-gradient(135deg,#1b3d18,#6f9a48)', mp_littoral: 'linear-gradient(135deg,#c9a86a,#1565c0)', mp_montagne: 'linear-gradient(135deg,#3e2723,#9e9e9e)', mp_metro: 'linear-gradient(135deg,#263238,#78909c)' };
+const menu = { tab: store.get('menu_tab', 'solo'), sel: null, level: {}, night: false };
+function buildHome() {
+  const home = $('#home');
+  if (!$('#home-top')) {
+    home.innerHTML = `<div id="home-top"></div><div id="home-main"></div><div id="home-version">v${GAME_VERSION}</div>`;
+  }
+  const solo = Object.keys(MAPS).filter(id => !MAPS[id].mp), multi = Object.keys(MAPS).filter(id => MAPS[id].mp);
+  if (menu.tab !== 'multi') menu.tab = 'solo';
+  const ids = menu.tab === 'solo' ? solo : multi;
+  if (!menu.sel || (menu.sel !== 'random' && !ids.includes(menu.sel))) menu.sel = menu.tab === 'solo' ? (solo.includes(store.get('last_map', '')) ? store.get('last_map', '') : solo[0]) : multi[0];
+  // ── barre du haut ──
+  const nUp = Object.keys(ownedUp()).length;
+  $('#home-top').innerHTML = `
+    <div class="ht-logo">🚒 <span>FIREFIGHTER</span></div>
+    <div class="ht-tabs">
+      <button data-tab="solo" class="${menu.tab === 'solo' ? 'on' : ''}">🚒 Solo</button>
+      <button data-tab="multi" class="${menu.tab === 'multi' ? 'on' : ''}">👥 Multijoueur</button>
+    </div>
+    <div class="ht-tools">
+      <button data-t="garage" title="Améliorations de la caserne (solo) : ${nUp} sur ${UPGRADES.length}">🔧 Caserne <b>💰 ${credits()}</b></button>
+      <button data-t="lb" title="Classement en ligne">🏆 Classement</button>
+      <button data-t="q" title="Qualité graphique (touche Q en partie)">⚙️ ${Q().label}</button>
+      <button data-t="help" title="Aide">❓</button>
+    </div>`;
+  $('#home-top').querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { menu.tab = b.dataset.tab; store.set('menu_tab', menu.tab); menu.sel = null; buildHome(); });
+  $('#home-top').querySelector('[data-t=garage]').onclick = openGarage;
+  $('#home-top').querySelector('[data-t=lb]').onclick = () => { if (menu.sel && MAPS[menu.sel]) { lbSel.map = menu.sel; lbSel.level = menu.level[menu.sel] || 1; lbSel.mode = MAPS[menu.sel].mp ? 'coop' : 'solo'; } openLeaders(); };
+  $('#home-top').querySelector('[data-t=q]').onclick = () => { cycleQuality(); buildHome(); };
+  $('#home-top').querySelector('[data-t=help]').onclick = () => toggleHelp(true);
+  // ── liste ──
+  const row = id => {
+    const m = MAPS[id], un = unlocked(id), best = store.get('best_' + id, 0);
+    return `<button class="ml-row ${menu.sel === id ? 'on' : ''}" data-id="${id}">
+      <span class="ml-ic" style="background:${ART[id]}"><img src="assets/map-${id}.jpg" alt="" onerror="this.remove()"><i>${m.icon}</i></span>
+      <span class="ml-tx"><b>${m.name}</b><small>${m.mp ? '192 × 192 · une ville par joueur' : `niveau ${un} / 10${best ? ' · 🏆 ' + best : ''}`}</small></span>
+      <span class="ml-st">${m.mp ? '👥' : '⭐'.repeat(m.diff)}</span></button>`;
+  };
+  let list;
+  if (menu.tab === 'solo') {
+    list = `<div class="ml-h">Cartes</div>${solo.filter(id => !MAPS[id].size).map(row).join('')}
+      <div class="ml-h">Grandes cartes · 96 × 96</div>${solo.filter(id => MAPS[id].size).map(row).join('')}
+      <div class="ml-sep"></div>
+      <button class="ml-row ${menu.sel === 'random' ? 'on' : ''}" data-id="random"><span class="ml-ic" style="background:linear-gradient(135deg,#7e57c2,#ff7a2e)"><i>🎲</i></span><span class="ml-tx"><b>Au hasard</b><small>une carte surprise, à ton meilleur niveau</small></span><span class="ml-st"></span></button>`;
+  } else list = `<div class="ml-h">Cartes multijoueur</div>${multi.map(row).join('')}`;
+  // ── détail ──
+  $('#home-main').innerHTML = `<div id="map-list" class="glass">${list}</div><div id="map-detail" class="glass">${detailHtml()}</div>`;
+  $('#map-list').querySelectorAll('[data-id]').forEach(b => b.onclick = () => { menu.sel = b.dataset.id; buildHome(); });
+  bindDetail();
+}
+function detailHtml() {
+  const id = menu.sel;
+  const night = `<label class="md-night" title="De nuit, Canadair, hélicos et avion de retardant restent au sol ; le feu est un peu plus lent ; points ×1,3"><input type="checkbox" id="md-night" ${menu.night ? 'checked' : ''}> 🌙 Mission de nuit <small>sans avions, points ×1,3</small></label>`;
+  if (id === 'random') {
+    const ids = Object.keys(MAPS).filter(k => !MAPS[k].mp);
+    return `<div class="md-art random-art"><div class="mosaic">${ids.map(k => `<img src="assets/map-${k}.jpg" alt="" onerror="this.style.visibility='hidden'">`).join('')}</div><span class="dice">🎲</span></div>
+      <div class="md-body"><div class="md-top"><h2>Au hasard</h2><span class="badge brnd">🎲 Surprise</span></div>
+      <p class="md-desc">Une carte tirée parmi les ${ids.length}, jamais deux fois de suite la même, au plus haut niveau que tu y as débloqué.</p>
+      ${night}<button class="md-play" data-a="random">▶ Carte au hasard</button></div>`;
+  }
+  const m = MAPS[id];
+  if (m.mp) {
+    return `<div class="md-art" style="background:${ART[id]}"><img src="assets/map-${id}.jpg" alt="" onerror="this.remove()"><span>${m.icon}</span></div>
+      <div class="md-body"><div class="md-top"><h2>${m.name}</h2><span class="badge bmp">👥 Coop 2-4</span></div>
+      <p class="md-desc">${m.desc}</p>
+      <ul class="md-facts"><li>🏠 Une ville et une caserne par joueur, loin des autres</li><li>✈️ Canadair et avion de retardant communs, à l'aérodrome</li><li>🆘 Renforts, feu majeur entre deux secteurs, bilan par pompier</li><li>👁 Spectateurs possibles, même en cours de partie</li></ul>
+      <p class="md-note">L'hôte choisit la carte, le niveau et la nuit dans le salon. Les autres le rejoignent avec un code de 4 lettres.</p>
+      <button class="md-play" data-a="mp">👥 Ouvrir le salon</button></div>`;
+  }
+  const un = unlocked(id), lv = Math.min(menu.level[id] || un, un), c = levelCfg(id, lv), best = store.get('best_' + id, 0);
+  menu.level[id] = lv;
+  return `<div class="md-art" style="background:${ART[id]}"><img src="assets/map-${id}.jpg" alt="" onerror="this.remove()"><span>${m.icon}</span></div>
+    <div class="md-body"><div class="md-top"><h2>${m.name}</h2><span class="badge b${m.diff}">${m.badge}</span></div>
+    <p class="md-desc">${m.desc}</p>
+    <div class="md-lvl"><span>Niveau</span><div class="dots">${Array.from({ length: 10 }, (_, q) => `<button class="dot ${q + 1 === lv ? 'sel' : ''} ${q + 1 > un ? 'off' : ''}" data-l="${q + 1}" title="${q + 1 > un ? 'À débloquer' : 'Niveau ' + (q + 1)}">${q + 1}</button>`).join('')}</div></div>
+    <div class="md-info">⏱️ ${isFinite(c.duration) ? fmt(c.duration) + ' à tenir' : 'sans fin'} · 🚨 alerte toutes les ~${Math.round(c.interval)} s · 💔 ${c.victims - 1} victime${c.victims > 2 ? 's' : ''} tolérée${c.victims > 2 ? 's' : ''}</div>
+    ${night}
+    <div class="md-best">${best ? '🏆 Ton record : <b>' + best + '</b>' : 'Jamais jouée'}</div>
+    <button class="md-play" data-a="play">▶ Jouer le niveau ${lv}</button></div>`;
+}
+function bindDetail() {
+  const d = $('#map-detail'), id = menu.sel;
+  const n = d.querySelector('#md-night'); if (n) n.onchange = () => { menu.night = n.checked; };
+  d.querySelectorAll('.dot').forEach(b => b.onclick = () => { if (b.classList.contains('off')) return; menu.level[id] = +b.dataset.l; d.innerHTML = detailHtml(); bindDetail(); });
+  const p = d.querySelector('.md-play');
+  p.onclick = () => {
+    const a = p.dataset.a;
+    if (a === 'mp') { MP.cfg.map = id; mpOpen(); return; }
+    nightMode = menu.night;
+    if (a === 'play') { startGame(id, menu.level[id]); return; }
+    // au hasard : NATIVE_RANDOM ne consomme pas la graine (?seed=N) qui génère la carte
+    const ids = Object.keys(MAPS).filter(k => !MAPS[k].mp), lastMap = store.get('last_map', null);
+    const pool = ids.length > 1 ? ids.filter(k => k !== lastMap) : ids;
+    const pick = pool[Math.floor(NATIVE_RANDOM() * pool.length)], lvl = unlocked(pick);
+    startGame(pick, lvl);
+    flash(`🎲 ${MAPS[pick].icon} ${MAPS[pick].name} — niveau ${lvl}`, 2600);
+  };
+}
+// Entrée = jouer la carte choisie (à l'accueil)
+addEventListener('keydown', e => {
+  if (currentMap || e.key !== 'Enter' || !$('#home') || $('#home').classList.contains('hidden')) return;
+  if (['#mp-overlay', '#garage-overlay', '#lb-overlay', '#help-overlay'].some(s => $(s) && $(s).classList.contains('show'))) return;
+  if (document.activeElement && /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) return;
+  const p = $('.md-play'); if (p) p.click();
+});
+
+
 // ─── Démarrage ─────────────────────────────────────────────────
 applyQuality(false);
 buildHome();
@@ -5021,7 +5112,7 @@ requestAnimationFrame(frame);
 window.__ffProject = (x, z) => { const v = new THREE.Vector3(x, groundAt(x, z), z).project(camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; };
 window.__ff = { get world() { return world; }, get vehicles() { return vehicles; }, get stats() { return stats; }, get incidents() { return incidents; }, get accidents() { return accidents; },
   startGame, dispatch, goHome, igniteBuilding, meteo, run(sec, ai) { paused = true; const n = Math.round(sec / 0.1); for (let q = 0; q < n && !gameOver; q++) { if (ai) ai(); simStep(0.1); } paused = false; }, spawnIncident, makeIncident, sendTo, get burning() { return burning; }, setElapsed: v => { elapsed = v; }, get elapsed() { return elapsed; }, setSpeed: s => { gameSpeed = s; },
-  setNight: b => { nightMode = b; }, evacOrder, majorFactory, majorPileup, majorCamp, explodeFactory, get camps() { return camps; }, openGarage, credits, get major() { return major; }, get quality() { return quality; }, cycleQuality, scoresUrl, MP, mpPing, mpHostStart, mpHelp, mpReserve, mpChat, mpSimHook, setGenPlayers: n => { GEN_PLAYERS = n; }, gridPath, costFn, get N() { return N; }, get paused() { return paused; }, get gameOver() { return gameOver; } };
+  setNight: b => { nightMode = b; }, evacOrder, majorFactory, majorPileup, majorCamp, explodeFactory, get camps() { return camps; }, openGarage, credits, get major() { return major; }, get quality() { return quality; }, camera, controls, cycleQuality, scoresUrl, MP, mpPing, mpHostStart, mpHelp, mpReserve, mpChat, mpSimHook, setGenPlayers: n => { GEN_PLAYERS = n; }, gridPath, costFn, get N() { return N; }, get paused() { return paused; }, get gameOver() { return gameOver; } };
 
 </script>
 </body>

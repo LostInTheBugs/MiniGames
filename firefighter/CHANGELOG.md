@@ -2,6 +2,17 @@
 
 All notable changes to Firefighter are documented in this file.
 
+## [2026.11.001] — 2026-11-01
+
+### Changed
+- **New home screen**, laid out like a game menu instead of ten identical tiles:
+  - top bar: **Solo / Multijoueur** tabs, then 🔧 Caserne (with your credits), 🏆 Classement, ⚙️ graphics quality and ❓ help
+  - left: the list of maps (small maps, large maps, « Au hasard »), each with its thumbnail, difficulty, level reached and record
+  - right: the selected map in large with its description, level picker, time to hold / alert rate / tolerated victims, the night-mission option and a single **Jouer** button (**Enter** also starts it)
+  - the Multijoueur tab lists the four co-op maps and opens the room with the chosen map preselected
+  - the last map played stays selected; on narrow screens the list and the detail stack
+- Thumbnails for the four co-op maps
+
 ## [2026.10.010] — 2026-10-31
 
 ### Added — third wave: comfort
