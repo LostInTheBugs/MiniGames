@@ -2,6 +2,26 @@
 
 All notable changes to Firefighter are documented in this file.
 
+## [2026.10.004] — 2026-10-31
+
+### Added
+- **Weather**: drought level per map and level (yellows the vegetation, speeds up spread, dries water faster), wind gusts (« Rafales : le feu s'emballe »), rain showers (slow the fire, put out small fires, wet everything, darker sky and rain), wind slowly turning. Shown under the compass and in the start message
+- **Embers**: with strong wind and drought, a burning forest throws embers 2–5 cells downwind that light vegetation or a roof — this is how a forest fire reaches a town; a building reached by the fire raises its own alert
+- **Trapped occupants**: each building has occupants; when it burns some get out alone (and house occupants keep getting out while the fire is moderate), the others stay trapped — shown in the alert and the left panel. The fire engine evacuates up to the 3rd floor, the aerial ladder at every floor; people still inside when the building collapses are victims
+- **Road accidents in two steps**: trapped victims must first be cut out by the fire engine, then treated by the light vehicle (the engine also treats, slowly); the banner says which step is missing
+- **Trucks caught in the fire**: heat damages a truck (the forest fire truck is protected); badly damaged it retreats to the station for repairs, at 0 it is lost (−300 points)
+- **Firebreaks**: a water truck sent where nothing burns wets the vegetation (and buildings) around it
+- **Two large maps (96 × 96)** with two fire stations, an airfield and longer missions: **Massif forestier** (three villages in a wooded massif, lakes) and **Côte méditerranéenne** (three seaside towns, a small harbour, pine woods and scrub on the hills, offshore wind)
+- **Retardant aircraft** (large maps, key 7): drops a 14-cell red strip of retardant that makes vegetation almost fireproof for 2 minutes (washed out faster by rain); reloads at the airfield; aiming preview in pink
+- The Aléatoire tile now draws among 6 maps
+
+### Changed
+- The water-bombing helicopter now always refills its bucket on water (no more refill at the helipad)
+- Light vehicle renamed « Véhicule léger (secours) » (🚑): it treats the victims, the fire engine cuts them out
+- Victims tolerated: 3 (levels 1–3), 2 (4–6), 1 (7–8), none (9–10)
+- Trucks return to the nearest station; refill points are every station and hydrant
+- Balance checked on every map: an idle player loses every time; a simple automatic player wins the small maps up to level 6 and the large maps at level 1
+
 ## [2026.10.003] — 2026-10-31
 
 ### Fixed

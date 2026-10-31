@@ -5,7 +5,7 @@ A collection of self-contained web mini-games — pure HTML5/Canvas browser game
 | Game | Folder | Version | Notes |
 | ---- | ------ | ------- | ----- |
 | 🐱 **CatAdventure** | [`catadventure/`](catadventure/) | 2026.09.001-c2 | 2D platformer — a cat explores a city, collects fish and avoids obstacles. Pure HTML5 Canvas, no dependencies. |
-| 🚒 **Firefighter** | [`firefighter/`](firefighter/) | 2026.10.003 | 3D fire and rescue dispatch game — send canadairs, helicopters and fire engines to forest fires, burning buildings and road accidents. Three.js (loaded via import map). |
+| 🚒 **Firefighter** | [`firefighter/`](firefighter/) | 2026.10.004 | 3D fire and rescue dispatch game — send canadairs, helicopters and fire engines to forest fires, burning buildings and road accidents. Three.js (loaded via import map). |
 | 🌊 **Flood City** | [`floodcity/`](floodcity/) | 2026.10.013 | 3D flood-defense game — build walls, dig trenches and protect your city from the waves. Three.js (loaded via import map). |
 | 🐸 **Frogger** | [`frogger/`](frogger/) | 2026.09.001-c2 | Remake of the classic arcade crossing game — five road lanes, five river lanes and six homes. Pure HTML5 Canvas, no dependencies. |
 
@@ -14,7 +14,7 @@ A collection of self-contained web mini-games — pure HTML5/Canvas browser game
 Each game is versioned independently with the `YEAR.MONTH.NNN` scheme and released from this repository with a per-game tag:
 
 - `catadventure-2026.09.001-c2`
-- `firefighter-2026.10.003`
+- `firefighter-2026.10.004`
 - `floodcity-2026.10.013`
 - `frogger-2026.09.001-c2`
 
