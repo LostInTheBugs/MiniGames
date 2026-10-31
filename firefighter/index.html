@@ -163,6 +163,9 @@
   .vrow.other { cursor: default; opacity: 0.62; }
   .vrow .vo { font-size: 0.85em; font-weight: 600; }
   @media (max-width: 900px) { #mpbar { max-width: 60vw; bottom: 130px; } #mpbar .mp-hint { display: none; } }
+  #minimap { position: fixed; left: 14px; bottom: 100px; z-index: 10; display: none; padding: 6px; cursor: crosshair; }
+  #minimap canvas { display: block; width: 180px; height: 180px; border-radius: 8px; }
+  @media (max-height: 640px) { #minimap canvas { width: 130px; height: 130px; } }
   /* ─── Version update notification ──────────────────────── */
   #version-banner {
     position: fixed; bottom: 24px; right: 24px;
@@ -371,7 +374,7 @@
 <div id="vlist" class="glass"></div>
 <div id="fleet" class="glass"></div>
 <div id="message" class="glass"></div>
-<div id="controls" class="glass">🖱️ <kbd>Clic</kbd> envoyer · <kbd>Clic droit</kbd> pivoter · <kbd>Molette</kbd> zoom · <kbd>Clic milieu</kbd> déplacer · <kbd>1</kbd>–<kbd>7</kbd> véhicule · <kbd>F</kbd> vitesse ×2 · <kbd>P</kbd> pause · <kbd>H</kbd> aide · <kbd>R</kbd> recommencer · <kbd>M</kbd> menu</div>
+<div id="controls" class="glass">🖱️ <kbd>Clic</kbd> envoyer · <kbd>Clic droit</kbd> pivoter · <kbd>Molette</kbd> zoom · <kbd>Clic milieu</kbd> déplacer · <kbd>1</kbd>–<kbd>7</kbd> véhicule · <kbd>F</kbd> vitesse ×2 · <kbd>P</kbd> pause · <kbd>H</kbd> aide · <kbd>R</kbd> recommencer · <kbd>C</kbd> caserne · <kbd>M</kbd> menu</div>
 <div id="pause-overlay">⏸ Pause</div>
 
 <div id="end-overlay"><div id="end-panel" class="glass"></div></div>
@@ -422,7 +425,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 // ─── Version ──────────────────────────────────────────────────
-const GAME_VERSION = "2026.10.006";
+const GAME_VERSION = "2026.10.007";
 document.querySelector("meta[name=version]").setAttribute("content", GAME_VERSION);
 document.getElementById('home-version').textContent = 'v' + GAME_VERSION;
 console.log("Firefighter v" + GAME_VERSION);
@@ -536,7 +539,42 @@ const MAPS = {
     spread: 1.1, lostBonus: 3,
     climate: { drought: 0.7, rain: 0.15, wind: 1.35 },
   },
+  // ── Cartes multijoueur (192 × 192) : une ville et une caserne par joueur, aérodrome commun ──
+  // fleetPer : flotte de chaque caserne ; fleetShared : avions de l'aérodrome, à toute l'équipe
+  mp_foret: {
+    name: 'Région forestière', icon: '🌲', diff: 3, badge: '👥 192 × 192', size: 192, mp: true,
+    desc: 'Un immense massif boisé semé de lacs. Chaque pompier défend sa ville au fond d\'une vallée ; les feux de forêt passent d\'un secteur à l\'autre.',
+    fleetPer: { helico: 1, ccf: 2, vl: 1, epa: 1, fpt: 2 }, fleetShared: { canadair: 2, tanker: 1 },
+    incidents: { forest: 8, house: 3, tower: 1, accident: 3 },
+    spread: 0.95, lostBonus: 2,
+    climate: { drought: 0.55, rain: 0.3, wind: 1.1 },
+  },
+  mp_littoral: {
+    name: 'Littoral', icon: '🏖️', diff: 3, badge: '👥 192 × 192', size: 192, mp: true,
+    desc: 'Villes portuaires sur la côte et villages dans les collines de pins et de garrigue. Le vent de terre pousse le feu vers la mer et les plages.',
+    fleetPer: { helico: 1, ccf: 2, vl: 1, epa: 1, fpt: 2 }, fleetShared: { canadair: 3, tanker: 1 },
+    incidents: { forest: 7, house: 3, tower: 2, warehouse: 1, boat: 1, accident: 3 },
+    spread: 1.05, lostBonus: 2,
+    climate: { drought: 0.7, rain: 0.15, wind: 1.35 },
+  },
+  mp_montagne: {
+    name: 'Vallées de montagne', icon: '⛰️', diff: 3, badge: '👥 192 × 192', size: 192, mp: true,
+    desc: 'Une ville par vallée, séparées par des crêtes rocheuses. Les camions peinent sur les routes en lacets : hélicos et avions font la différence.',
+    fleetPer: { helico: 1, ccf: 2, vl: 1, epa: 1, fpt: 1 }, fleetShared: { canadair: 3, tanker: 1 },
+    incidents: { forest: 8, house: 2, tower: 1, accident: 3 },
+    spread: 1.1, lostBonus: 3,
+    climate: { drought: 0.55, rain: 0.3, wind: 1.2 },
+  },
+  mp_metro: {
+    name: 'Métropole et banlieues', icon: '🏙️', diff: 3, badge: '👥 192 × 192', size: 192, mp: true,
+    desc: 'Une grande ville au centre, traversée par un fleuve, et ses villes de banlieue tout autour. Peu de forêt, beaucoup d\'immeubles et d\'accidents.',
+    fleetPer: { helico: 1, ccf: 1, vl: 2, epa: 2, fpt: 3 }, fleetShared: { canadair: 2, tanker: 1 },
+    incidents: { forest: 2, house: 3, tower: 4, warehouse: 1, accident: 5 },
+    spread: 0.85, lostBonus: 2,
+    climate: { drought: 0.4, rain: 0.35, wind: 0.9 },
+  },
 };
+let GEN_PLAYERS = 1;   // nombre de joueurs pour lequel on génère une carte multijoueur (une ville chacun)
 
 let world = null;   // données de la carte courante
 
@@ -618,7 +656,9 @@ function station(w, i0, j0) {
 }
 function heliport(w, i0, j0) {
   for (let j = j0; j < j0 + 2; j++) for (let i = i0; i < i0 + 2; i++) setType(w, i, j, T.QUAY);
-  w.heliport = { x: cx(i0) + 0.5, z: cz(j0) + 0.5 };
+  const h = { x: cx(i0) + 0.5, z: cz(j0) + 0.5 };
+  if (!w.heliport) w.heliport = h;
+  (w.heliports = w.heliports || []).push(h);
 }
 // Aérodrome : piste orientée est-ouest (cases de quai), sommets aplanis ; l'avion de retardant s'y recharge
 function airbase(w, i0, j0, len) {
@@ -907,6 +947,7 @@ function generateWorld(mapId, level) {
   setGrid(MAPS[mapId].size || 48);
   reseed(level * 101 + Object.keys(MAPS).indexOf(mapId));
   const w = newWorld();
+  w.np = MAPS[mapId].mp ? Math.max(1, Math.min(4, GEN_PLAYERS)) : 1;
   GEN[mapId](w);
   // bâtiments : couleurs et combustible des cases
   for (const b of w.buildings) {
@@ -919,7 +960,7 @@ function generateWorld(mapId, level) {
   for (let k = 0; k < N * N; k++) w.fuel[k] = FUEL[w.type[k]];
   // arbres : 1 à 2 par case de forêt, position et taille tirées maintenant
   for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) if (w.type[idx(i, j)] === T.FOREST) {
-    const n = Math.random() < 0.55 ? 2 : 1;
+    const n = Math.random() < 0.55 && N <= 96 ? 2 : 1;   // cartes 192 × 192 : un arbre par case (fluidité)
     for (let t = 0; t < n; t++) w.trees.push({ k: idx(i, j), x: cx(i) + (Math.random() - 0.5) * 0.7, z: cz(j) + (Math.random() - 0.5) * 0.7, s: 0.75 + Math.random() * 0.55 });
   }
   // eau : abaisser les sommets entièrement entourés d'eau
@@ -943,6 +984,15 @@ function generateWorld(mapId, level) {
     : b.kind === 'tower' ? Math.round(b.floors * (1 + Math.random())) : b.kind === 'warehouse' ? Math.floor(Math.random() * 3)
     : b.kind === 'boat' ? Math.floor(Math.random() * 2) : 0;
   w.stations = w.stations || [w.station];
+  // cartes multijoueur : chaque case appartient au secteur de la ville la plus proche
+  if (w.towns) {
+    w.region = new Uint8Array(N * N);
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+      let best = 0, bd = Infinity;
+      w.towns.forEach((t, q) => { const d = Math.hypot(i - t.ci, j - t.cj); if (d < bd) { bd = d; best = q; } });
+      w.region[idx(i, j)] = best;
+    }
+  }
   return w;
 }
 
@@ -954,6 +1004,223 @@ function groundAt(x, z) {
   return a * (1 - u) * (1 - v) + b * u * (1 - v) + c * (1 - u) * v + d * u * v;
 }
 function cellH(i, j) { return groundAt(cx(i), cz(j)); }
+
+// ─── Cartes multijoueur (192 × 192) ───────────────────────────
+// Une ville et une caserne par joueur (w.np), un aérodrome commun. w.towns[q] ↔ w.stations[q]
+const MP_LAYOUT = {   // villes, aérodrome, lacs [i, j, r] selon le nombre de joueurs
+  1: { towns: [[96, 96]], air: [28, 170], lakes: [[140, 60, 8], [58, 140, 6]] },
+  2: { towns: [[48, 96], [144, 96]], air: [87, 162], lakes: [[96, 70, 9], [62, 132, 5], [130, 60, 5]] },
+  3: { towns: [[50, 56], [142, 56], [96, 148]], air: [36, 118], lakes: [[96, 94, 9], [146, 120, 5]] },
+  4: { towns: [[48, 48], [144, 48], [48, 144], [144, 144]], air: [87, 92], lakes: [[96, 130, 8], [96, 60, 6]] },
+};
+const smoothstep = t => { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); };
+function cellHeightFn(w) { const W = N + 1; return (i, j) => (w.hv[j * W + i] + w.hv[j * W + i + 1] + w.hv[(j + 1) * W + i] + w.hv[(j + 1) * W + i + 1]) / 4; }
+function jitter(list, a) { return list.map(([i, j]) => [i + Math.round((Math.random() - 0.5) * a), j + Math.round((Math.random() - 0.5) * a)]); }
+function clearDisk(w, ci, cj, r) {
+  for (let j = cj - r; j <= cj + r; j++) for (let i = ci - r; i <= ci + r; i++)
+    if (inb(i, j) && Math.hypot(i - ci, j - cj) <= r && [T.FOREST, T.FIELD, T.ROCK].includes(w.type[idx(i, j)])) w.type[idx(i, j)] = T.GRASS;
+}
+// Ville : damier de rues dans un disque de rayon r, une rue toutes les g cases
+function town(w, ci, cj, r, g) {
+  clearDisk(w, ci, cj, r + 2);
+  for (let d = -r; d <= r; d += g) {
+    const hw = Math.floor(Math.sqrt(r * r - d * d));
+    road(w, ci - hw, cj + d, ci + hw, cj + d); road(w, ci + d, cj - hw, ci + d, cj + hw);
+  }
+}
+// Caserne au plus près du centre, le long d'une rue (repli : on dégage la place)
+function placeStation(w, ci, cj, r) {
+  const ok = [T.GRASS, T.FIELD, T.FOREST, T.SAND];
+  for (let rad = 1; rad < r; rad++) for (let dj = -rad; dj <= rad; dj++) for (let di = -rad; di <= rad; di++) {
+    if (Math.max(Math.abs(di), Math.abs(dj)) !== rad) continue;
+    if (free(w, ci + di, cj + dj, 3, 2, ok) && nearRoad(w, ci + di, cj + dj, 3, 2)) { station(w, ci + di, cj + dj); return w.stations[w.stations.length - 1]; }
+  }
+  for (let j = cj + 1; j < cj + 3; j++) for (let i = ci + 1; i < ci + 4; i++) if (inb(i, j) && w.bld[idx(i, j)] < 0) w.type[idx(i, j)] = T.GRASS;
+  station(w, ci + 1, cj + 1);
+  return w.stations[w.stations.length - 1];
+}
+function placeHeli(w, st) {
+  for (let r = 2; r < 12; r++) for (let dj = -r; dj <= r; dj++) for (let di = -r; di <= r; di++)
+    if (free(w, st.i0 + di, st.j0 + dj, 2, 2, [T.GRASS, T.FIELD, T.FOREST])) { heliport(w, st.i0 + di, st.j0 + dj); return; }
+  heliport(w, st.i0, st.j0 - 3);
+}
+function townBuildings(w, ci, cj, r, towerP, floors, prob) {
+  lineBuildings(w, { i0: ci - r, j0: cj - r, i1: ci + r, j1: cj + r }, prob || 0.6, (i, j) => {
+    const c = Math.hypot(i - ci, j - cj) < r * 0.45;
+    return Math.random() < (c ? towerP : towerP * 0.3) ? ['tower', 2, 2, floors + Math.floor(Math.random() * 3)] : ['house', 2, 2, 1];
+  }, [T.GRASS, T.FIELD, T.FOREST, T.SAND]);
+}
+function townHydrants(w, ci, cj, r) {
+  const out = [];
+  for (const [di, dj] of [[-1, 0], [1, 0], [0, -1], [0, 1], [1, 1]]) {
+    for (let s = Math.round(r * 0.5); s >= 0; s--) {
+      const i = ci + di * s, j = cj + dj * s;
+      if (inb(i, j) && w.type[idx(i, j)] === T.ROAD) { out.push([i, j]); break; }
+    }
+  }
+  return out;
+}
+// Relie les villes entre elles (anneau), à l'aérodrome et aux bords de la carte
+function mpRoads(w, towns, cost, extra) {
+  const P = towns.length;
+  for (let q = 0; q < P; q++) if (P > 1 && (P > 2 || q === 0)) paintRoad(w, gridPath(cost, towns[q], towns[(q + 1) % P], 250000));
+  for (const [a, b] of extra || []) paintRoad(w, gridPath(cost, a, b, 250000));
+}
+function mpFinish(w, towns, r, opts) {
+  w.towns = towns.map(([ci, cj]) => ({ ci, cj, r }));
+  for (const [ci, cj] of towns) { const st = placeStation(w, ci, cj, r); placeHeli(w, st); }
+  towns.forEach(([ci, cj], q) => townBuildings(w, ci, cj, r + 2, opts.towerP, opts.floors, opts.prob));
+  lineBuildings(w, { i0: 2, j0: 2, i1: N - 3, j1: N - 3 }, opts.scatter || 0.012, () => ['house', 2, 2, 1], [T.GRASS, T.FIELD, T.FOREST]);
+  w.hydrants = towns.flatMap(([ci, cj]) => townHydrants(w, ci, cj, r));
+  ensureLinked(w);
+}
+
+// Garantit que toutes les casernes sont reliées par la route (sinon on trace une liaison, ponts compris)
+function ensureLinked(w) {
+  const ok = k => w.type[k] === T.ROAD || w.type[k] === T.QUAY;
+  for (let pass = 0; pass < w.stations.length; pass++) {
+    const seen = new Uint8Array(N * N), d0 = w.stations[0].door, st = [idx(d0[0], d0[1])];
+    seen[st[0]] = 1;
+    while (st.length) {
+      const k = st.pop(), i = k % N, j = (k - i) / N;
+      for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const ni = i + a, nj = j + b; if (!inb(ni, nj)) continue; const nk = idx(ni, nj); if (!seen[nk] && ok(nk)) { seen[nk] = 1; st.push(nk); } }
+    }
+    const lost = w.stations.find(s => !seen[idx(s.door[0], s.door[1])]);
+    if (!lost) return;
+    const cost = (i, j) => { const k = idx(i, j), t = w.type[k]; if (w.bld[k] >= 0 || t === T.ROCK) return Infinity; return seen[k] ? 0.2 : ok(k) ? 0.5 : t === T.WATER ? 8 : 1.5; };
+    const path = gridPath(cost, lost.door, d0, 300000);
+    for (const [i, j] of path) if (w.bld[idx(i, j)] < 0) w.type[idx(i, j)] = T.ROAD;
+    // pas en diagonale : on complète par une case orthogonale
+    for (let q = 1; q < path.length; q++) { const [i, j] = path[q], [pi, pj] = path[q - 1]; if (pi !== i && pj !== j) { if (w.bld[idx(i, pj)] < 0) w.type[idx(i, pj)] = T.ROAD; else if (w.bld[idx(pi, j)] < 0) w.type[idx(pi, j)] = T.ROAD; } }
+  }
+}
+
+Object.assign(GEN, {
+  mp_foret(w) {
+    const lay = MP_LAYOUT[w.np], towns = jitter(lay.towns, 8);
+    const nh = makeNoise(18), nr = makeNoise(6), n1 = makeNoise(7), n2 = makeNoise(5);
+    const near = (i, j) => Math.min(...towns.map(([a, b]) => Math.hypot(i - a, j - b)));
+    for (let j = 0; j <= N; j++) for (let i = 0; i <= N; i++)
+      w.hv[j * (N + 1) + i] = Math.max(0, (7 * (nh(i, j) - 0.3) + 1.5 * (nr(i, j) - 0.5)) * (0.2 + 0.8 * smoothstep(near(i, j) / 28)));
+    const ch = cellHeightFn(w);
+    for (const [i, j, r] of lay.lakes) blob(w, i, j, r, T.WATER, n2);
+    for (const [ci, cj] of towns) blob(w, ci + 16, cj + 13, 4.5, T.WATER, n2);   // un étang près de chaque ville
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+      const k = idx(i, j); if (w.type[k] !== T.GRASS) continue;
+      if (ch(i, j) > 5 && n1(i, j) > 0.6) w.type[k] = T.ROCK;
+      else if (n1(i, j) > 0.33) w.type[k] = T.FOREST;
+    }
+    airbase(w, lay.air[0], lay.air[1], 18);
+    for (const [ci, cj] of towns) {
+      town(w, ci, cj, 11, 5);
+      for (let j = cj - 17; j <= cj + 17; j++) for (let i = ci - 17; i <= ci + 17; i++) {
+        const d = Math.hypot(i - ci, j - cj);
+        if (inb(i, j) && d > 13 && d < 17 && n2(i, j) > 0.45 && [T.GRASS, T.FOREST].includes(w.type[idx(i, j)])) w.type[idx(i, j)] = T.FIELD;
+      }
+    }
+    const cost = (i, j) => { const t = w.type[idx(i, j)]; if (t === T.WATER || t === T.ROCK) return Infinity; return t === T.ROAD ? 0.4 : 1 + ch(i, j) * 0.9; };
+    const ab = [lay.air[0] + 9, lay.air[1] + 2];
+    let nearT = towns[0]; for (const t of towns) if (Math.hypot(t[0] - ab[0], t[1] - ab[1]) < Math.hypot(nearT[0] - ab[0], nearT[1] - ab[1])) nearT = t;
+    mpRoads(w, towns, cost, [[ab, nearT], [towns[0], [0, towns[0][1]]], [towns[towns.length - 1], [N - 1, towns[towns.length - 1][1]]]]);
+    mpFinish(w, towns, 11, { towerP: 0.15, floors: 4, prob: 0.55, scatter: 0.012 });
+  },
+  mp_littoral(w) {
+    const P = w.np;
+    const base = { 1: [[96, 150]], 2: [[50, 150], [142, 150]], 3: [[40, 150], [152, 150], [96, 58]], 4: [[40, 150], [152, 150], [50, 58], [142, 58]] }[P];
+    const towns = base.map(([i, j]) => [i + Math.round((Math.random() - 0.5) * 8), j + (j > 100 ? 0 : Math.round((Math.random() - 0.5) * 8))]);
+    const nh = makeNoise(16), nr = makeNoise(6), n1 = makeNoise(6), n2 = makeNoise(8);
+    const near = (i, j) => Math.min(...towns.map(([a, b]) => Math.hypot(i - a, j - b)));
+    for (let j = 0; j <= N; j++) for (let i = 0; i <= N; i++)
+      w.hv[j * (N + 1) + i] = Math.max(0, ((150 - j) / 150) * 7 * (0.5 + 0.8 * nh(i, j)) + 0.9 * (nr(i, j) - 0.5)) * (0.25 + 0.75 * smoothstep(near(i, j) / 22));
+    const coast = i => 164 + Math.round(6 * (n2(i, 0) - 0.5));
+    for (let i = 0; i < N; i++) { const c = coast(i); for (let j = c; j < N; j++) w.type[idx(i, j)] = j < c + 2 ? T.SAND : T.WATER; }
+    for (const [i, j, r] of [[96, 34, 6], [30, 100, 5], [165, 96, 5]]) blob(w, i, j, r, T.WATER, n1);   // retenues dans les collines
+    for (const [ci, cj] of towns) if (cj < 100) blob(w, ci + 15, cj + 12, 4.5, T.WATER, n1);
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+      const k = idx(i, j); if (w.type[k] !== T.GRASS) continue;
+      const v = n1(i, j);
+      if (j < 140) { if (v > 0.42) w.type[k] = T.FOREST; else if (v > 0.28) w.type[k] = T.FIELD; }   // pinèdes et garrigue
+      else if (v > 0.66) w.type[k] = T.FOREST;
+    }
+    airbase(w, 87, 112, 18);
+    road(w, 0, 160, N - 1, 160);   // route du bord de mer
+    for (const [ci, cj] of towns) {
+      town(w, ci, cj, 11, 5);
+      if (cj > 100) {   // ville côtière : port et bateaux
+        for (let j = cj + 1; j <= 160; j++) if (w.type[idx(ci, j)] !== T.WATER) w.type[idx(ci, j)] = T.ROAD;
+        const c = coast(ci);
+        for (let i = ci - 6; i <= ci + 6; i++) for (let j = c - 1; j <= c; j++) if (inb(i, j)) w.type[idx(i, j)] = T.QUAY;
+        for (let j = c + 1; j <= c + 6; j++) for (const i of [ci - 4, ci + 4]) if (inb(i, j)) w.type[idx(i, j)] = T.QUAY;
+        for (const [i0, dj] of [[ci - 2, 2], [ci + 1, 4], [ci - 2, 5]]) if (inb(i0, c + dj)) addBuilding(w, 'boat', i0, c + dj, 2, 1, 1);
+      }
+    }
+    const ch = cellHeightFn(w);
+    const cost = (i, j) => { const t = w.type[idx(i, j)]; if (t === T.WATER || t === T.SAND) return Infinity; return t === T.ROAD ? 0.4 : 1 + 1.1 * ch(i, j); };
+    const ab = [96, 114];
+    mpRoads(w, towns, cost, [[ab, [96, 160]], ...towns.filter(t => t[1] < 100).map(t => [t, ab])]);
+    mpFinish(w, towns, 11, { towerP: 0.3, floors: 4, prob: 0.62, scatter: 0.014 });
+    for (const [ci, cj] of towns) if (cj > 100 && free(w, ci + 2, cj + 8, 3, 3)) addBuilding(w, 'warehouse', ci + 2, cj + 8, 3, 3, 1);
+  },
+  mp_montagne(w) {
+    const lay = MP_LAYOUT[w.np], towns = jitter(lay.towns, 6);
+    const ab = [lay.air[0] + 9, lay.air[1] + 1];
+    const nh = makeNoise(22), nr = makeNoise(7), n1 = makeNoise(5), n2 = makeNoise(4);
+    const flats = towns.concat([ab]);
+    const near = (i, j) => Math.min(...flats.map(([a, b]) => Math.hypot(i - a, j - b)));
+    for (let j = 0; j <= N; j++) for (let i = 0; i <= N; i++)
+      w.hv[j * (N + 1) + i] = Math.max(0, (11 * nh(i, j) + 3 * (nr(i, j) - 0.5)) * (0.06 + 0.94 * smoothstep((near(i, j) - 10) / 30)));
+    const ch = cellHeightFn(w);
+    for (const [ci, cj] of towns) blob(w, ci - 15, cj + 12, 4.5, T.WATER, n2);   // lac de vallée
+    for (const [i, j, r] of lay.lakes) blob(w, i, j, Math.min(r, 6), T.WATER, n2);
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+      const k = idx(i, j); if (w.type[k] !== T.GRASS) continue;
+      const h = ch(i, j);
+      if (h > 8.2) w.type[k] = T.ROCK;
+      else if (n1(i, j) > 0.3 && h > 0.6) w.type[k] = T.FOREST;
+    }
+    airbase(w, lay.air[0], lay.air[1], 18);
+    for (const [ci, cj] of towns) town(w, ci, cj, 10, 5);
+    const cost = (i, j) => { const t = w.type[idx(i, j)]; if (t === T.WATER || t === T.ROCK) return Infinity; return t === T.ROAD ? 0.35 : 1 + ch(i, j) * 1.6; };
+    let nearT = towns[0]; for (const t of towns) if (Math.hypot(t[0] - ab[0], t[1] - ab[1]) < Math.hypot(nearT[0] - ab[0], nearT[1] - ab[1])) nearT = t;
+    mpRoads(w, towns, cost, [[ab, nearT]]);
+    mpFinish(w, towns, 10, { towerP: 0.12, floors: 4, prob: 0.6, scatter: 0.01 });
+    w.slope = true;
+  },
+  mp_metro(w) {
+    const P = w.np;
+    const base = { 1: [[96, 96]], 2: [[92, 92], [162, 150]], 3: [[96, 100], [36, 38], [158, 42]], 4: [[96, 98], [34, 38], [160, 42], [104, 168]] }[P];
+    const towns = base.map(([i, j], q) => q ? [i + Math.round((Math.random() - 0.5) * 8), j + Math.round((Math.random() - 0.5) * 8)] : [i, j]);
+    const nh = makeNoise(14), n1 = makeNoise(9), n2 = makeNoise(6);
+    flatHeights(w, 1.2, nh);
+    // fleuve nord-sud qui serpente à travers la métropole
+    for (let j = 0; j < N; j++) { const c = 108 + Math.round(10 * Math.sin(j / 23) + 4 * (n2(0, j) - 0.5)); for (let i = c; i < c + 4; i++) w.type[idx(i, j)] = T.WATER; }
+    for (const [ci, cj] of towns.slice(1)) blob(w, ci + 14, cj + 12, 4.5, T.WATER, n2);
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+      const k = idx(i, j); if (w.type[k] !== T.GRASS) continue;
+      const d = Math.hypot(i - towns[0][0], j - towns[0][1]);
+      if (n1(i, j) > (d < 40 ? 0.7 : 0.5)) w.type[k] = T.FOREST;
+      else if (d > 45 && n2(i, j) > 0.6) w.type[k] = T.FIELD;
+    }
+    airbase(w, 16, 176, 18);
+    town(w, towns[0][0], towns[0][1], 30, 4);     // la métropole
+    for (const [ci, cj] of towns.slice(1)) town(w, ci, cj, 11, 5);
+    // rocade autour de la métropole
+    const ring = []; for (let a = 0; a <= 64; a++) ring.push([Math.round(towns[0][0] + 38 * Math.cos(a / 64 * Math.PI * 2)), Math.round(towns[0][1] + 38 * Math.sin(a / 64 * Math.PI * 2))]);
+    const ringIn = ring.filter(([i, j]) => inb(i, j));
+    for (let q = 1; q < ringIn.length; q++) { const [a, b] = ringIn[q - 1], [c, d] = ringIn[q]; road(w, a, b, c, b); road(w, c, b, c, d); }
+    const cost = (i, j) => { const t = w.type[idx(i, j)]; return t === T.ROAD ? 0.4 : t === T.WATER ? 6 : 1.2; };   // ponts possibles
+    mpRoads(w, [towns[0]], cost, towns.slice(1).map(t => [t, towns[0]]).concat([[[25, 177], towns[0]], [towns[0], [N - 1, towns[0][1] - 20]], [towns[0], [towns[0][0] - 20, 0]]]));
+    // zone industrielle au bord du fleuve
+    for (let j = towns[0][1] + 20; j < towns[0][1] + 34; j += 4) for (let i = 120; i < 136; i += 4) if (free(w, i, j, 3, 3) && nearRoad(w, i, j, 3, 3)) addBuilding(w, 'warehouse', i, j, 3, 3, 1);
+    w.towns = towns.map(([ci, cj], q) => ({ ci, cj, r: q ? 11 : 30 }));
+    towns.forEach(([ci, cj], q) => { const st = placeStation(w, ci, cj, q ? 11 : 30); placeHeli(w, st); });
+    townBuildings(w, towns[0][0], towns[0][1], 31, 0.65, 5, 0.7);
+    for (const [ci, cj] of towns.slice(1)) townBuildings(w, ci, cj, 13, 0.2, 4, 0.6);
+    lineBuildings(w, { i0: 2, j0: 2, i1: N - 3, j1: N - 3 }, 0.02, () => ['house', 2, 2, 1], [T.GRASS, T.FIELD, T.FOREST]);
+    w.hydrants = towns.flatMap(([ci, cj], q) => townHydrants(w, ci, cj, q ? 11 : 24));
+    ensureLinked(w);
+  },
+});
 
 // ─── Version update checker ──────────────────────────────────
 // Checks GitHub releases for newer versions. Shows a discreet
@@ -1523,8 +1790,7 @@ function buildBuildings() {
     const sp = emojiSprite('🛩️', 1.3); sp.position.set(cx(a.i0) + 1, y + 2.2, a.z - 2.2);
     mapGroup.add(hangar, tank, sp);
   }
-  if (world.heliport) {
-    const hp = world.heliport;
+  for (const hp of world.heliports || (world.heliport ? [world.heliport] : [])) {
     const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 0.06, 24), new THREE.MeshLambertMaterial({ color: 0x3d4a52 }));
     pad.position.set(hp.x, groundAt(hp.x, hp.z) + 0.03, hp.z);
     const hm = emojiSprite('🅷', 0.9); hm.position.set(hp.x, pad.position.y + 0.5, hp.z);
@@ -1774,6 +2040,7 @@ const VEH = {
 const VTYPES = Object.keys(VEH);
 const STATE_TXT = { idle: 'disponible', hold: 'disponible', move: 'en route', work: 'en intervention', fly: 'en vol', refillGo: 'va se remplir', refill: 'remplissage', ret: 'retour', drop: 'largage', retreat: 'se replie (endommagé)', repair: 'réparation', dead: 'détruit' };
 
+let currentFleet = {};
 let currentMap = null, currentLevel = 1, gameOver = false, paused = false, gameSpeed = 1;
 let L = null;                 // paramètres du niveau
 let vehicles = [], incidents = [], accidents = [];
@@ -1790,7 +2057,7 @@ let treesByCell = null;
 function levelCfg(mapId, lv) {
   const m = MAPS[mapId];
   return {
-    duration: lv === 10 ? Infinity : (150 + 15 * (lv - 1)) * (m.size ? 1.5 : 1),   // grandes cartes : missions plus longues
+    duration: lv === 10 ? Infinity : (150 + 15 * (lv - 1)) * (m.mp ? 2 : m.size ? 1.5 : 1),   // grandes cartes : missions plus longues
     // courbe de difficulté : niveaux 1-2 vraiment doux (feu lent, peu de vent, temps humide, alertes espacées)
     interval: Math.max(10, 42 - 3.5 * (lv - 1)),
     spread: m.spread * (0.55 + 0.1 * (lv - 1)),
@@ -1842,16 +2109,26 @@ function startGame(mapId, level) {
   Object.assign(meteo, { drought: L.drought, rain: 0, rainTarget: 0, rainLeft: 0, nextRain: 50 + Math.random() * 60, gust: 0 });
   // flotte
   const m = MAPS[mapId];
-  for (const t of VTYPES) for (let q = 0; q < (m.fleet[t] || 0); q++) spawnVehicle(t, q);
-  if (!m.fleet[selectedType]) selectedType = VTYPES.find(t => m.fleet[t]);
+  currentFleet = {};
+  if (m.fleetPer) {   // multijoueur : la flotte de chaque caserne, puis les avions communs de l'aérodrome
+    world.stations.forEach((st, sta) => { for (const t of VTYPES) for (let q = 0; q < (m.fleetPer[t] || 0); q++) { spawnVehicle(t, currentFleet[t] || 0, sta); currentFleet[t] = (currentFleet[t] || 0) + 1; } });
+    for (const t of VTYPES) for (let q = 0; q < (m.fleetShared[t] || 0); q++) { spawnVehicle(t, currentFleet[t] || 0, -1); currentFleet[t] = (currentFleet[t] || 0) + 1; }
+  } else {
+    for (const t of VTYPES) for (let q = 0; q < (m.fleet[t] || 0); q++) spawnVehicle(t, q);
+    Object.assign(currentFleet, m.fleet);
+  }
+  if (!currentFleet[selectedType]) selectedType = VTYPES.find(t => currentFleet[t]);
   selectedVehicle = null;
   stats = { lost: 0, saved: 0, victims: 0, rescued: 0, evacuated: 0, resolved: 0, score: 0, collateral: 0, injured: 0, vehLost: 0, buildTotal: world.buildings.filter(b => b.kind !== 'station').length };
-  stats.maxLost = Math.max(2, Math.min(Math.round(stats.buildTotal * L.lostPct), 4 - Math.floor((level - 1) / 4))) + (MAPS[mapId].lostBonus || 0);   // 4 bâtiments (niv. 1-4), 3 (5-8), 2 (9-10)
+  const nT = world.towns ? world.towns.length : 1;   // multijoueur : tolérances et rythme des alertes à l'échelle du nombre de villes
+  stats.maxLost = (Math.max(2, Math.min(Math.round(stats.buildTotal / nT * L.lostPct), 4 - Math.floor((level - 1) / 4))) + (MAPS[mapId].lostBonus || 0)) * nT;
+  if (world.towns) { L.interval /= 0.55 + 0.45 * nT; L.victims = (L.victims - 1) * nT + 1; incRegion = -1; }   // 4 bâtiments (niv. 1-4), 3 (5-8), 2 (9-10)
   elapsed = 0; nextIncident = 4; fireAcc = 0; uiAcc = 0; windAcc = 0;
   // caméra, ombres et brouillard à l'échelle de la carte
   const sc = N / 48;
   controls.target.set(0, 0, 2 * sc); camera.position.set(0, (mapId === 'montagne' ? 44 : 38) * sc * (sc > 1 ? 0.95 : 1), 42 * sc * (sc > 1 ? 0.95 : 1));
-  controls.maxDistance = 85 * sc;
+  controls.maxDistance = 85 * Math.min(sc, 2.6);
+  if (m.mp) focusStation(MP.myStation(), true);
   Object.assign(sun.shadow.camera, { left: -HALF - 8, right: HALF + 8, top: HALF + 8, bottom: -HALF - 8, far: 120 * sc });
   sun.position.set(-25 * sc, 40 * sc, 18 * sc); sun.shadow.camera.updateProjectionMatrix();
   if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
@@ -1862,7 +2139,7 @@ function startGame(mapId, level) {
   for (const id of ['#hud', '#banner', '#wind', '#controls']) $(id).style.display = 'block';
   $('#fleet').style.display = 'flex'; $('#vlist').style.display = 'block';
   $('#end-overlay').classList.remove('show'); $('#pause-overlay').classList.remove('show'); $('#pause-overlay').textContent = '⏸ Pause';
-  buildFleetBar(); updateUI(true); updateMpBar();
+  buildFleetBar(); updateUI(true); updateMpBar(); miniBuild();
   flash(`${MAPS[mapId].icon} ${MAPS[mapId].name} — niveau ${level} · ${droughtText()}, vent ${Math.round(wind.s * 40)} km/h`, 3000);
   if (!store.get('help_seen', false)) { store.set('help_seen', true); setTimeout(() => flash('Appuie sur H pour l\'aide', 3500), 2400); }
 }
@@ -1896,7 +2173,7 @@ function goToMenu(keepRoom) {
   if (MP.active || MP.code) { if (keepRoom) MP.active = false; else mpReset(); }
   updateMpBar();
   currentMap = null; gameOver = false; paused = false;
-  for (const id of ['#hud', '#banner', '#wind', '#controls', '#fleet', '#vlist']) $(id).style.display = 'none';
+  for (const id of ['#hud', '#banner', '#wind', '#controls', '#fleet', '#vlist', '#minimap']) { const el = $(id); if (el) el.style.display = 'none'; }
   $('#end-overlay').classList.remove('show'); $('#pause-overlay').classList.remove('show');
   $('#home').classList.remove('hidden');
   buildHome();
@@ -2053,9 +2330,18 @@ const INC = {
 function sector(x, z) {
   const t = N / 6;
   const ns = z < -t ? 'nord' : z > t ? 'sud' : '', ew = x > t ? 'est' : x < -t ? 'ouest' : '';
-  return ns && ew ? `${ns}-${ew}` : ns || ew || 'centre';
+  const base = ns && ew ? `${ns}-${ew}` : ns || ew || 'centre';
+  if (world && world.region && MP.active) {   // multijoueur : à qui appartient le secteur
+    const i = Math.max(0, Math.min(N - 1, toI(x))), j = Math.max(0, Math.min(N - 1, toJ(z))), pid = MP.stationPids[world.region[idx(i, j)]];
+    if (pid !== undefined) return `${base} (chez ${MP.name(pid)})`;
+  }
+  return base;
 }
+// Cartes multijoueur : les alertes tombent à tour de rôle dans le secteur de chaque caserne
+let incRegion = -1;
+const inRegion = k => incRegion < 0 || !world.region || world.region[k] === incRegion;
 function spawnIncident() {
+  if (world.region) incRegion = (incRegion + 1) % world.towns.length;
   const w = MAPS[currentMap].incidents;
   const kinds = Object.keys(w).filter(k => w[k] > 0);
   for (let tries = 0; tries < 6; tries++) {
@@ -2085,7 +2371,7 @@ function alertBuilding(b) {
 function makeIncident(kind) {
   if (kind === 'forest') {
     const cands = [];
-    for (let k = 0; k < N * N; k++) if (world.type[k] === T.FOREST && !world.burned[k] && world.fire[k] === 0 && world.fuel[k] > 0.5) cands.push(k);
+    for (let k = 0; k < N * N; k++) if (world.type[k] === T.FOREST && !world.burned[k] && world.fire[k] === 0 && world.fuel[k] > 0.5 && inRegion(k)) cands.push(k);
     if (!cands.length) return null;
     const k = cands[Math.floor(Math.random() * cands.length)];
     ignite(k, 0.35);
@@ -2096,7 +2382,7 @@ function makeIncident(kind) {
   if (kind === 'accident') {
     const cands = [];
     for (let k = 0; k < N * N; k++) {
-      if (world.type[k] !== T.ROAD) continue;
+      if (world.type[k] !== T.ROAD || !inRegion(k)) continue;
       const i = k % N, j = (k - i) / N;
       if (world.stations.some(st => Math.hypot(i - st.door[0], j - st.door[1]) < 6)) continue;
       if (accidents.some(a => Math.hypot(a.i - i, a.j - j) < 4)) continue;
@@ -2112,7 +2398,7 @@ function makeIncident(kind) {
     accidents.push(a);
     return { kind, x: a.x, z: a.z, y: a.y, acc: a, t: elapsed };
   }
-  const list = world.buildings.filter(b => b.kind === kind && !b.lost && b.fire <= 0);
+  const list = world.buildings.filter(b => b.kind === kind && !b.lost && b.fire <= 0 && inRegion(idx(b.i0, b.j0)));
   if (!list.length) return null;
   const b = list[Math.floor(Math.random() * list.length)];
   igniteBuilding(b, 0.3);
@@ -2177,13 +2463,24 @@ function costFn(cls) {
     return c * (1 + 0.55 * (world.slope ? world.slope[k] : 0));
   };
 }
-function spawnVehicle(type, q) {
+// sta : caserne d'attache (cartes multijoueur), -1 = avion commun de l'aérodrome
+function spawnVehicle(type, q, sta) {
   const def = VEH[type];
   const v = { id: vehicles.length, type, def, num: q + 1, tank: def.air ? 1 : def.cap, state: 'idle', path: null, pi: 0, target: null, heading: 0, timer: 0, idleT: 0, plan: 0, hp: 100 };
+  v.sta = sta === undefined ? -1 : sta;
   v.mesh = makeVehicleMesh(type);
   mapGroup.add(v.mesh);
-  if (type === 'canadair') {
-    const wc = nearestWater(world.station.x, world.station.z);
+  if (v.sta >= 0 && type === 'helico') {
+    const hp = world.heliports[v.sta] || world.heliport;
+    v.home = { x: hp.x, z: hp.z }; v.x = v.home.x; v.z = v.home.z; v.y = groundAt(v.x, v.z) + 0.55;
+  } else if (v.sta >= 0) {
+    const st = world.stations[v.sta], [di, dj] = st.door;
+    const n = vehicles.filter(o => !o.def.air && o.station === st).length;
+    v.station = st; v.home = { i: di, j: dj };
+    v.x = cx(di) + ((n % 3) - 1) * 0.35; v.z = cz(dj) + (Math.floor(n / 3) - 0.5) * 0.4; v.y = groundAt(v.x, v.z);
+  } else if (type === 'canadair') {
+    const ref = sta === -1 && world.airbase && MAPS[currentMap].fleetShared ? world.airbase : world.station;
+    const wc = nearestWater(ref.x, ref.z);
     v.home = { x: wc.x, z: wc.z }; v.state = 'hold';
     v.x = wc.x + 3 * Math.cos(q * 2); v.z = wc.z + 3 * Math.sin(q * 2); v.y = world.waterLevel + def.alt; v.phase = q * 2;
   } else if (type === 'tanker') {      // tourne au-dessus de l'aérodrome
@@ -2236,7 +2533,7 @@ function dispatch(x, z) {
   if (!usable(v)) { flash(`${v.def.short} ${v.num} est ${STATE_TXT[v.state]}`, 1500); selectedVehicle = null; return; }
   selectedVehicle = null;
   if (MP.isClient) MP.send({ k: 'go', v: v.id, x: r2(x), z: r2(z) }, MP.host);   // l'hôte exécute l'ordre
-  else sendTo(v, x, z);
+  else { sendTo(v, x, z); v.by = MP.active ? MP.id : undefined; }
   const homes = aimMesh && aimMesh.visible && v.type !== 'helico' && aimMesh.material.color.getHex() === 0xff5252;
   flash(`${v.def.icon} ${v.def.short} ${v.num} → secteur ${sector(x, z)}${homes ? ' — ⚠️ zone habitée : le largage va faire des dégâts' : ''}`, homes ? 2600 : 1300);
   hideAim();
@@ -2278,7 +2575,7 @@ function goHome(v) {
   if (v.def.air) return;
   // retour à la caserne la plus proche
   let st = v.station || world.station, bd = Infinity;
-  for (const o of world.stations) { const d = Math.hypot(cx(o.door[0]) - v.x, cz(o.door[1]) - v.z); if (d < bd) { bd = d; st = o; } }
+  if (v.sta < 0) for (const o of world.stations) { const d = Math.hypot(cx(o.door[0]) - v.x, cz(o.door[1]) - v.z); if (d < bd) { bd = d; st = o; } }
   v.station = st; v.home = { i: st.door[0], j: st.door[1] };
   pathTo(v, v.home.i, v.home.j);
 }
@@ -2710,7 +3007,7 @@ function fmt(t) { if (!isFinite(t)) return '∞'; t = Math.max(0, Math.ceil(t));
 function buildFleetBar() {
   const f = $('#fleet'); f.innerHTML = '';
   for (const t of VTYPES) {
-    const n = MAPS[currentMap].fleet[t] || 0;
+    const n = currentFleet[t] || 0;
     if (!n) continue;   // types absents de cette carte (ex. avion de retardant hors grandes cartes)
     if (MP.active && !vehicles.some(v => v.type === t && mine(v))) continue;   // coop : seulement les types de mon rôle
     const b = document.createElement('button');
@@ -2779,7 +3076,8 @@ function updateUI(force) {
   vehicles.forEach((v, q) => {
     const r = vl._rows[q]; if (!r) return;
     r.classList.toggle('sel', selectedVehicle === v);
-    r.querySelector('.vs').textContent = (STATE_TXT[v.state] || v.state) + (!v.def.air && v.hp < 100 && v.state !== 'dead' ? ` · ${Math.round(v.hp)} %` : '');
+    r.querySelector('.vs').textContent = (STATE_TXT[v.state] || v.state) + (!v.def.air && v.hp < 100 && v.state !== 'dead' ? ` · ${Math.round(v.hp)} %` : '')
+      + (MP.active && v.sta < 0 && v.by !== undefined && !available(v) ? ` · pour ${MP.name(v.by)}` : '');   // avion commun : qui l'a demandé
     r.style.opacity = v.state === 'dead' ? 0.4 : 1;
     const cap = v.def.air ? 1 : v.def.cap;
     r.querySelector('.bar').style.display = cap ? 'block' : 'none';
@@ -2848,6 +3146,7 @@ addEventListener('keydown', e => {
   if (k === 'h' || k === '?') { toggleHelp(true); return; }
   if (k === 'm') { if (!MP.active || confirm('Quitter la partie et le salon ?')) goToMenu(); return; }
   if (k === 'r') { if (MP.isHost) mpHostStart(currentMap, currentLevel); else if (!MP.active) startGame(currentMap, currentLevel); return; }
+  if (k === 'c') { focusStation(MP.active ? MP.myStation() : 0); return; }
   if (gameOver) return;
   if (k === 'g' && MP.active && MP.hover) { mpPing(MP.hover[0], MP.hover[1]); return; }
   if (MP.active && MP.waiting > 0) return;
@@ -2856,7 +3155,7 @@ addEventListener('keydown', e => {
   if (k === 'f' && MP.isClient) { flash('Seul l\'hôte règle la vitesse', 1200); return; }
   if (k === 'f') { gameSpeed = gameSpeed === 1 ? 2 : 1; flash(gameSpeed > 1 ? '⏩ Vitesse ×2' : '▶ Vitesse normale', 1000); return; }
   const t = VTYPES.find(t => VEH[t].key === k);
-  if (t && MAPS[currentMap].fleet[t] && vehicles.some(v => v.type === t && mine(v))) { selectedType = t; selectedVehicle = null; flash(`${VEH[t].icon} ${VEH[t].name}`, 900); updateUI(true); }
+  if (t && currentFleet[t] && vehicles.some(v => v.type === t && mine(v))) { selectedType = t; selectedVehicle = null; flash(`${VEH[t].icon} ${VEH[t].name}`, 900); updateUI(true); }
 });
 function toggleHelp(show) {
   $('#help-overlay').classList.toggle('show', show);
@@ -2870,7 +3169,7 @@ function toggleHelp(show) {
       <h3>Eau</h3><p>Les camions ont une citerne (barre bleue) : à sec, ils vont se remplir à une caserne ou à la bouche d'incendie la plus proche, puis reviennent ; de retour à la caserne, ils refont le plein. Ils contournent les flammes (sauf le camion feu de forêt). Pris dans la chaleur, un camion s'abîme, se replie pour réparer, voire est perdu (le CCF est protégé). Canadair et hélicoptère se remplissent sur l'eau, l'avion de retardant à l'aérodrome. En survolant la carte avec un moyen aérien, tu vois où il larguera.</p>
       <h3>Feu et météo</h3><p>Le feu se propage de case en case, plus vite dans la forêt et <b>dans le sens du vent</b> (boussole en haut à droite). La <b>sécheresse</b> l'accélère et fait sécher l'eau plus vite ; par vent fort, des <b>brandons</b> allument la végétation ou un toit plusieurs cases plus loin : c'est ainsi qu'un feu de forêt gagne la ville. Les <b>rafales</b> l'emballent, la <b>pluie</b> le freine et éteint les petits foyers. Une case arrosée reste humide un moment ; un camion envoyé là où rien ne brûle mouille la végétation (coupe-feu). Le <b>retardant</b> (rouge) protège 2 minutes.</p>
       <h3>But</h3><p>Tenir jusqu'à la fin du temps sans dépasser les pertes tolérées (bâtiments, forêt, victimes : voir le panneau à gauche). Le niveau 10 est sans fin. Les grandes cartes ont deux casernes et un aérodrome.</p>
-      <h3>Multijoueur (coopération)</h3><p>Tuile <b>Multijoueur</b> de l'accueil : crée un salon et partage son code (ou le lien), jusqu'à 4 joueurs. L'hôte choisit la carte et le niveau ; la flotte est répartie par rôles (urbain, forêt, aérien…) ou partagée. Tu ne commandes que tes véhicules ; les autres apparaissent avec la couleur de leur pompier. <kbd>Maj</kbd> + clic (ou <kbd>G</kbd>) pose un repère visible par toute l'équipe. <kbd>P</kbd> met la partie en pause pour tout le monde ; seul l'hôte règle la vitesse et relance.</p>
+      <h3>Multijoueur (coopération)</h3><p>Tuile <b>Multijoueur</b> de l'accueil : crée un salon et partage son code (ou le lien), jusqu'à 4 joueurs. L'hôte choisit une des 4 cartes multijoueur (192 × 192 cases) et le niveau : chaque pompier a <b>sa ville et sa caserne</b> (pompiers, échelle, VL, CCF, hélico), loin des autres ; Canadair et avion de retardant sont <b>communs</b>, à l'aérodrome — le premier qui les demande les prend. Les alertes tombent à tour de rôle dans chaque secteur, et chacun peut envoyer ses véhicules en renfort chez les autres. Tu ne commandes que tes véhicules ; ceux des autres portent la couleur de leur pompier. La <b>mini-carte</b> (en bas à gauche) montre feux, casernes et véhicules : un clic dessus y déplace la vue, <kbd>C</kbd> ramène sur ta caserne. <kbd>Maj</kbd> + clic (ou <kbd>G</kbd>) pose un repère visible par toute l'équipe. <kbd>P</kbd> met la partie en pause pour tout le monde ; seul l'hôte règle la vitesse et relance.</p>
       <h3>Commandes</h3><p><kbd>Clic</kbd> envoyer · <kbd>Clic droit</kbd> pivoter · <kbd>Clic milieu</kbd> déplacer · <kbd>Molette</kbd> zoom · <kbd>1</kbd>–<kbd>7</kbd> type de véhicule · <kbd>F</kbd> vitesse ×2 · <kbd>P</kbd>/<kbd>Échap</kbd> pause · <kbd>R</kbd> recommencer · <kbd>M</kbd> menu</p>`;
   } else if (!MP.active) { paused = false; }
 }
@@ -2880,6 +3179,7 @@ $('#help-overlay .x').onclick = () => toggleHelp(false);
 function buildHome() {
   const box = $('#map-cards'); box.innerHTML = '';
   for (const [id, m] of Object.entries(MAPS)) {
+    if (m.mp) continue;   // cartes multijoueur : depuis le salon
     const un = unlocked(id); let sel = un;
     const card = document.createElement('div');
     card.className = 'map-card glass';
@@ -2914,7 +3214,7 @@ function buildHome() {
   }
 
   // ── Tuile « Aléatoire » : une carte au hasard, à son plus haut niveau débloqué ──
-  const ids = Object.keys(MAPS), lastMap = store.get('last_map', null);
+  const ids = Object.keys(MAPS).filter(id => !MAPS[id].mp), lastMap = store.get('last_map', null);
   const rnd = document.createElement('div');
   rnd.className = 'map-card glass random-card';
   rnd.innerHTML = `
@@ -2954,6 +3254,7 @@ function frame(now) {
       if (uiAcc > 0.25) { uiAcc = 0; updateUI(); }
     }
     mpFrame(dt, t);
+    miniTick(dt, t);
     drawFire(t, dt);
     smoke.update(paused ? 0 : dt); spray.update(paused ? 0 : dt);
     rain.update(paused ? 0 : dt, meteo.rain, controls.target.x, controls.target.z);
@@ -3039,7 +3340,7 @@ const MP_KINDS = Object.keys(INC);
 const MP_SNAP = 0.2;   // s entre deux instantanés
 const MP = {
   ws: null, code: null, id: -1, host: -1, players: [], locked: false,
-  active: false, shared: false, owners: [], cfg: { map: 'village', level: 1, shared: false },
+  active: false, shared: false, owners: [], cfg: { map: 'mp_foret', level: 1, shared: false }, stationPids: [],
   ready: new Set(), waiting: 0, inSim: false, outFlash: [], events: [], snapAcc: 0, seq: 0,
   lastCell: null, lastBld: [], pings: [], hover: null, savedSeed: null, accMap: new Map(), incMap: new Map(),
   get isHost() { return this.active && this.id === this.host; },
@@ -3053,6 +3354,7 @@ const MP = {
   player(id) { return this.players.find(p => p.id === id); },
   color(id) { const n = this.players.findIndex(p => p.id === id); return MP_COLORS[(n < 0 ? 0 : n) % 4]; },
   name(id) { const p = this.player(id); return p ? p.name : '?'; },
+  myStation() { const s = this.stationPids.indexOf(this.id); return s < 0 ? 0 : s; },
 };
 function mine(v) { return !MP.active || MP.owners[v.id] === -1 || MP.owners[v.id] === MP.id || MP.owners[v.id] === undefined; }
 function mpOwnerOf(v) { return MP.owners[v.id]; }
@@ -3062,6 +3364,8 @@ function mpOwnerOf(v) { return MP.owners[v.id]; }
 // aussi équilibrés que possible. Moins de types que de joueurs : répartition véhicule par véhicule.
 function mpAssign(pids, shared) {
   const owners = vehicles.map(() => -1);
+  // cartes multijoueur : chacun sa caserne (véhicules de la caserne n° q → joueur q), avions communs à tous
+  if (currentMap && MAPS[currentMap].fleetPer) { if (!shared) vehicles.forEach((v, q) => { if (v.sta >= 0) owners[q] = pids[v.sta] !== undefined ? pids[v.sta] : pids[0]; }); return owners; }
   if (shared || pids.length < 2) { if (pids.length < 2 && !shared) vehicles.forEach((v, q) => owners[q] = pids[0]); return owners; }
   const types = MP_AFFINITY.filter(t => vehicles.some(v => v.type === t));
   const cnt = t => vehicles.filter(v => v.type === t).length;
@@ -3093,6 +3397,14 @@ function mpRolesText(owners, pid) {
 }
 // Aperçu des rôles dans le salon (sans lancer la partie) : flotte théorique de la carte
 function mpPreviewRoles(mapId, pids, shared) {
+  const m = MAPS[mapId];
+  if (m.fleetPer) {
+    const per = Object.keys(m.fleetPer).sort((a, b) => MP_AFFINITY.indexOf(a) - MP_AFFINITY.indexOf(b)).map(t => `${VEH[t].icon}${m.fleetPer[t] > 1 ? '×' + m.fleetPer[t] : ''}`).join(' ');
+    const sh = Object.keys(m.fleetShared).map(t => `${VEH[t].icon}${m.fleetShared[t] > 1 ? '×' + m.fleetShared[t] : ''}`).join(' ');
+    const out = {};
+    pids.forEach((p, q) => out[p] = shared ? 'flotte partagée' : `🏠 ${mapId === 'mp_metro' ? (q ? 'banlieue ' + q : 'métropole') : 'ville ' + (q + 1)} : ${per} · avions communs ${sh}`);
+    return out;
+  }
   const saved = vehicles;
   vehicles = [];
   for (const t of VTYPES) for (let q = 0; q < (MAPS[mapId].fleet[t] || 0); q++) vehicles.push({ id: vehicles.length, type: t });
@@ -3190,7 +3502,7 @@ function mpOnMsg(from, d) {
     const v = vehicles[d.v];
     if (!v || !(MP.owners[v.id] === from || MP.owners[v.id] === -1) || !usable(v)) return;
     const x = Math.max(-HALF, Math.min(HALF, +d.x || 0)), z = Math.max(-HALF, Math.min(HALF, +d.z || 0));
-    sendTo(v, x, z);
+    sendTo(v, x, z); v.by = from;
   } else if (d.k === 'home') {
     const v = vehicles[d.v];
     if (v && (MP.owners[v.id] === from || MP.owners[v.id] === -1) && usable(v)) goHome(v);
@@ -3205,11 +3517,12 @@ function mpSendCfg() { if (MP.isHost || (MP.code && MP.id === MP.host)) MP.send(
 function mpHostStart(mapId, level) {
   if (MP.id !== MP.host) return;
   MP.cfg.map = mapId; MP.cfg.level = level;
-  const d = { k: 'start', map: mapId, level, seed: 1 + Math.floor(NATIVE_RANDOM() * 2e9), shared: MP.cfg.shared };
+  const pids = MP.players.map(p => p.id).slice(0, 4);
+  const d = { k: 'start', map: mapId, level, seed: 1 + Math.floor(NATIVE_RANDOM() * 2e9), shared: MP.cfg.shared, pids };
   if (MP.ws) MP.ws.send(JSON.stringify({ t: 'lock', on: true }));
   MP.send(d);
   mpBeginGame(d);
-  MP.owners = mpAssign(MP.players.map(p => p.id), d.shared);
+  MP.owners = mpAssign(pids, d.shared);
   MP.send({ k: 'own', owners: MP.owners });
   mpAfterOwners();
   // on attend que les autres aient généré la carte (15 s au plus)
@@ -3219,6 +3532,8 @@ function mpHostStart(mapId, level) {
 function mpBeginGame(d) {
   if (MP.savedSeed === null) MP.savedSeed = SEED === null ? 'none' : SEED;
   SEED = d.seed;                         // même graine : même carte, mêmes bâtiments, même flotte
+  MP.stationPids = d.pids || MP.players.map(p => p.id);
+  GEN_PLAYERS = MP.stationPids.length;   // une ville et une caserne par joueur
   MP.active = true; MP.shared = !!d.shared; MP.owners = [];
   MP.lastCell = null; MP.lastBld = []; MP.snapAcc = 0; MP.outFlash = []; MP.events = [];
   for (const p of MP.pings) p.g.removeFromParent();
@@ -3226,7 +3541,38 @@ function mpBeginGame(d) {
   $('#mp-overlay').classList.remove('show');
   startGame(d.map, d.level);
   if (MP.isClient) { gameSpeed = 1; for (const v of vehicles) { v.path = null; } }
+  mpStationLabels();
   updateMpBar();
+}
+// Nom et couleur de chaque pompier au-dessus de sa caserne
+function mpStationLabels() {
+  if (!world || !world.towns) return;
+  MP.stationPids.forEach((pid, s) => {
+    const st = world.stations[s]; if (!st) return;
+    const sp = textSprite(`🚒 ${MP.name(pid)}`, MP.color(pid));
+    sp.position.set(st.x, (st.y0 || 0) + 4.2, st.z); mapGroup.add(sp);
+  });
+}
+function textSprite(text, color) {
+  const c = document.createElement('canvas'); c.width = 512; c.height = 128;
+  const g = c.getContext('2d');
+  g.font = '700 64px Inter, "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
+  const w = Math.min(500, g.measureText(text).width + 48);
+  g.fillStyle = 'rgba(14,18,28,0.82)'; g.beginPath(); g.roundRect((512 - w) / 2, 14, w, 100, 30); g.fill();
+  g.strokeStyle = color; g.lineWidth = 8; g.stroke();
+  g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 256, 66);
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
+  sp.scale.set(8, 2, 1); sp.renderOrder = 11;
+  return sp;
+}
+// Caméra au-dessus d'une caserne
+function focusStation(s) {
+  if (!world) return;
+  const st = world.stations[s] || world.station;
+  const dx = st.x - controls.target.x, dz = st.z - controls.target.z;
+  if (N > 96) { controls.target.set(st.x, 0, st.z); camera.position.set(st.x, 46, st.z + 44); }
+  else { controls.target.x += dx; controls.target.z += dz; camera.position.x += dx; camera.position.z += dz; }
 }
 function mpAfterOwners() {
   const myTypes = VTYPES.filter(t => vehicles.some(v => v.type === t && mine(v)));
@@ -3244,7 +3590,7 @@ function mpBackToLobby() {
 // ─── Instantanés (hôte → joueurs) ──────────────────────────────
 function mpCellCode(k) {
   const f = world.fire[k], fq = f > 0 ? Math.max(1, Math.round(f * 15)) : 0;
-  const wq = Math.round(world.wet[k] * 10);
+  const wq = Math.round(world.wet[k] * 4);
   const r = world.retard[k], rq = r > 0 ? Math.min(31, Math.ceil(r)) : 0;
   return fq | wq << 4 | rq << 8 | (world.burned[k] ? 1 << 13 : 0);
 }
@@ -3257,6 +3603,7 @@ function mpMakeSnap() {
   }
   const cells = [];
   for (let k = 0; k < NN; k++) { const c = mpCellCode(k); if (c !== MP.lastCell[k]) { MP.lastCell[k] = c; cells.push(k, c); } }
+  // cases modifiées : 4 octets par case (n° sur 16 bits, état sur 16 bits), en base64
   const blds = [];
   for (const b of world.buildings) {
     const row = [b.id, Math.round(b.fire * 100), Math.round(b.hp), b.lost ? 1 : 0, b.trapped || 0];
@@ -3265,17 +3612,29 @@ function mpMakeSnap() {
   }
   const veh = vehicles.map(v => {
     const lad = v.mesh.getObjectByName('ladder');
-    return [r2(v.x), r2(v.y), r2(v.z), r2(v.heading), MP_STATES.indexOf(v.state), Math.round(v.def.air ? v.tank * 100 : v.tank), Math.round(v.hp), v.jet ? v.jet.map(r2) : 0, lad ? r2(lad.rotation.x) : 0];
+    return [r2(v.x), r2(v.y), r2(v.z), r2(v.heading), MP_STATES.indexOf(v.state), Math.round(v.def.air ? v.tank * 100 : v.tank), Math.round(v.hp), v.jet ? v.jet.map(r2) : 0, lad ? r2(lad.rotation.x) : 0, v.by === undefined ? -1 : v.by];
   });
   const incs = incidents.filter(i => !i.over).map(i => [i.id, MP_KINDS.indexOf(i.kind), r2(i.x), r2(i.y), r2(i.z)]);
   const accs = accidents.map(a => [a.id, a.i, a.j, r2(a.x), r2(a.y), r2(a.z), Math.round(a.extract), Math.round(a.care), r2(a.timer), a.done ? 1 : 0, a.lost ? 1 : 0, a.victims]);
   const snap = {
     k: 'snap', s: ++MP.seq, e: r2(elapsed), ni: r2(nextIncident), p: paused ? 1 : 0, g: gameSpeed,
-    m: [r2(meteo.rain), r2(meteo.gust), r2(wind.a), r2(wind.s)], st: stats, c: cells, b: blds, v: veh, i: incs, a: accs,
+    m: [r2(meteo.rain), r2(meteo.gust), r2(wind.a), r2(wind.s)], st: stats, c: packCells(cells), b: blds, v: veh, i: incs, a: accs,
   };
   if (MP.outFlash.length) { snap.f = MP.outFlash; MP.outFlash = []; }
   if (MP.events.length) { snap.ev = MP.events; MP.events = []; }
   return snap;
+}
+function packCells(a) {
+  const u = new Uint8Array(a.length * 2);
+  for (let q = 0; q < a.length; q++) { u[q * 2] = a[q] & 255; u[q * 2 + 1] = a[q] >> 8 & 255; }
+  let s = '';
+  for (let q = 0; q < u.length; q += 8192) s += String.fromCharCode.apply(null, u.subarray(q, q + 8192));
+  return btoa(s);
+}
+function unpackCells(b64) {
+  const s = atob(b64 || ''), out = new Array(s.length >> 1);
+  for (let q = 0; q < out.length; q++) out[q] = s.charCodeAt(q * 2) | s.charCodeAt(q * 2 + 1) << 8;
+  return out;
 }
 function treeStateOf(k) { return world.burned[k] ? 'burned' : world.fire[k] > 0 ? 'fire' : world.retard[k] > 0 ? 'retard' : 'ok'; }
 function mpApplySnap(d) {
@@ -3284,12 +3643,12 @@ function mpApplySnap(d) {
   meteo.rain = d.m[0]; meteo.gust = d.m[1]; wind.a = d.m[2]; wind.s = d.m[3]; setWind();
   stats = d.st;
   // cases
-  const c = d.c;
+  const c = unpackCells(d.c);
   for (let q = 0; q < c.length; q += 2) {
     const k = c[q], code = c[q + 1];
     const fq = code & 15, wq = code >> 4 & 15, rq = code >> 8 & 31, bu = code >> 13 & 1;
     const before = treeStateOf(k);
-    world.fire[k] = fq / 15; world.wet[k] = wq / 10; world.retard[k] = rq; world.burned[k] = bu;
+    world.fire[k] = fq / 15; world.wet[k] = wq / 4; world.retard[k] = rq; world.burned[k] = bu;
     if (fq) burning.add(k); else burning.delete(k);
     const after = treeStateOf(k);
     if (after !== before) { const tr = treesByCell.get(k); if (tr) tr.forEach(t => setTree(t, after)); }
@@ -3304,7 +3663,8 @@ function mpApplySnap(d) {
   // véhicules
   d.v.forEach((row, q) => {
     const v = vehicles[q]; if (!v) return;
-    const [x, y, z, h, s, tank, hp, jet, lad] = row;
+    const [x, y, z, h, s, tank, hp, jet, lad, by] = row;
+    v.by = by >= 0 ? by : undefined;
     const st = MP_STATES[s] || 'idle';
     if (st === 'dead' && v.state !== 'dead') v.mesh.traverse(o => { if (o.material && o.material.color) o.material.color.multiplyScalar(0.25); });
     v.state = st; v.tank = v.def.air ? tank / 100 : tank; v.hp = hp; v.jet = jet || null; v.lad = lad;
@@ -3461,7 +3821,7 @@ function mpRender() {
       <span class="mp-roles">${roles[q.id] || ''}</span>
       ${amHost && q.id !== MP.id ? `<button class="mp-kick" data-k="${q.id}" title="Retirer">✕</button>` : ''}</div>`).join('')}
     <h3>Mission</h3>
-    ${amHost ? `<div class="mp-row"><select id="mp-map">${Object.entries(MAPS).map(([id, m]) => `<option value="${id}" ${id === cfg.map ? 'selected' : ''}>${m.icon} ${m.name}</option>`).join('')}</select>
+    ${amHost ? `<div class="mp-row"><select id="mp-map">${Object.entries(MAPS).filter(([, m]) => m.mp).map(([id, m]) => `<option value="${id}" ${id === cfg.map ? 'selected' : ''}>${m.icon} ${m.name}</option>`).join('')}</select>
       <select id="mp-lvl">${Array.from({ length: 10 }, (_, q) => `<option value="${q + 1}" ${q + 1 === cfg.level ? 'selected' : ''} ${q + 1 > maxLv ? 'disabled' : ''}>Niveau ${q + 1}</option>`).join('')}</select></div>
       <label class="mp-chk"><input type="checkbox" id="mp-shared" ${cfg.shared ? 'checked' : ''}> Flotte partagée (tout le monde commande tous les véhicules)</label>`
     : `<div class="mp-mission">${MAPS[cfg.map] ? MAPS[cfg.map].icon + ' ' + MAPS[cfg.map].name : ''} — niveau ${cfg.level}${cfg.shared ? ' — flotte partagée' : ''}</div>`}
@@ -3526,6 +3886,92 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
+// ─── Mini-carte (grandes cartes et multijoueur) ────────────────
+// Feux, zones brûlées, casernes (couleur du pompier), véhicules, alertes et repères.
+// Clic ou glisser sur la mini-carte : la caméra s'y déplace.
+const mini = { box: null, cv: null, ctx: null, off: null, octx: null, img: null, base: null, acc: 0, on: false };
+function miniBuild() {
+  if (!mini.box) {
+    mini.box = document.createElement('div'); mini.box.id = 'minimap'; mini.box.className = 'glass';
+    mini.cv = document.createElement('canvas'); mini.cv.width = mini.cv.height = 360;
+    mini.box.appendChild(mini.cv); document.body.appendChild(mini.box);
+    mini.ctx = mini.cv.getContext('2d');
+    let drag = false;
+    const go = e => {
+      const r = mini.cv.getBoundingClientRect();
+      const x = (e.clientX - r.left) / r.width * N - HALF, z = (e.clientY - r.top) / r.height * N - HALF;
+      const dx = x - controls.target.x, dz = z - controls.target.z;
+      controls.target.x += dx; controls.target.z += dz; camera.position.x += dx; camera.position.z += dz;
+    };
+    mini.cv.addEventListener('pointerdown', e => { e.stopPropagation(); drag = true; mini.cv.setPointerCapture(e.pointerId); go(e); });
+    mini.cv.addEventListener('pointermove', e => { if (drag) go(e); });
+    mini.cv.addEventListener('pointerup', () => { drag = false; });
+  }
+  mini.on = N > 48 && !!world;
+  mini.box.style.display = mini.on ? 'block' : 'none';
+  if (!mini.on) return;
+  mini.off = document.createElement('canvas'); mini.off.width = mini.off.height = N;
+  mini.octx = mini.off.getContext('2d');
+  mini.img = mini.octx.createImageData(N, N);
+  mini.base = new Uint8ClampedArray(N * N * 4);
+  const c = new THREE.Color();
+  for (let k = 0; k < N * N; k++) {
+    const t = world.type[k];
+    c.setHex(world.bld[k] >= 0 ? (world.buildings[world.bld[k]].kind === 'station' ? 0xff3b30 : 0xb9b2a4) : COLORS[t]);
+    const h = t === T.WATER ? 0 : Math.min(1, world.hv[k + Math.floor(k / N)] / 10);   // relief : un peu plus clair en altitude
+    mini.base.set([Math.min(255, c.r * 255 * (0.85 + 0.4 * h)), Math.min(255, c.g * 255 * (0.85 + 0.4 * h)), Math.min(255, c.b * 255 * (0.85 + 0.4 * h)), 255], k * 4);
+  }
+  mini.acc = 1;
+}
+function miniTick(dt, t) {
+  if (!mini.on || !currentMap || !world) return;
+  mini.acc += dt;
+  if (mini.acc < 0.4) return;
+  mini.acc = 0;
+  const d = mini.img.data; d.set(mini.base);
+  const px = (k, r, g, b) => { d[k * 4] = r; d[k * 4 + 1] = g; d[k * 4 + 2] = b; };
+  for (let k = 0; k < N * N; k++) {
+    if (world.burned[k]) px(k, 40, 34, 30);
+    else if (world.retard[k] > 0) px(k, 200, 70, 100);
+  }
+  for (const b of world.buildings) if (b.lost || b.fire > 0) for (const k of cellsOf(b)) b.lost ? px(k, 30, 26, 24) : px(k, 255, 60, 20);
+  for (const k of burning) px(k, 255, 120 + Math.round(100 * (1 - world.fire[k])), 0);
+  mini.octx.putImageData(mini.img, 0, 0);
+  const g = mini.ctx, S = mini.cv.width, sc = S / N;
+  g.imageSmoothingEnabled = false;
+  g.clearRect(0, 0, S, S); g.drawImage(mini.off, 0, 0, S, S);
+  const P = (x, z) => [(x + HALF) * sc, (z + HALF) * sc];
+  // secteurs des casernes (multijoueur)
+  if (world.towns && MP.active) world.towns.forEach((tw, s) => {
+    const pid = MP.stationPids[s]; if (pid === undefined) return;
+    g.strokeStyle = MP.color(pid); g.lineWidth = 3; g.globalAlpha = 0.8;
+    g.beginPath(); g.arc((tw.ci + 0.5) * sc, (tw.cj + 0.5) * sc, (tw.r + 3) * sc, 0, Math.PI * 2); g.stroke(); g.globalAlpha = 1;
+  });
+  for (const [s, st] of world.stations.entries()) {
+    const [x, y] = P(st.x, st.z), pid = MP.active ? MP.stationPids[s] : undefined;
+    g.fillStyle = pid !== undefined ? MP.color(pid) : '#ff3b30'; g.strokeStyle = '#fff'; g.lineWidth = 2;
+    g.fillRect(x - 6, y - 6, 12, 12); g.strokeRect(x - 6, y - 6, 12, 12);
+  }
+  if (world.airbase) { const [x, y] = P(world.airbase.x, world.airbase.z); g.font = '18px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('🛩️', x, y - 10); }
+  // alertes
+  const blink = Math.floor(t * 3) % 2;
+  for (const inc of incidents) { if (inc.over) continue; const [x, y] = P(inc.x, inc.z); g.strokeStyle = blink ? '#ff1744' : '#ffea00'; g.lineWidth = 3; g.beginPath(); g.arc(x, y, 9, 0, Math.PI * 2); g.stroke(); }
+  // véhicules : les miens en blanc, ceux des autres à leur couleur
+  for (const v of vehicles) {
+    if (v.state === 'dead') continue;
+    const [x, y] = P(v.x, v.z), own = MP.active ? MP.owners[v.id] : undefined;
+    g.fillStyle = mine(v) && own !== -1 ? '#ffffff' : own >= 0 ? MP.color(own) : '#90caf9';
+    g.strokeStyle = '#000'; g.lineWidth = 1.5;
+    g.beginPath();
+    if (v.def.air) { g.moveTo(x, y - 5); g.lineTo(x + 4.5, y + 4); g.lineTo(x - 4.5, y + 4); g.closePath(); } else g.arc(x, y, 3.4, 0, Math.PI * 2);
+    g.fill(); g.stroke();
+  }
+  for (const p of MP.pings) { const [x, y] = P(p.g.position.x, p.g.position.z); g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.arc(x, y, 6 + 4 * Math.sin(t * 8), 0, Math.PI * 2); g.stroke(); }
+  // vue de la caméra
+  const [tx, ty] = P(controls.target.x, controls.target.z), vr = Math.max(4, camera.position.distanceTo(controls.target) * 0.7) * sc;
+  g.strokeStyle = 'rgba(255,255,255,0.85)'; g.lineWidth = 2; g.strokeRect(tx - vr, ty - vr * 0.6, vr * 2, vr * 1.2);
+}
+
 // ─── Démarrage ─────────────────────────────────────────────────
 buildHome();
 requestAnimationFrame(frame);
@@ -3533,7 +3979,7 @@ if (new URLSearchParams(location.search).get('join')) mpOpen();
 window.__ffProject = (x, z) => { const v = new THREE.Vector3(x, groundAt(x, z), z).project(camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; };
 window.__ff = { get world() { return world; }, get vehicles() { return vehicles; }, get stats() { return stats; }, get incidents() { return incidents; }, get accidents() { return accidents; },
   startGame, dispatch, goHome, igniteBuilding, meteo, run(sec, ai) { paused = true; const n = Math.round(sec / 0.1); for (let q = 0; q < n && !gameOver; q++) { if (ai) ai(); simStep(0.1); } paused = false; }, spawnIncident, makeIncident, sendTo, get burning() { return burning; }, setElapsed: v => { elapsed = v; }, get elapsed() { return elapsed; }, setSpeed: s => { gameSpeed = s; },
-  MP, mpPing, mpHostStart, get paused() { return paused; }, get gameOver() { return gameOver; } };
+  MP, mpPing, mpHostStart, setGenPlayers: n => { GEN_PLAYERS = n; }, gridPath, costFn, get N() { return N; }, get paused() { return paused; }, get gameOver() { return gameOver; } };
 
 </script>
 </body>

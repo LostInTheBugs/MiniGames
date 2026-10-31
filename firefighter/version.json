@@ -1,5 +1,5 @@
 {
-  "version": "2026.10.006",
+  "version": "2026.10.007",
   "date": "2026-10-31",
-  "notes": "Co-op multiplayer: up to 4 players online with a room code, fleet split by role, shared pings"
+  "notes": "Co-op: four 192 x 192 maps with one town and fire station per player, shared aircraft, mini-map"
 }

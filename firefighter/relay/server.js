@@ -42,7 +42,9 @@ function leave(ws) {
 }
 
 const server = http.createServer((req, res) => {
-  if (req.url === '/health' || req.url.endsWith('/health')) {
+  // derrière un reverse proxy qui retire le préfixe (StripPrefix de Traefik), l'URL peut arriver sans « / » initial
+  const u = String(req.url || '').replace(/^\/*/, '/').split('?')[0];
+  if (u === '/health' || u.endsWith('/health')) {
     res.writeHead(200, { 'content-type': 'application/json' });
     return res.end(JSON.stringify({ ok: true, version: VERSION, rooms: rooms.size }));
   }

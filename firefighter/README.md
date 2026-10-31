@@ -2,7 +2,7 @@
 
 3D fire and rescue dispatch game — send canadairs, water-bombing helicopters and fire engines to forest fires, burning houses and towers, and road accidents.
 
-Part of the [MiniGames](../README.md) collection. Current version: **2026.10.006** — [releases](https://github.com/LostInTheBugs/MiniGames/releases?q=firefighter&expanded=true).
+Part of the [MiniGames](../README.md) collection. Current version: **2026.10.007** — [releases](https://github.com/LostInTheBugs/MiniGames/releases?q=firefighter&expanded=true).
 
 ## 🗺️ Maps
 
@@ -50,6 +50,7 @@ Trucks carry water (blue gauge): when empty they refill at the fire station or t
 | ⌨️ **P** / **Esc** | Pause |
 | ⌨️ **H** / **?** | Help |
 | ⌨️ **R** | Restart |
+| ⌨️ **C** | Back to your fire station |
 | ⌨️ **M** | Menu |
 
 ### 🎲 Aléatoire
@@ -58,14 +59,22 @@ The last tile on the home screen starts a map drawn at random (never the same on
 
 ### 👥 Multijoueur (co-op)
 
-Up to **4 players online** on the same map, winning or losing together:
+Up to **4 players online**, each with their **own town and fire station**, far apart on a **192 × 192** map, winning or losing together:
 
 1. one player opens the **Multijoueur** tile, creates a room and shares the 4-letter code (or the link `…/firefighter/?join=CODE`)
-2. the others join with the code; the host picks the map, the level and whether the fleet is shared
-3. by default the fleet is split by role, balanced by vehicle count — e.g. with 2 players: urban (fire engines, ladder, light vehicle) / forest and air (forest trucks, helicopters, canadairs, retardant). Each player only commands their own vehicles
-4. **Shift + click** (or **G**) drops a ping everyone sees; **P** pauses for the whole team; only the host changes the speed and restarts
+2. the others join; the host picks the map and the level — the map is generated with one town per player
+3. each station has its own fleet (fire engines, ladder, light vehicle, forest trucks, helicopter); **Canadairs and the retardant aircraft are shared** at the airfield, first come first served. A « flotte partagée » option lets everyone command everything
+4. alerts fall in turn in each player's sector; anyone can send reinforcements anywhere
+5. **Shift + click** (or **G**) drops a ping everyone sees; **C** recentres on your station; the **mini-map** (bottom left) shows the whole map — click it to move the view; **P** pauses for the whole team; only the host changes the speed and restarts
 
-The host's browser runs the simulation (keep the tab in front: switching tab pauses the game for everyone) and sends 5 snapshots per second through the relay; the other players render the same map from the same seed and send their orders to the host.
+| Co-op map | Landscape |
+|---|---|
+| 🌲 **Région forestière** | Towns in the valleys of a huge wooded massif with lakes |
+| 🏖️ **Littoral** | Harbour towns on the coast, villages in pine and scrub hills, offshore wind |
+| ⛰️ **Vallées de montagne** | One town per valley, rocky ridges, winding roads: aircraft are king |
+| 🏙️ **Métropole et banlieues** | A big city cut by a river with its ring road, and suburbs around it; many towers and accidents |
+
+The host's browser runs the simulation (keep the tab in front: switching tab pauses the game for everyone) and sends 5 snapshots per second through the relay; the other players generate the same map from the same seed and send their orders to the host.
 
 ## 🎯 Levels
 
@@ -95,7 +104,7 @@ The co-op mode needs the small WebSocket relay in [`relay/`](relay/) (Node 22 + 
 cd firefighter/relay
 docker compose up -d --build        # listens on 127.0.0.1:8008
 FF_RELAY_PORT=8010 docker compose up -d --build   # other host port
-curl http://127.0.0.1:8008/health   # {"ok":true,"version":"2026.10.006","rooms":0}
+curl http://127.0.0.1:8008/health   # {"ok":true,"version":"2026.10.007","rooms":0}
 ```
 
 | Variable | Default | Meaning |

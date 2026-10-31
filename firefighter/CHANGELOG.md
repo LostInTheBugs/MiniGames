@@ -2,6 +2,25 @@
 
 All notable changes to Firefighter are documented in this file.
 
+## [2026.10.007] — 2026-10-31
+
+### Added
+- **Four co-op maps of 192 × 192 cells** (twice the large maps), generated for the number of players — **one town and one fire station per player**, far apart, plus a shared airfield:
+  - **Région forestière**: towns in valleys of a huge wooded massif dotted with lakes
+  - **Littoral**: harbour towns on the coast (quays, boats) and villages in the pine and scrub hills, offshore wind
+  - **Vallées de montagne**: one town per valley, rocky ridges between them, winding roads
+  - **Métropole et banlieues**: a large city cut by a river, with a ring road, an industrial area and its suburbs
+- Each station has its own fleet (fire engines, ladder, light vehicle, forest trucks, helicopter); the **Canadairs and the retardant aircraft are shared** at the airfield — first come, first served, the vehicle list shows who called them
+- Alerts fall in turn in each player's sector (« … (chez Alice) »); tolerated losses and alert rate scale with the number of towns; missions last twice as long
+- Everyone can still send reinforcements anywhere on the map
+- Each player's camera starts over their own station, which carries their name and colour; **C** brings the camera back to it
+- **Mini-map** (bottom left) on large and co-op maps: fires, burnt areas, stations, vehicles, alerts, pings and the current view; click or drag to move the camera
+
+### Changed
+- Co-op rooms now play on the co-op maps only (the role split across a single station is gone)
+- Snapshots send changed cells in a compact binary form; wetness is synced on 5 levels
+- Relay: `/health` also answers when the reverse proxy strips the path prefix (fix applied on the server by hand in 2026.10.006)
+
 ## [2026.10.006] — 2026-10-31
 
 ### Added
