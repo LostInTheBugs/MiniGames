@@ -1,0 +1,10 @@
+services:
+  ff-relay:
+    build: .
+    container_name: ff-relay
+    restart: unless-stopped
+    environment:
+      - PORT=8008
+    # Port hôte surchargeable : FF_RELAY_PORT=8010 docker compose up -d
+    ports:
+      - "127.0.0.1:${FF_RELAY_PORT:-8008}:8008"

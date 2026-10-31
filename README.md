@@ -5,7 +5,7 @@ A collection of self-contained web mini-games — pure HTML5/Canvas browser game
 | Game | Folder | Version | Notes |
 | ---- | ------ | ------- | ----- |
 | 🐱 **CatAdventure** | [`catadventure/`](catadventure/) | 2026.09.001-c2 | 2D platformer — a cat explores a city, collects fish and avoids obstacles. Pure HTML5 Canvas, no dependencies. |
-| 🚒 **Firefighter** | [`firefighter/`](firefighter/) | 2026.10.005 | 3D fire and rescue dispatch game — send canadairs, helicopters and fire engines to forest fires, burning buildings and road accidents. Three.js (loaded via import map). |
+| 🚒 **Firefighter** | [`firefighter/`](firefighter/) | 2026.10.006 | 3D fire and rescue dispatch game — send canadairs, helicopters and fire engines to forest fires, burning buildings and road accidents; online co-op for up to 4 players (WebSocket relay on port 8008). Three.js (loaded via import map). |
 | 🌊 **Flood City** | [`floodcity/`](floodcity/) | 2026.10.013 | 3D flood-defense game — build walls, dig trenches and protect your city from the waves. Three.js (loaded via import map). |
 | 🐸 **Frogger** | [`frogger/`](frogger/) | 2026.09.001-c2 | Remake of the classic arcade crossing game — five road lanes, five river lanes and six homes. Pure HTML5 Canvas, no dependencies. |
 
@@ -14,7 +14,7 @@ A collection of self-contained web mini-games — pure HTML5/Canvas browser game
 Each game is versioned independently with the `YEAR.MONTH.NNN` scheme and released from this repository with a per-game tag:
 
 - `catadventure-2026.09.001-c2`
-- `firefighter-2026.10.005`
+- `firefighter-2026.10.006`
 - `floodcity-2026.10.013`
 - `frogger-2026.09.001-c2`
 
@@ -36,7 +36,7 @@ You can also simply open the game's `index.html` in a browser (Firefighter and F
 ```
 .
 ├── catadventure/          # game + standalone Docker deployment (Nginx, Traefik-ready) + update client
-├── firefighter/           # game + map previews
+├── firefighter/           # game + map previews (relay/ = co-op WebSocket relay, Docker)
 ├── floodcity/             # game + visual verification harness
 ├── frogger/               # game
 ├── VERSION                # repository version

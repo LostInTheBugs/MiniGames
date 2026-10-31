@@ -2,6 +2,17 @@
 
 All notable changes to Firefighter are documented in this file.
 
+## [2026.10.006] — 2026-10-31
+
+### Added
+- **Co-op multiplayer** (2–4 players, online): new « Multijoueur » tile on the home screen
+  - create a room and share its 4-letter code or link (`?join=CODE`); the host picks the map and level
+  - the fleet is split by role (urban / forest / air…, balanced by vehicle count) or shared by everyone; each player only commands their own vehicles, the others are shown with their firefighter's colour
+  - shared map pings (Shift + click or G), team pause (P), shared win or loss, host-only speed and restart
+  - the host runs the simulation and sends 5 snapshots per second (changed cells, buildings, vehicles, alerts, weather, score); the other players generate the same map from the same seed and send their orders to the host
+  - a player who leaves hands their vehicles over to the host; if the host leaves or switches tab, the game stops / pauses for everyone
+- `relay/`: small WebSocket relay server (Node + `ws`, Docker) that only creates rooms and forwards messages — port **8008** (`FF_RELAY_PORT`), served behind the reverse proxy at `/firefighter/ws`
+
 ## [2026.10.005] — 2026-10-31
 
 ### Changed
