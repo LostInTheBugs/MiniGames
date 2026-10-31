@@ -2,7 +2,7 @@
 
 3D fire and rescue dispatch game — send canadairs, water-bombing helicopters and fire engines to forest fires, burning houses and towers, and road accidents.
 
-Part of the [MiniGames](../README.md) collection. Current version: **2026.10.002** — [releases](https://github.com/LostInTheBugs/MiniGames/releases?q=firefighter&expanded=true).
+Part of the [MiniGames](../README.md) collection. Current version: **2026.10.003** — [releases](https://github.com/LostInTheBugs/MiniGames/releases?q=firefighter&expanded=true).
 
 ## 🗺️ Maps
 
@@ -17,14 +17,14 @@ Part of the [MiniGames](../README.md) collection. Current version: **2026.10.002
 
 | Key | Vehicle | Moves | Role |
 |---|---|---|---|
-| 1 | ✈️ Canadair | flies | Drops a long strip of water along its flight path, scoops at the nearest water |
+| 1 | ✈️ Canadair | flies | Drops a long strip of water along its flight path, scoops at the nearest water. For forests: over homes it wrecks the buildings and injures passers-by |
 | 2 | 🚁 Water-bombing helicopter | flies | Drops its bucket on a 2-cell circle, refills at water or the helipad |
 | 3 | 🚛 Forest fire truck (CCF) | off-road, enters the forest | Sprays vegetation fires around it |
 | 4 | 🚓 Light vehicle (VL) | roads and grass, fast | No water: rescues road accident victims |
 | 5 | 🪜 Aerial ladder | roads only | Reaches upper floors: the only fully effective vehicle on towers |
 | 6 | 🚒 Fire engine (FPT) | roads and grass | Houses, warehouses, boats, accidents; lower floors only on a tower |
 
-Trucks carry water (blue gauge): when empty they refill at the fire station or the nearest hydrant, then come back. Aircraft drop once, refill, and come back as long as something burns near their target.
+Trucks carry water (blue gauge): when empty they refill at the fire station or the nearest hydrant, then come back; back at the station they refill before being available again. They drive around flames (except the forest fire truck). While aiming with an aircraft, the drop footprint is shown on the map — red when it would hit homes. Aircraft drop once, refill, and come back as long as something burns near their target.
 
 ## 🎮 How to play
 
@@ -77,6 +77,9 @@ The game checks this repository's `firefighter-` releases every hour (GitHub API
 ## 📋 Release notes
 
 See [CHANGELOG.md](CHANGELOG.md).
+
+### 2026.10.003
+- Trucks refill at the station; Canadair drops on homes wreck buildings and injure passers-by; aiming preview for aircraft; trucks go around flames
 
 ### 2026.10.002
 - New **Aléatoire** tile on the home screen: a random map at its highest unlocked level

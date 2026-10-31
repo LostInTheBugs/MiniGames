@@ -2,6 +2,17 @@
 
 All notable changes to Firefighter are documented in this file.
 
+## [2026.10.003] — 2026-10-31
+
+### Fixed
+- Back at the fire station, a truck now refills its tank completely (it used to stay at least half empty) before being available again
+- A Canadair could put out a house or tower fire without consequence: its drop (several tonnes at once) still puts the fire out, but now wrecks every building under it (−55 HP for a house, warehouse or boat, −35 for a tower; it can collapse) and injures people in the nearby streets; −150 points per building, −100 per injured person; warning message, damage listed on the end screen
+- Trucks no longer drive through burning cells (the forest fire truck still can, more slowly)
+
+### Added
+- Aiming preview for aircraft: while hovering the map with a Canadair or a helicopter selected, the drop footprint is shown (9 × 2.6 strip along the Canadair's approach, red over homes; 2.3 circle for the helicopter); dispatching a Canadair onto homes warns before the drop
+- The helicopter bucket slightly damages a house it hits and only reaches the top of a tower
+
 ## [2026.10.002] — 2026-10-31
 
 ### Added

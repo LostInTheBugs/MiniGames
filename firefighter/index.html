@@ -380,7 +380,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 // ─── Version ──────────────────────────────────────────────────
-const GAME_VERSION = "2026.10.002";
+const GAME_VERSION = "2026.10.003";
 document.querySelector("meta[name=version]").setAttribute("content", GAME_VERSION);
 document.getElementById('home-version').textContent = 'v' + GAME_VERSION;
 console.log("Firefighter v" + GAME_VERSION);
@@ -1537,9 +1537,9 @@ function makeVehicleMesh(type) {
 // ═══════════════════════════════════════════════════════════════
 const VEH = {
   canadair: { name: 'Canadair', short: 'Canadair', icon: '✈️', air: true, alt: 6.5, speed: 10, key: '1',
-    help: 'Avion bombardier d\'eau. Largue une longue bande d\'eau (8 cases) dans le sens de son vol, puis écope sur l\'eau la plus proche. Idéal sur les feux de forêt.' },
+    help: 'Avion bombardier d\'eau. Largue une longue bande d\'eau (9 cases) dans le sens de son vol, puis écope sur l\'eau la plus proche. Pour les feux de forêt : sur des habitations, le largage éteint le feu mais ravage les bâtiments et blesse les passants (la bande de visée devient rouge).' },
   helico: { name: 'Hélicoptère bombardier', short: 'Hélico', icon: '🚁', air: true, alt: 4.2, speed: 7, key: '2',
-    help: 'Largue son seau sur un cercle de 2 cases de rayon, puis le remplit à l\'eau ou à l\'héliport. Précis, utile partout, y compris sur les toits.' },
+    help: 'Largue son seau sur un cercle de 2 cases de rayon, puis le remplit à l\'eau ou à l\'héliport. Précis : utile sur la forêt et en appui sur les toits (abîme un peu une maison, n\'attaque un immeuble que par le haut).' },
   ccf: { name: 'Camion feu de forêt', short: 'CCF', icon: '🚛', cls: 'off', speed: 3.1, cap: 100, flow: 9, reach: 2.7, bEff: 0.6, tallEff: 0.15, rescue: 3, key: '3',
     help: 'Tout-terrain : roule hors des routes et entre dans la forêt. Arrose les feux de végétation tout autour de lui. Peu efficace sur les immeubles.' },
   vl: { name: 'Véhicule léger', short: 'VL', icon: '🚓', cls: 'urban', speed: 5.2, cap: 0, flow: 0, reach: 2.4, rescue: 12, key: '4',
@@ -1589,6 +1589,7 @@ const unlocked = id => Math.max(1, Math.min(10, store.get('unlocked_' + id, 1)))
 function startGame(mapId, level) {
   currentMap = mapId; currentLevel = level; gameOver = false; paused = false;
   L = levelCfg(mapId, level);
+  hideAim();
   store.set('last_map', mapId);
   // nettoyage
   disposeTree(mapGroup); scene.remove(mapGroup);
@@ -1612,7 +1613,7 @@ function startGame(mapId, level) {
   for (const t of VTYPES) for (let q = 0; q < (m.fleet[t] || 0); q++) spawnVehicle(t, q);
   if (!m.fleet[selectedType]) selectedType = VTYPES.find(t => m.fleet[t]);
   selectedVehicle = null;
-  stats = { lost: 0, saved: 0, victims: 0, rescued: 0, resolved: 0, score: 0, buildTotal: world.buildings.filter(b => b.kind !== 'station').length };
+  stats = { lost: 0, saved: 0, victims: 0, rescued: 0, resolved: 0, score: 0, collateral: 0, injured: 0, buildTotal: world.buildings.filter(b => b.kind !== 'station').length };
   stats.maxLost = Math.max(2, Math.min(Math.round(stats.buildTotal * L.lostPct), 4 - Math.floor((level - 1) / 4))) + (MAPS[mapId].lostBonus || 0);   // 4 bâtiments (niv. 1-4), 3 (5-8), 2 (9-10)
   elapsed = 0; nextIncident = 4; fireAcc = 0; uiAcc = 0; windAcc = 0;
   // caméra
@@ -1629,6 +1630,7 @@ function startGame(mapId, level) {
 function setWind() { wind.x = Math.sin(wind.a) * wind.s; wind.z = -Math.cos(wind.a) * wind.s; }
 
 function goToMenu() {
+  hideAim();
   currentMap = null; gameOver = false; paused = false;
   for (const id of ['#hud', '#banner', '#wind', '#controls', '#fleet', '#vlist']) $(id).style.display = 'none';
   $('#end-overlay').classList.remove('show'); $('#pause-overlay').classList.remove('show');
@@ -1705,13 +1707,7 @@ function fireTick(dt) {
     if (b.fire <= 0 || b.lost) continue;
     b.fire = Math.min(1, b.fire + 0.05 * dt * L.growth);
     b.hp -= 3.0 * b.fire * dt * (b.kind === 'tower' ? 0.75 : 1);
-    if (b.hp <= 0) {
-      b.hp = 0; b.lost = true; b.fire = 0; stats.lost++;
-      setBuildingLook(b);
-      for (const k of cellsOf(b)) { world.burned[k] = 1; dirty.add(k); }
-      flash(`🏚️ ${kindName(b)} ${b.kind === 'house' ? 'détruite' : 'détruit'}`, 1800);
-      continue;
-    }
+    if (b.hp <= 0) { collapse(b); continue; }
     if (Math.random() < 0.3) setBuildingLook(b);
     // propagation : cases et bâtiments voisins
     for (let j = b.j0 - 1; j <= b.j0 + b.dp; j++) for (let i = b.i0 - 1; i <= b.i0 + b.wd; i++) {
@@ -1728,6 +1724,12 @@ function fireTick(dt) {
   for (let k = 0; k < N * N; k++) if (world.wet[k] > 0) { world.wet[k] = Math.max(0, world.wet[k] - 0.03 * dt); dirty.add(k); }
   for (const k of dirty) paintCell(k);
   dirty.clear();
+}
+function collapse(b, why) {
+  b.hp = 0; b.lost = true; b.fire = 0; stats.lost++;
+  setBuildingLook(b);
+  for (const k of cellsOf(b)) { world.burned[k] = 1; dirty.add(k); }
+  flash(why || `🏚️ ${kindName(b)} ${b.kind === 'house' ? 'détruite' : 'détruit'}`, 1800);
 }
 function kindName(b) {
   return { house: 'Maison', tower: 'Immeuble', warehouse: 'Entrepôt', boat: 'Bateau', station: 'Caserne' }[b.kind];
@@ -1849,6 +1851,8 @@ function costFn(cls) {
     else if (t === T.FOREST) { if (cls === 'off') c = world.burned[k] ? 2 : 2.8; else if (world.burned[k]) c = 2.8; else return Infinity; }
     else return Infinity;
     if (world.bld[k] >= 0) return Infinity;
+    // on contourne les flammes : seul le camion feu de forêt accepte de traverser une case en feu
+    if (world.fire[k] > 0) { if (cls !== 'off') return Infinity; c *= 3; }
     return c * (1 + 0.55 * (world.slope ? world.slope[k] : 0));
   };
 }
@@ -1888,18 +1892,23 @@ function nearestWater(x, z) {
 }
 function available(v) { return v.state === 'idle' || v.state === 'hold'; }
 
+// Véhicule qui partira si on clique en (x, z) : celui choisi dans la liste, sinon le plus proche disponible du type
+function pickVehicle(x, z) {
+  if (selectedVehicle) return selectedVehicle;
+  const list = vehicles.filter(o => o.type === selectedType);
+  if (!list.length) return null;
+  const score = o => (available(o) ? 0 : o.state === 'ret' ? 1000 : 3000) + Math.hypot(o.x - x, o.z - z);
+  return list.sort((a, b) => score(a) - score(b))[0];
+}
 function dispatch(x, z) {
   if (!currentMap || gameOver) return;
-  let v = selectedVehicle;
-  if (!v) {
-    const list = vehicles.filter(o => o.type === selectedType);
-    if (!list.length) { flash('Aucun véhicule de ce type sur cette carte', 1500); return; }
-    const score = o => (available(o) ? 0 : o.state === 'ret' ? 1000 : 3000) + Math.hypot(o.x - x, o.z - z);
-    v = list.sort((a, b) => score(a) - score(b))[0];
-  }
+  const v = pickVehicle(x, z);
+  if (!v) { flash('Aucun véhicule de ce type sur cette carte', 1500); return; }
   selectedVehicle = null;
   sendTo(v, x, z);
-  flash(`${v.def.icon} ${v.def.short} ${v.num} → secteur ${sector(x, z)}`, 1300);
+  const homes = aimMesh && aimMesh.visible && v.type === 'canadair' && aimMesh.material.color.getHex() === 0xff5252;
+  flash(`${v.def.icon} ${v.def.short} ${v.num} → secteur ${sector(x, z)}${homes ? ' — ⚠️ zone habitée : le largage va faire des dégâts' : ''}`, homes ? 2600 : 1300);
+  hideAim();
   updateUI(true);
 }
 function sendTo(v, x, z) {
@@ -2053,17 +2062,34 @@ function workGround(v, dt) {
 }
 function lerp(a, b, t) { return a + (b - a) * t; }
 
+// Renvoie true si un message d'avertissement (dégâts) a été affiché
 function airDrop(v) {
+  let warned = false;
   if (v.type === 'canadair') {
     const hx = Math.sin(v.heading), hz = Math.cos(v.heading);
-    for (let s = -4.5; s <= 4.5; s += 0.5) for (let w = -1.3; w <= 1.3; w += 0.5) {
-      const x = v.x + hx * s - hz * w, z = v.z + hz * s + hx * w, i = toI(x), j = toJ(z);
-      if (!inb(i, j)) continue;
-      const k = idx(i, j);
+    const hit = new Set(), street = new Set();
+    for (const k of canadairStrip(v.x, v.z, v.heading)) {
       extinguishCell(k, 1);
       const bi = world.bld[k];
-      if (bi >= 0) { const b = world.buildings[bi]; coolBuilding(b, (b.kind === 'tower' ? 0.04 : 0.08)); }
+      if (bi >= 0 && world.buildings[bi].kind !== 'station') hit.add(world.buildings[bi]);
+      else if (world.type[k] === T.ROAD && nearBuilding(k)) street.add(k);
     }
+    // 6 tonnes d'eau lâchées d'un coup : le feu s'éteint, mais le bâtiment est ravagé
+    // (toiture enfoncée, vitres soufflées) et les gens dans la rue sont blessés
+    let wrecked = 0;
+    for (const b of hit) {
+      if (b.lost) continue;
+      b.fire = 0;
+      b.hp -= b.kind === 'tower' ? 35 : 55;
+      stats.collateral++; wrecked++;
+      if (b.hp <= 0) collapse(b, `💥 ${kindName(b)} ${b.kind === 'house' ? 'écrasée' : 'écrasé'} par le largage`);
+      else setBuildingLook(b);
+    }
+    const hurt = street.size ? Math.min(3, Math.ceil(street.size / 6)) : 0;
+    if (hurt) stats.injured += hurt;
+    stats.score -= 150 * wrecked + 100 * hurt;
+    warned = !!(wrecked || hurt);
+    if (warned) flash(`⚠️ Largage du Canadair en zone habitée : ${wrecked ? wrecked + ' bâtiment' + (wrecked > 1 ? 's' : '') + ' endommagé' + (wrecked > 1 ? 's' : '') : ''}${wrecked && hurt ? ', ' : ''}${hurt ? hurt + ' passant' + (hurt > 1 ? 's' : '') + ' blessé' + (hurt > 1 ? 's' : '') : ''}`, 3200);
     for (let q = 0; q < 160; q++) {
       const s = (NATIVE_RANDOM() - 0.5) * 9;
       spray.emit(v.x + hx * s, v.y - 0.3, v.z + hz * s, (NATIVE_RANDOM() - 0.5) * 1.5, -1 - NATIVE_RANDOM() * 3, (NATIVE_RANDOM() - 0.5) * 1.5, 1.6);
@@ -2075,10 +2101,29 @@ function airDrop(v) {
       const k = idx(i, j);
       extinguishCell(k, 0.95);
     }
-    for (const b of world.buildings) if (b.fire > 0 && distToBuilding(b, v.x, v.z) < 1.6) coolBuilding(b, b.kind === 'tower' ? 0.5 : 0.6);
+    // le seau (environ 1 tonne) éteint un toit mais abîme un peu une maison ; un immeuble n'est attaqué que par le haut
+    for (const b of world.buildings) if (!b.lost && b.kind !== 'station' && distToBuilding(b, v.x, v.z) < 1.6) {
+      if (b.fire > 0) coolBuilding(b, b.kind === 'tower' ? 0.35 : 0.6);
+      if (b.kind === 'house' || b.kind === 'boat') { b.hp -= 8; if (b.hp <= 0) collapse(b); else setBuildingLook(b); }
+    }
     for (let q = 0; q < 90; q++) spray.emit(v.x, v.y - 1, v.z, (NATIVE_RANDOM() - 0.5) * 3, -1 - NATIVE_RANDOM() * 2, (NATIVE_RANDOM() - 0.5) * 3, 1.2);
   }
   v.tank = 0;
+  return warned;
+}
+// Cases arrosées par un Canadair qui largue en (x, z) dans la direction heading (9 × 2,6 cases)
+function canadairStrip(x0, z0, heading) {
+  const hx = Math.sin(heading), hz = Math.cos(heading), out = new Set();
+  for (let s = -4.5; s <= 4.5; s += 0.5) for (let w = -1.3; w <= 1.3; w += 0.5) {
+    const i = toI(x0 + hx * s - hz * w), j = toJ(z0 + hz * s + hx * w);
+    if (inb(i, j)) out.add(idx(i, j));
+  }
+  return out;
+}
+function nearBuilding(k) {
+  const i = k % N, j = (k - i) / N;
+  for (const [di, dj] of NB8) { const ni = i + di, nj = j + dj; if (inb(ni, nj) && world.bld[idx(ni, nj)] >= 0) return true; }
+  return false;
 }
 function fireNear(x, z, r) {
   for (const k of burning) { const i = k % N, j = (k - i) / N; if (Math.hypot(cx(i) - x, cz(j) - z) < r) return true; }
@@ -2108,8 +2153,8 @@ function updateAir(v, dt) {
     v.y = lerp(v.y, groundAt(v.x, v.z) + 0.55, Math.min(1, dt * 2));
   } else if (v.state === 'fly') {
     if (flyTo(v, v.target.x, v.target.z, d.alt * (v.type === 'canadair' ? 0.55 : 0.75), dt)) {
-      airDrop(v); goRefill(v);
-      flash(`💦 ${d.short} ${v.num} : largage`, 900);
+      const warned = airDrop(v); goRefill(v);
+      if (!warned) flash(`💦 ${d.short} ${v.num} : largage`, 900);
     }
   } else if (v.state === 'refillGo') {
     const r = v.refillAt;
@@ -2149,10 +2194,15 @@ function updateGround(v, dt) {
     if (v.timer <= 0) {
       v.tank = v.def.cap;
       if (v.target && nearestJob(v, v.target.x, v.target.z, 9)) { v.state = 'move'; pathTo(v, toI(v.target.x), toJ(v.target.z)); }
+      else if (Math.hypot(v.x - cx(v.home.i), v.z - cz(v.home.j)) < 1.2) { v.state = 'idle'; v.target = null; }
       else goHome(v);
     }
   } else if (v.state === 'ret') {
-    if (followPath(v, dt)) { v.state = 'idle'; if (v.def.cap) v.tank = Math.max(v.tank, v.def.cap * 0.5); }
+    if (followPath(v, dt)) {
+      // de retour à la caserne : on refait le plein avant d'être à nouveau disponible
+      if (v.def.cap && v.tank < v.def.cap) { v.state = 'refill'; v.target = null; v.timer = 3.5 * (1 - v.tank / v.def.cap) + 0.3; }
+      else v.state = 'idle';
+    }
   }
 }
 
@@ -2187,6 +2237,7 @@ function endGame(win, why) {
     <div class="stats">
       ✅ Interventions réussies : <b>${stats.resolved}</b><br>
       🏚️ Bâtiments détruits : <b>${stats.lost}</b> / ${stats.buildTotal}<br>
+      ${stats.collateral || stats.injured ? `✈️ Dégâts des largages : <b>${stats.collateral}</b> bâtiment(s), <b>${stats.injured}</b> passant(s) blessé(s)<br>` : ''}
       🌲 Forêt brûlée : <b>${fp} %</b><br>
       🚑 Victimes secourues : <b>${stats.rescued}</b> · perdues : <b>${stats.victims}</b><br>
       ⭐ Score : <b>${score}</b>${score > best ? ' — nouveau record !' : ''}
@@ -2298,6 +2349,44 @@ renderer.domElement.addEventListener('pointerup', e => {
   const hit = raycaster.intersectObject(terrain)[0];
   if (hit) dispatch(hit.point.x, hit.point.z);
 });
+// ─── Visée des moyens aériens ──────────────────────────────────
+// En survolant la carte avec le Canadair ou l'hélicoptère choisi, on voit où l'eau tombera :
+// bande de 9 × 2,6 cases dans l'axe d'arrivée du Canadair, cercle de 2,3 cases pour l'hélico.
+// Rouge si le largage touche des habitations.
+let aimMesh = null, aimRing = null;
+function hideAim() { if (aimMesh) aimMesh.visible = false; if (aimRing) aimRing.visible = false; }
+function updateAim(x, z) {
+  const v = currentMap && !gameOver ? pickVehicle(x, z) : null;
+  if (!v || !v.def.air) { hideAim(); return; }
+  if (!aimMesh) {
+    aimMesh = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 9), new THREE.MeshBasicMaterial({ color: 0x4fc3f7, transparent: true, opacity: 0.35, depthTest: false, depthWrite: false, side: THREE.DoubleSide }));
+    aimMesh.rotation.order = 'YXZ'; aimMesh.renderOrder = 5; scene.add(aimMesh);
+    aimRing = new THREE.Mesh(new THREE.CircleGeometry(2.3, 32), aimMesh.material);
+    aimRing.rotation.x = -Math.PI / 2; aimRing.renderOrder = 5; scene.add(aimRing);
+  }
+  let homes = false;
+  if (v.type === 'canadair') {
+    const from = v.state === 'refill' || v.state === 'refillGo' ? (v.refillAt || v) : v;
+    const h = Math.atan2(x - from.x, z - from.z);
+    for (const k of canadairStrip(x, z, h)) if (world.bld[k] >= 0 || (world.type[k] === T.ROAD && nearBuilding(k))) { homes = true; break; }
+    aimMesh.position.set(x, groundAt(x, z) + 0.4, z);
+    aimMesh.rotation.set(-Math.PI / 2, h, 0);
+    aimMesh.visible = true; aimRing.visible = false;
+  } else {
+    for (const b of world.buildings) if (b.kind !== 'station' && distToBuilding(b, x, z) < 1.6) { homes = true; break; }
+    aimRing.position.set(x, groundAt(x, z) + 0.4, z);
+    aimRing.visible = true; aimMesh.visible = false;
+  }
+  aimMesh.material.color.setHex(homes && v.type === 'canadair' ? 0xff5252 : 0x4fc3f7);
+}
+renderer.domElement.addEventListener('pointermove', e => {
+  if (!currentMap || !terrain || gameOver) { hideAim(); return; }
+  mouse.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+  raycaster.setFromCamera(mouse, camera);
+  const hit = raycaster.intersectObject(terrain)[0];
+  if (hit) updateAim(hit.point.x, hit.point.z); else hideAim();
+});
+renderer.domElement.addEventListener('pointerleave', hideAim);
 addEventListener('keydown', e => {
   if ($('#help-overlay').classList.contains('show')) { if (['Escape', 'h', 'H', '?'].includes(e.key)) toggleHelp(false); return; }
   if (!currentMap) return;
@@ -2318,7 +2407,7 @@ function toggleHelp(show) {
     $('#help-content').innerHTML = `<h2>🚒 Aide — Firefighter</h2>
       <p>Des alertes tombent : feux de forêt, maisons, immeubles, entrepôts, bateaux, accidents de la route. Choisis un type de véhicule en bas (ou un véhicule précis dans la liste à droite), puis <b>clique sur la carte</b> : le plus proche disponible y va et intervient tout seul sur ce qui brûle autour.</p>
       <h3>Véhicules</h3><table>${VTYPES.map(t => `<tr><td>${VEH[t].icon} <b>${VEH[t].name}</b> <kbd>${VEH[t].key}</kbd></td><td>${VEH[t].help}</td></tr>`).join('')}</table>
-      <h3>Eau</h3><p>Les camions ont une citerne (barre bleue) : à sec, ils vont se remplir à la caserne ou à la bouche d'incendie la plus proche, puis reviennent. Canadair et hélicoptère larguent une fois puis repartent se remplir, et reviennent tant que ça brûle près de leur cible.</p>
+      <h3>Eau</h3><p>Les camions ont une citerne (barre bleue) : à sec, ils vont se remplir à la caserne ou à la bouche d'incendie la plus proche, puis reviennent ; de retour à la caserne, ils refont le plein avant d'être disponibles. Ils contournent les flammes (sauf le camion feu de forêt). Canadair et hélicoptère larguent une fois puis repartent se remplir, et reviennent tant que ça brûle près de leur cible. En survolant la carte avec eux, tu vois où l'eau tombera.</p>
       <h3>Feu</h3><p>Le feu se propage de case en case, plus vite dans la forêt et <b>dans le sens du vent</b> (boussole en haut à droite). Une case arrosée reste humide un moment et brûle mal : on peut faire des coupe-feu. Un bâtiment en feu perd peu à peu sa solidité, puis s'effondre.</p>
       <h3>Accidents</h3><p>Un compte à rebours s'affiche dans le bandeau : envoie un véhicule léger (le plus rapide pour secourir) ou un camion de pompiers avant la fin.</p>
       <h3>But</h3><p>Tenir jusqu'à la fin du temps sans dépasser les pertes tolérées (bâtiments, forêt, victimes : voir le panneau à gauche). Le niveau 10 est sans fin.</p>
@@ -2472,7 +2561,7 @@ buildHome();
 requestAnimationFrame(frame);
 window.__ffProject = (x, z) => { const v = new THREE.Vector3(x, groundAt(x, z), z).project(camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; };
 window.__ff = { get world() { return world; }, get vehicles() { return vehicles; }, get stats() { return stats; }, get incidents() { return incidents; }, get accidents() { return accidents; },
-  startGame, dispatch, run(sec, ai) { paused = true; const n = Math.round(sec / 0.1); for (let q = 0; q < n && !gameOver; q++) { if (ai) ai(); simStep(0.1); } paused = false; }, spawnIncident, makeIncident, sendTo, get burning() { return burning; }, setElapsed: v => { elapsed = v; }, get elapsed() { return elapsed; }, setSpeed: s => { gameSpeed = s; } };
+  startGame, dispatch, goHome, run(sec, ai) { paused = true; const n = Math.round(sec / 0.1); for (let q = 0; q < n && !gameOver; q++) { if (ai) ai(); simStep(0.1); } paused = false; }, spawnIncident, makeIncident, sendTo, get burning() { return burning; }, setElapsed: v => { elapsed = v; }, get elapsed() { return elapsed; }, setSpeed: s => { gameSpeed = s; } };
 
 </script>
 </body>
