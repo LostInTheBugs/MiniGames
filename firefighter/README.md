@@ -2,7 +2,7 @@
 
 3D fire and rescue dispatch game — send canadairs, water-bombing helicopters and fire engines to forest fires, burning houses and towers, and road accidents.
 
-Part of the [MiniGames](../README.md) collection. Current version: **2026.10.008** — [releases](https://github.com/LostInTheBugs/MiniGames/releases?q=firefighter&expanded=true).
+Part of the [MiniGames](../README.md) collection. Current version: **2026.10.009** — [releases](https://github.com/LostInTheBugs/MiniGames/releases?q=firefighter&expanded=true).
 
 ## 🗺️ Maps
 
@@ -26,6 +26,7 @@ Part of the [MiniGames](../README.md) collection. Current version: **2026.10.008
 | 5 | 🪜 Aerial ladder | roads only | Reaches upper floors: the only fully effective vehicle on towers, evacuates trapped people at every floor |
 | 6 | 🚒 Fire engine (FPT) | roads and grass | Houses, warehouses, boats; evacuates up to the 3rd floor; cuts accident victims out; lower floors only on a tower |
 | 7 | 🛩️ Retardant aircraft | flies (large maps) | Drops a 14-cell strip of retardant: vegetation barely burns for 2 minutes; reloads at the airfield |
+| 8 | 🚜 Bulldozer | off-road, slow | Digs a 13 × 3-cell trench of bare earth across the wind where you click: fire does not cross it (embers can) |
 
 Trucks carry water (blue gauge): when empty they refill at the fire station or the nearest hydrant, then come back; back at the station they refill before being available again. They drive around flames (except the forest fire truck). While aiming with an aircraft, the drop footprint is shown on the map — red when it would hit homes. Aircraft drop once, refill, and come back as long as something burns near their target.
 
@@ -45,13 +46,21 @@ Trucks carry water (blue gauge): when empty they refill at the fire station or t
 | 🖱️ Right drag | Rotate the camera |
 | 🖱️ Middle drag | Pan |
 | 🖱️ Wheel | Zoom |
-| ⌨️ **1–7** | Vehicle type |
+| ⌨️ **1–8** | Vehicle type |
+| ⌨️ **E** | Evacuate a district |
 | ⌨️ **F** | Speed ×2 |
 | ⌨️ **P** / **Esc** | Pause |
 | ⌨️ **H** / **?** | Help |
 | ⌨️ **R** | Restart |
 | ⌨️ **C** | Back to your fire station |
 | ⌨️ **M** | Menu |
+
+### ⚠️ Major incidents, night, evacuation, upgrades
+
+- **Major incident** once per mission (from level 2): factory fire that explodes if it stays hot too long, pile-up with many trapped victims, or a forest fire threatening a campsite whose campers every truck can drive away
+- **Evacuate a district** (**E**, 3 orders per mission): residents within 7 cells leave before the fire arrives
+- **Night missions** (tick box on each map card): no aircraft, slightly slower fire, score ×1.3
+- **Fire station upgrades** (« Caserne » tile, solo): missions earn credits (score ÷ 10) to buy an extra fire engine, forest truck or helicopter, bigger tanks, faster trucks, heat protection, faster refills
 
 ### 🎲 Aléatoire
 

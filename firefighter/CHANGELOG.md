@@ -2,6 +2,22 @@
 
 All notable changes to Firefighter are documented in this file.
 
+## [2026.10.009] — 2026-10-31
+
+### Added — second wave: gameplay
+- **Bulldozer** 🚜 (key **8**; village, mountain, large and co-op maps): click where to dig — it cuts a 13 × 3-cell trench of bare earth across the wind (brown aiming preview). Fire does not cross it (only embers jump it); it cannot dig a burning cell
+- **Evacuating a district** 🏃 (key **E** or the button in the fleet bar, 3 orders per mission — per player in co-op): residents of every building within 7 cells leave in 10–16 s, so nobody is trapped if the fire arrives later (+40 points per person spared, −5 per building evacuated)
+- **Major incidents**, once per mission (from level 2 in solo, always in co-op):
+  - **factory fire**: a warehouse that stays hot too long explodes — buildings around catch fire, trucks nearby are damaged
+  - **pile-up**: 5–7 trapped victims, three times more cutting-out and care work, longer countdown
+  - **campsite threatened by a forest fire**: every truck can drive campers out before the flames arrive; the campers also leave little by little
+  - +300 points when it is dealt with
+- **Night missions** 🌙 (tick box on each map card, and in the co-op room): aircraft stay on the ground, fire spreads a little slower, dark sky with lit windows, score ×1.3
+- **Fire station upgrades** 🔧 (solo): each mission earns credits (score ÷ 10, half if it fails), spent in the new « Caserne » tile — extra fire engine, extra forest truck, second helicopter, bigger tanks (+30 %), faster trucks (+12 %), heat protection (−30 % damage), faster refills (×1.6)
+
+### Changed
+- The bulldozer's trench, evacuations, campsites and explosions are synced in co-op
+
 ## [2026.10.008] — 2026-10-31
 
 ### Added — co-op, first wave

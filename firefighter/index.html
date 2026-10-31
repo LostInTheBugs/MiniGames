@@ -189,6 +189,26 @@
   #minimap { position: fixed; left: 14px; bottom: 100px; z-index: 10; display: none; padding: 6px; cursor: crosshair; }
   #minimap canvas { display: block; width: 180px; height: 180px; border-radius: 8px; }
   @media (max-height: 640px) { #minimap canvas { width: 130px; height: 130px; } }
+  .night-chk { display: flex; gap: 6px; align-items: center; justify-content: center; font-size: 0.76em; color: rgba(255,255,255,0.7); cursor: pointer; }
+  .garage-art { background: linear-gradient(135deg, #263238, #ff8f00); }
+  .garage-art span { position: relative; font-size: 54px; }
+  .bgar { background: linear-gradient(90deg, #f9a825, #ff7043); }
+  #garage-overlay { position: fixed; inset: 0; z-index: 37; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.55); }
+  #garage-overlay.show { display: flex; }
+  #garage-panel { width: min(620px, 94vw); max-height: 90vh; overflow-y: auto; padding: 22px 24px; position: relative; font-size: 0.9em; }
+  #garage-panel .x { position: absolute; top: 12px; right: 14px; background: none; border: none; color: #fff; font-size: 1.2em; cursor: pointer; }
+  #garage-panel h2 { margin-bottom: 8px; }
+  .gar-cr { color: rgba(255,255,255,0.75); margin-bottom: 14px; line-height: 1.45; }
+  .gar-list { display: flex; flex-direction: column; gap: 8px; }
+  .gar-it { display: grid; grid-template-columns: 36px 1fr auto; gap: 10px; align-items: center; padding: 9px 12px; border-radius: 10px; background: rgba(255,255,255,0.05); }
+  .gar-it.own { background: rgba(76,175,80,0.14); }
+  .gar-it .gi { font-size: 26px; }
+  .gar-it .gd { font-size: 0.85em; color: rgba(255,255,255,0.6); }
+  .gar-it button { padding: 7px 12px; border-radius: 9px; border: none; background: linear-gradient(90deg, #ff8a3d, #ff4b2b); color: #fff; font: 700 0.9em Inter, sans-serif; cursor: pointer; }
+  .gar-it button:disabled { opacity: 0.35; cursor: not-allowed; }
+  .gar-it .gok { color: #9fe39f; font-weight: 700; font-size: 0.85em; }
+  .fbtn.evb { border-color: rgba(179,136,255,0.45); }
+  .fbtn.evb.active { border-color: #b388ff; background: rgba(179,136,255,0.25); box-shadow: 0 0 0 1px #b388ff inset; }
   /* ─── Version update notification ──────────────────────── */
   #version-banner {
     position: fixed; bottom: 24px; right: 24px;
@@ -397,7 +417,7 @@
 <div id="vlist" class="glass"></div>
 <div id="fleet" class="glass"></div>
 <div id="message" class="glass"></div>
-<div id="controls" class="glass">🖱️ <kbd>Clic</kbd> envoyer · <kbd>Clic droit</kbd> pivoter · <kbd>Molette</kbd> zoom · <kbd>Clic milieu</kbd> déplacer · <kbd>1</kbd>–<kbd>7</kbd> véhicule · <kbd>F</kbd> vitesse ×2 · <kbd>P</kbd> pause · <kbd>H</kbd> aide · <kbd>R</kbd> recommencer · <kbd>C</kbd> caserne · <kbd>M</kbd> menu</div>
+<div id="controls" class="glass">🖱️ <kbd>Clic</kbd> envoyer · <kbd>Clic droit</kbd> pivoter · <kbd>Molette</kbd> zoom · <kbd>Clic milieu</kbd> déplacer · <kbd>1</kbd>–<kbd>8</kbd> véhicule · <kbd>E</kbd> évacuer · <kbd>F</kbd> vitesse ×2 · <kbd>P</kbd> pause · <kbd>H</kbd> aide · <kbd>R</kbd> recommencer · <kbd>C</kbd> caserne · <kbd>M</kbd> menu</div>
 <div id="pause-overlay">⏸ Pause</div>
 
 <div id="end-overlay"><div id="end-panel" class="glass"></div></div>
@@ -448,7 +468,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 // ─── Version ──────────────────────────────────────────────────
-const GAME_VERSION = "2026.10.008";
+const GAME_VERSION = "2026.10.009";
 document.querySelector("meta[name=version]").setAttribute("content", GAME_VERSION);
 document.getElementById('home-version').textContent = 'v' + GAME_VERSION;
 console.log("Firefighter v" + GAME_VERSION);
@@ -480,13 +500,13 @@ function reseed(salt) { if (SEED !== null) Math.random = mulberry32(SEED * 7919 
 // N dépend de la carte : 48 pour les cartes normales, 96 pour les grandes cartes
 let N = 48, HALF = 24;
 function setGrid(n) { N = n; HALF = n / 2; }
-const T = { GRASS: 0, FOREST: 1, ROAD: 2, BUILD: 3, WATER: 4, ROCK: 5, FIELD: 6, SAND: 7, QUAY: 8 };
-const FLAM = [0.35, 1.0, 0, 0, 0, 0, 0.6, 0, 0];          // propension à s'enflammer
-const BURN = [0.14, 0.055, 0, 0, 0, 0, 0.1, 0, 0];        // combustible consommé par seconde à pleine intensité
-const FUEL = [0.6, 1.0, 0, 0, 0, 0, 0.7, 0, 0];
+const T = { GRASS: 0, FOREST: 1, ROAD: 2, BUILD: 3, WATER: 4, ROCK: 5, FIELD: 6, SAND: 7, QUAY: 8, DIRT: 9 };   // DIRT : tranchée du bulldozer
+const FLAM = [0.35, 1.0, 0, 0, 0, 0, 0.6, 0, 0, 0];          // propension à s'enflammer
+const BURN = [0.14, 0.055, 0, 0, 0, 0, 0.1, 0, 0, 0];        // combustible consommé par seconde à pleine intensité
+const FUEL = [0.6, 1.0, 0, 0, 0, 0, 0.7, 0, 0, 0];
 const COLORS = {
   [T.GRASS]: 0x6f9a48, [T.FOREST]: 0x3f6b2e, [T.ROAD]: 0x55575c, [T.BUILD]: 0x8a8578,
-  [T.WATER]: 0x2a6fb0, [T.ROCK]: 0x8d8a86, [T.FIELD]: 0xc9b05a, [T.SAND]: 0xd8c690, [T.QUAY]: 0xa8a49c,
+  [T.WATER]: 0x2a6fb0, [T.ROCK]: 0x8d8a86, [T.FIELD]: 0xc9b05a, [T.SAND]: 0xd8c690, [T.QUAY]: 0xa8a49c, [T.DIRT]: 0x8a6a48,
 };
 const idx = (i, j) => j * N + i;
 const inb = (i, j) => i >= 0 && j >= 0 && i < N && j < N;
@@ -515,7 +535,7 @@ const MAPS = {
   village: {
     name: 'Village et forêt', icon: '🌲', diff: 1, badge: '⭐ Facile',
     desc: 'Un village entouré de collines boisées et de champs. Le vent pousse les feux de forêt vers les maisons.',
-    fleet: { canadair: 1, helico: 1, ccf: 3, vl: 1, epa: 1, fpt: 2 },
+    fleet: { canadair: 1, helico: 1, ccf: 3, vl: 1, epa: 1, fpt: 2, dozer: 1 },
     incidents: { forest: 5, house: 3, tower: 1, accident: 2 },
     spread: 1.0,
     climate: { drought: 0.45, rain: 0.35, wind: 1 },
@@ -539,7 +559,7 @@ const MAPS = {
   montagne: {
     name: 'Montagne', icon: '⛰️', diff: 3, badge: '⭐⭐⭐ Difficile',
     desc: 'Pentes boisées, routes en lacets où les camions avancent lentement. Les moyens aériens font la différence.',
-    fleet: { canadair: 2, helico: 2, ccf: 3, vl: 1, epa: 1, fpt: 1 },
+    fleet: { canadair: 2, helico: 2, ccf: 3, vl: 1, epa: 1, fpt: 1, dozer: 1 },
     incidents: { forest: 7, house: 2, tower: 1, accident: 3 },
     spread: 1.15,
     lostBonus: 2,      // maisons isolées dans la forêt : 2 pertes de plus tolérées
@@ -549,7 +569,7 @@ const MAPS = {
   massif: {
     name: 'Massif forestier', icon: '🌳', diff: 3, badge: '⭐⭐⭐ Grande', size: 96,
     desc: 'Un grand massif boisé, trois villages, deux casernes et un aérodrome. Les feux courent loin : traitez les lisières au retardant avant qu\'ils n\'arrivent aux maisons.',
-    fleet: { canadair: 2, tanker: 1, helico: 2, ccf: 5, vl: 2, epa: 1, fpt: 3 },
+    fleet: { canadair: 2, tanker: 1, helico: 2, ccf: 5, vl: 2, epa: 1, fpt: 3, dozer: 1 },
     incidents: { forest: 8, house: 3, tower: 1, accident: 3 },
     spread: 0.95, lostBonus: 3,
     climate: { drought: 0.6, rain: 0.25, wind: 1.15 },
@@ -557,7 +577,7 @@ const MAPS = {
   cote: {
     name: 'Côte méditerranéenne', icon: '🏖️', diff: 3, badge: '⭐⭐⭐ Grande', size: 96,
     desc: 'Trois villes au bord de la mer, la garrigue et les pinèdes sur les collines derrière, un vent de terre qui pousse le feu vers les plages.',
-    fleet: { canadair: 3, tanker: 1, helico: 2, ccf: 4, vl: 2, epa: 2, fpt: 4 },
+    fleet: { canadair: 3, tanker: 1, helico: 2, ccf: 4, vl: 2, epa: 2, fpt: 4, dozer: 1 },
     incidents: { forest: 7, house: 4, tower: 2, warehouse: 1, boat: 1, accident: 4 },
     spread: 1.1, lostBonus: 3,
     climate: { drought: 0.7, rain: 0.15, wind: 1.35 },
@@ -567,7 +587,7 @@ const MAPS = {
   mp_foret: {
     name: 'Région forestière', icon: '🌲', diff: 3, badge: '👥 192 × 192', size: 192, mp: true,
     desc: 'Un immense massif boisé semé de lacs. Chaque pompier défend sa ville au fond d\'une vallée ; les feux de forêt passent d\'un secteur à l\'autre.',
-    fleetPer: { helico: 1, ccf: 2, vl: 1, epa: 1, fpt: 2 }, fleetShared: { canadair: 2, tanker: 1 },
+    fleetPer: { helico: 1, ccf: 2, vl: 1, epa: 1, fpt: 2, dozer: 1 }, fleetShared: { canadair: 2, tanker: 1 },
     incidents: { forest: 8, house: 3, tower: 1, accident: 3 },
     spread: 0.95, lostBonus: 2,
     climate: { drought: 0.55, rain: 0.3, wind: 1.1 },
@@ -575,7 +595,7 @@ const MAPS = {
   mp_littoral: {
     name: 'Littoral', icon: '🏖️', diff: 3, badge: '👥 192 × 192', size: 192, mp: true,
     desc: 'Villes portuaires sur la côte et villages dans les collines de pins et de garrigue. Le vent de terre pousse le feu vers la mer et les plages.',
-    fleetPer: { helico: 1, ccf: 2, vl: 1, epa: 1, fpt: 2 }, fleetShared: { canadair: 3, tanker: 1 },
+    fleetPer: { helico: 1, ccf: 2, vl: 1, epa: 1, fpt: 2, dozer: 1 }, fleetShared: { canadair: 3, tanker: 1 },
     incidents: { forest: 7, house: 3, tower: 2, warehouse: 1, boat: 1, accident: 3 },
     spread: 1.05, lostBonus: 2,
     climate: { drought: 0.7, rain: 0.15, wind: 1.35 },
@@ -583,7 +603,7 @@ const MAPS = {
   mp_montagne: {
     name: 'Vallées de montagne', icon: '⛰️', diff: 3, badge: '👥 192 × 192', size: 192, mp: true,
     desc: 'Une ville par vallée, séparées par des crêtes rocheuses. Les camions peinent sur les routes en lacets : hélicos et avions font la différence.',
-    fleetPer: { helico: 1, ccf: 2, vl: 1, epa: 1, fpt: 1 }, fleetShared: { canadair: 3, tanker: 1 },
+    fleetPer: { helico: 1, ccf: 2, vl: 1, epa: 1, fpt: 1, dozer: 1 }, fleetShared: { canadair: 3, tanker: 1 },
     incidents: { forest: 8, house: 2, tower: 1, accident: 3 },
     spread: 1.1, lostBonus: 3,
     climate: { drought: 0.55, rain: 0.3, wind: 1.2 },
@@ -1844,7 +1864,7 @@ function buildTrees() {
 }
 function setTree(q, state) {
   const t = world.trees[q];
-  const s = state === 'burned' ? t.s * 0.55 : t.s;
+  const s = state === 'gone' ? 0.001 : state === 'burned' ? t.s * 0.55 : t.s;   // gone : arbre arraché par le bulldozer
   _m.compose(_v.set(t.x, t.y, t.z), _q.identity(), _s.set(s, state === 'burned' ? s * 0.8 : s, s));
   treeMesh.setMatrixAt(q, _m);
   treeMesh.setColorAt(q, _c.setHex(state === 'burned' ? 0x1d1a18 : state === 'fire' ? 0x6b3a14 : state === 'retard' ? (q % 3 ? 0x9c4058 : 0xb04a64) : (q % 3 ? 0x2f6b2a : 0x3c7a30)));
@@ -2025,6 +2045,11 @@ function makeVehicleMesh(type) {
     const tail = box(0.06, 0.55, 0.35, red, 0, 0.35, -1.0), tailw = box(1.1, 0.05, 0.3, 0xffd600, 0, 0.55, -1.0);
     const eng1 = box(0.16, 0.16, 0.4, 0x37474f, 0.8, 0.3, 0.25), eng2 = box(0.16, 0.16, 0.4, 0x37474f, -0.8, 0.3, 0.25);
     g.add(fus, wing, stripe, tail, tailw, eng1, eng2);
+  } else if (type === 'dozer') {      // bulldozer : châssis jaune, lame à l'avant, chenilles
+    g.add(box(0.5, 0.3, 0.8, 0xfbc02d, 0, 0.3, -0.05), box(0.36, 0.26, 0.3, 0x37474f, 0, 0.58, -0.2));
+    g.add(box(0.7, 0.26, 0.08, 0x9e9e9e, 0, 0.18, 0.48));
+    g.add(box(0.12, 0.18, 0.95, 0x212121, 0.28, 0.1, 0), box(0.12, 0.18, 0.95, 0x212121, -0.28, 0.1, 0));
+    const bar = box(0.2, 0.05, 0.08, 0xffa000, 0, 0.74, -0.2); bar.name = 'beacon'; g.add(bar);
   } else if (type === 'tanker') {      // avion de retardant : bimoteur rouge et blanc, plus long
     const fus = box(0.48, 0.48, 2.7, 0xf5f5f5, 0, 0, 0);
     const wing = box(4.2, 0.08, 0.55, 0xf5f5f5, 0, 0.18, 0.15);
@@ -2059,6 +2084,8 @@ const VEH = {
     help: 'Reste sur les routes. Sa lance en haut de l\'échelle atteint les étages, et elle évacue les personnes bloquées à tous les étages : indispensable sur les immeubles (4 étages et plus).' },
   fpt: { name: 'Camion de pompiers', short: 'Pompiers', icon: '🚒', cls: 'urban', speed: 3.4, cap: 120, flow: 10, reach: 2.9, bEff: 1, tallEff: 0.3, extract: 8, care: 3, evac: 0.4, evacFloors: 3, armor: 1, key: '6',
     help: 'Le fourgon pompe : maisons, entrepôts, bateaux ; évacue les personnes bloquées jusqu\'au 3e étage ; désincarcère les victimes des accidents. Sur un immeuble il ne traite que le bas : il faut la grande échelle.' },
+  dozer: { name: 'Bulldozer (coupe-feu)', short: 'Bulldozer', icon: '🚜', cls: 'off', speed: 2.3, cap: 0, flow: 0, reach: 0, armor: 0.55, key: '8',
+    help: 'Trace une tranchée de terre nue de 13 cases sur 3, en travers du vent, là où tu cliques : le feu ne la franchit pas (seuls les brandons sautent par-dessus). À creuser devant le front, pas dedans : il ne peut pas travailler sur une case en feu.' },
 };
 const VTYPES = Object.keys(VEH);
 const STATE_TXT = { idle: 'disponible', hold: 'disponible', move: 'en route', work: 'en intervention', fly: 'en vol', refillGo: 'va se remplir', refill: 'remplissage', ret: 'retour', drop: 'largage', retreat: 'se replie (endommagé)', repair: 'réparation', dead: 'détruit' };
@@ -2133,13 +2160,15 @@ function startGame(mapId, level) {
   // flotte
   const m = MAPS[mapId];
   currentFleet = {};
+  const flies = t => nightMode && VEH[t].air;   // de nuit, les moyens aériens restent au sol
   if (m.fleetPer) {   // multijoueur : la flotte de chaque caserne, puis les avions communs de l'aérodrome
-    world.stations.forEach((st, sta) => { for (const t of VTYPES) for (let q = 0; q < (m.fleetPer[t] || 0); q++) { spawnVehicle(t, currentFleet[t] || 0, sta); currentFleet[t] = (currentFleet[t] || 0) + 1; } });
-    for (const t of VTYPES) for (let q = 0; q < (m.fleetShared[t] || 0); q++) { spawnVehicle(t, currentFleet[t] || 0, -1); currentFleet[t] = (currentFleet[t] || 0) + 1; }
+    world.stations.forEach((st, sta) => { for (const t of VTYPES) if (!flies(t)) for (let q = 0; q < (m.fleetPer[t] || 0); q++) { spawnVehicle(t, currentFleet[t] || 0, sta); currentFleet[t] = (currentFleet[t] || 0) + 1; } });
+    for (const t of VTYPES) if (!flies(t)) for (let q = 0; q < (m.fleetShared[t] || 0); q++) { spawnVehicle(t, currentFleet[t] || 0, -1); currentFleet[t] = (currentFleet[t] || 0) + 1; }
   } else {
-    for (const t of VTYPES) for (let q = 0; q < (m.fleet[t] || 0); q++) spawnVehicle(t, q);
-    Object.assign(currentFleet, m.fleet);
+    const fl = upgradeFleet(m.fleet);   // solo : camions achetés à la caserne
+    for (const t of VTYPES) if (!flies(t)) for (let q = 0; q < (fl[t] || 0); q++) { spawnVehicle(t, q); currentFleet[t] = q + 1; }
   }
+  if (nightMode) L.spread *= 0.85;
   if (!currentFleet[selectedType]) selectedType = VTYPES.find(t => currentFleet[t]);
   selectedVehicle = null;
   stats = { lost: 0, saved: 0, victims: 0, rescued: 0, evacuated: 0, resolved: 0, score: 0, collateral: 0, injured: 0, vehLost: 0, buildTotal: world.buildings.filter(b => b.kind !== 'station').length };
@@ -2162,8 +2191,9 @@ function startGame(mapId, level) {
   for (const id of ['#hud', '#banner', '#wind', '#controls']) $(id).style.display = 'block';
   $('#fleet').style.display = 'flex'; $('#vlist').style.display = 'block';
   $('#end-overlay').classList.remove('show'); $('#pause-overlay').classList.remove('show'); $('#pause-overlay').textContent = '⏸ Pause';
+  wave2Reset();
   buildFleetBar(); updateUI(true); updateMpBar(); miniBuild();
-  flash(`${MAPS[mapId].icon} ${MAPS[mapId].name} — niveau ${level} · ${droughtText()}, vent ${Math.round(wind.s * 40)} km/h`, 3000);
+  flash(`${MAPS[mapId].icon} ${MAPS[mapId].name} — niveau ${level}${nightMode ? ' · 🌙 de nuit (avions au sol)' : ''} · ${droughtText()}, vent ${Math.round(wind.s * 40)} km/h`, 3000);
   if (!store.get('help_seen', false)) { store.set('help_seen', true); setTimeout(() => flash('Appuie sur H pour l\'aide', 3500), 2400); }
 }
 function setWind() { wind.x = Math.sin(wind.a) * wind.s; wind.z = -Math.cos(wind.a) * wind.s; }
@@ -2223,6 +2253,7 @@ function extinguishCell(k, amount) {
 function igniteBuilding(b, v, spread) {
   if (b.kind === 'station' || b.lost || b.fire > 0) return false;
   b.fire = v || 0.15;
+  if (b.evacuated) evacSaved(b);
   const occ = b.occupants || 0;
   b.trapped = b.kind === 'tower' ? Math.max(0, Math.round(occ * Math.max(0, b.floors - 2) / b.floors * (0.6 + 0.3 * Math.random()) * L.trappedMul))
     : Math.round(occ * (0.35 + 0.4 * Math.random()) * L.trappedMul);
@@ -2349,6 +2380,7 @@ const INC = {
   warehouse: { icon: '🏭', label: 'Feu d\'entrepôt' },
   boat: { icon: '⛵', label: 'Feu de bateau' },
   accident: { icon: '🚗', label: 'Accident de la route' },
+  camp: { icon: '⛺', label: 'Feu près d\'un camping' },
 };
 function sector(x, z) {
   const t = N / 6;
@@ -2431,7 +2463,9 @@ function accidentMesh(a) {
   const g = new THREE.Group();
   const c1 = box(0.36, 0.22, 0.62, 0x1e88e5, -0.12, 0.13, 0), c2 = box(0.36, 0.22, 0.62, 0xfdd835, 0.2, 0.13, 0.22);
   c1.rotation.y = 0.5; c2.rotation.y = -0.9;
-  g.add(c1, c2); g.position.set(a.x, a.y, a.z);
+  g.add(c1, c2);
+  if (a.mult) for (let q = 0; q < 5; q++) { const c = box(0.36, 0.22, 0.62, [0xe53935, 0x43a047, 0xffffff, 0x8e24aa, 0x546e7a][q], -1.1 + q * 0.55, 0.13, (q % 2 ? 0.55 : -0.5)); c.rotation.y = q * 1.3; g.add(c); }   // carambolage
+  g.position.set(a.x, a.y, a.z);
   a.mesh = g; mapGroup.add(g);
 }
 function updateIncidents(dt) {
@@ -2439,6 +2473,7 @@ function updateIncidents(dt) {
     if (inc.over) continue;
     let active, ok = true;
     if (inc.kind === 'accident') { active = !inc.acc.done && !inc.acc.lost; ok = inc.acc.done; }
+    else if (inc.kind === 'camp') { active = !inc.camp.done && !inc.camp.lost; ok = inc.camp.done; }
     else if (inc.b) { active = inc.b.fire > 0 && !inc.b.lost; ok = !inc.b.lost; }
     else {
       active = false;
@@ -2449,7 +2484,7 @@ function updateIncidents(dt) {
       inc.sprite.removeFromParent(); inc.sprite.material.dispose();
       if (ok) {
         stats.resolved++; stats.score += 100 + (inc.big ? 300 : 0);
-        flash(inc.big ? '✅🔥 Feu majeur maîtrisé : bravo l\'équipe ! (+300)' : `✅ ${INC[inc.kind].label} maîtrisé`, inc.big ? 3000 : 1800);
+        flash(inc.big ? `✅ ${BIG_LABEL[inc.big === true ? 'border' : inc.big] || 'Incident majeur réglé'} : bravo${MP.active ? ' l\'équipe' : ''} ! (+300)` : `✅ ${INC[inc.kind].label} maîtrisé`, inc.big ? 3000 : 1800);
         if (inc.b) creditHelpers(inc.b, 'bld');
       }
     } else {
@@ -2482,6 +2517,7 @@ function costFn(cls) {
     else if (t === T.GRASS) c = cls === 'off' ? 1.7 : 2.6;
     else if (t === T.FIELD) c = cls === 'off' ? 1.9 : 3;
     else if (t === T.SAND) c = cls === 'off' ? 2.2 : 3;
+    else if (t === T.DIRT) c = cls === 'off' ? 1.5 : 2.4;
     else if (t === T.FOREST) { if (cls === 'off') c = world.burned[k] ? 2 : 2.8; else if (world.burned[k]) c = 2.8; else return Infinity; }
     else return Infinity;
     if (world.bld[k] >= 0) return Infinity;
@@ -2492,7 +2528,7 @@ function costFn(cls) {
 }
 // sta : caserne d'attache (cartes multijoueur), -1 = avion commun de l'aérodrome
 function spawnVehicle(type, q, sta) {
-  const def = VEH[type];
+  const def = upgradedDef(type);
   const v = { id: vehicles.length, type, def, num: q + 1, tank: def.air ? 1 : def.cap, state: 'idle', path: null, pi: 0, target: null, heading: 0, timer: 0, idleT: 0, plan: 0, hp: 100 };
   v.sta = sta === undefined ? -1 : sta;
   v.mesh = makeVehicleMesh(type);
@@ -2645,6 +2681,7 @@ function accNeeds(v, a) {   // ce véhicule a-t-il quelque chose à faire sur ce
 function needsEvac(v, b) { return v.def.evac && b.trapped > 0 && !b.lost && (b.kind !== 'tower' || b.floors <= v.def.evacFloors); }
 function findWork(v) {
   const d = v.def;
+  const cj = campJob(v); if (cj) return { camp: cj };
   for (const a of accidents) if (accNeeds(v, a) && Math.hypot(a.x - v.x, a.z - v.z) <= d.reach) return { acc: a };
   for (const b of world.buildings) if (needsEvac(v, b) && distToBuilding(b, v.x, v.z) <= d.reach) return { b, evac: true };
   if (d.cap > 0 && v.tank > 0) {
@@ -2667,6 +2704,7 @@ function findWork(v) {
 function nearestJob(v, x, z, radius) {
   let best = null, bd = radius;
   const d = v.def;
+  const cn = campNear(v, x, z, radius); if (cn) return cn;
   for (const a of accidents) if (accNeeds(v, a)) { const dd = Math.hypot(a.x - x, a.z - z); if (dd < bd) { bd = dd; best = { i: a.i, j: a.j }; } }
   for (const b of world.buildings) if (needsEvac(v, b)) { const dd = distToBuilding(b, x, z); if (dd < bd) { bd = dd; best = { i: b.i0, j: b.j0 + b.dp }; } }
   if (d.cap > 0) {
@@ -2677,17 +2715,22 @@ function nearestJob(v, x, z, radius) {
 }
 function workGround(v, dt) {
   const d = v.def;
+  if (v.type === 'dozer') return dozerWork(v, dt);
   const job = findWork(v);
-  if (d.cap > 0 && v.tank <= 0 && !(job && (job.acc || job.evac))) { goRefill(v); flash(`💧 ${d.short} ${v.num} à sec : remplissage`, 1300); return; }
+  if (d.cap > 0 && v.tank <= 0 && !(job && (job.acc || job.evac || job.camp))) { goRefill(v); flash(`💧 ${d.short} ${v.num} à sec : remplissage`, 1300); return; }
   const ladder = v.mesh.getObjectByName('ladder');
   if (job) {
     v.idleT = 0; v.path = null;
     let tx, tz, ty;
-    if (job.acc) {
+    if (job.camp) {
+      campWork(v, job.camp, dt);
+      v.heading = lerpAngle(v.heading, Math.atan2(job.camp.x - v.x, job.camp.z - v.z), 0.2);
+      return;
+    } else if (job.acc) {
       const a = job.acc;
       if (a.extract < 100 && !d.extract) { /* attend le fourgon pompe */ }
-      else if (a.extract < 100) { a.extract = Math.min(100, a.extract + d.extract * dt); if (a.extract >= 100 && !vehicles.some(o => o.type === 'vl' && usable(o) && o.target && Math.hypot(o.target.x - a.x, o.target.z - a.z) < 6)) flash('🔧 Victimes sorties : il faut maintenant les soigner (VL)', 2000); }
-      else a.care = Math.min(100, a.care + d.care * dt);
+      else if (a.extract < 100) { a.extract = Math.min(100, a.extract + d.extract * dt / (a.mult || 1)); if (a.extract >= 100 && !vehicles.some(o => o.type === 'vl' && usable(o) && o.target && Math.hypot(o.target.x - a.x, o.target.z - a.z) < 6)) flash('🔧 Victimes sorties : il faut maintenant les soigner (VL)', 2000); }
+      else a.care = Math.min(100, a.care + d.care * dt / (a.mult || 1));
       tx = a.x; tz = a.z; ty = a.y + 0.3; helper(a, v);
     } else if (job.evac) {
       // évacuation : une personne toutes les 1 / evac secondes (lance aussi si le camion a de l'eau)
@@ -2877,7 +2920,7 @@ function updateAir(v, dt) {
     }
   } else if (v.state === 'refillGo') {
     const r = v.refillAt;
-    if (flyTo(v, r.x, r.z, r.pad ? 0.8 : 0.6, dt)) { v.state = 'refill'; v.timer = v.type === 'canadair' ? 3 : v.type === 'tanker' ? 7 : 2.5; }
+    if (flyTo(v, r.x, r.z, r.pad ? 0.8 : 0.6, dt)) { v.state = 'refill'; v.timer = (v.type === 'canadair' ? 3 : v.type === 'tanker' ? 7 : 2.5) / (v.def.refill || 1); }
   } else if (v.state === 'refill') {
     v.timer -= dt;
     if (v.type === 'canadair') { // écopage : glisse sur l'eau
@@ -2936,7 +2979,7 @@ function updateGround(v, dt) {
   }
   if (v.state === 'repair') {   // à la caserne : réparation puis plein
     v.hp = Math.min(100, v.hp + 12 * dt);
-    if (v.def.cap) v.tank = Math.min(v.def.cap, v.tank + v.def.cap / 3.5 * dt);
+    if (v.def.cap) v.tank = Math.min(v.def.cap, v.tank + v.def.cap / 3.5 * (v.def.refill || 1) * dt);
     if (v.hp >= 100 && (!v.def.cap || v.tank >= v.def.cap)) v.state = 'idle';
     return;
   }
@@ -2947,10 +2990,10 @@ function updateGround(v, dt) {
   } else if (v.state === 'work') {
     workGround(v, dt);
   } else if (v.state === 'refillGo') {
-    if (followPath(v, dt)) { v.state = 'refill'; v.timer = 3.5; }
+    if (followPath(v, dt)) { v.state = 'refill'; v.timer = 3.5 / (v.def.refill || 1); }
   } else if (v.state === 'refill') {
     v.timer -= dt;
-    v.tank = Math.min(v.def.cap, v.tank + v.def.cap / 3.5 * dt);
+    v.tank = Math.min(v.def.cap, v.tank + v.def.cap / 3.5 * (v.def.refill || 1) * dt);
     if (v.timer <= 0) {
       v.tank = v.def.cap;
       if (v.target && nearestJob(v, v.target.x, v.target.z, 9)) { v.state = 'move'; pathTo(v, toI(v.target.x), toJ(v.target.z)); }
@@ -2961,7 +3004,7 @@ function updateGround(v, dt) {
     if (followPath(v, dt)) {
       // de retour à la caserne : on refait le plein avant d'être à nouveau disponible
       if (v.hp < 100) { v.state = 'repair'; v.target = null; }
-      else if (v.def.cap && v.tank < v.def.cap) { v.state = 'refill'; v.target = null; v.timer = 3.5 * (1 - v.tank / v.def.cap) + 0.3; }
+      else if (v.def.cap && v.tank < v.def.cap) { v.state = 'refill'; v.target = null; v.timer = (3.5 * (1 - v.tank / v.def.cap) + 0.3) / (v.def.refill || 1); }
       else v.state = 'idle';
     }
   }
@@ -2987,8 +3030,9 @@ function endGame(win, why) {
   gameOver = true;
   if (MP.isHost) { if (MP.players.length > 1) MP.send(mpMakeSnap()); MP.lastEnd = { win, why: why || '' }; MP.send({ k: 'end', win, why: why || '', stats, elapsed, pst: MP.pst }); }
   const fp = Math.round(forestBurnedPct());
-  const score = Math.max(0, Math.round(stats.score + Math.min(elapsed, 900) * 2 + (stats.buildTotal - stats.lost) * 10 - fp * 15 - stats.victims * 150));
+  const score = Math.max(0, Math.round((stats.score + Math.min(elapsed, 900) * 2 + (stats.buildTotal - stats.lost) * 10 - fp * 15 - stats.victims * 150) * (nightMode ? 1.3 : 1)));
   stats.final = score;
+  const earned = earnCredits(score, win);
   const bestKey = 'best_' + currentMap, best = store.get(bestKey, 0);
   if (score > best) store.set(bestKey, score);
   if (win && currentLevel < 10) store.set('unlocked_' + currentMap, Math.max(unlocked(currentMap), currentLevel + 1));
@@ -3004,7 +3048,7 @@ function endGame(win, why) {
       👤 Personnes évacuées : <b>${stats.evacuated}</b><br>
       🚑 Victimes d'accident secourues : <b>${stats.rescued}</b> · victimes perdues : <b>${stats.victims}</b><br>
       ${stats.vehLost ? `💥 Véhicules perdus dans le feu : <b>${stats.vehLost}</b><br>` : ''}
-      ⭐ Score : <b>${score}</b>${score > best ? ' — nouveau record !' : ''}
+      ⭐ Score : <b>${score}</b>${nightMode ? ' (🌙 ×1,3)' : ''}${score > best ? ' — nouveau record !' : ''}${earned ? `<br>💰 +${earned} crédits pour la caserne (${credits()} au total)` : ''}
     </div>
     ${MP.active ? `<div class="sub">👥 Équipe : ${MP.players.map(q => q.name.replace(/[<>&]/g, '')).join(', ')}</div>${mpReportHtml()}` : ''}
     <div class="btns">
@@ -3048,6 +3092,11 @@ function buildFleetBar() {
     b.onclick = e => { e.stopPropagation(); if (n) { selectedType = t; selectedVehicle = null; updateUI(true); } };
     f.appendChild(b);
   }
+  const ev = document.createElement('button');   // ordre d'évacuation d'un quartier
+  ev.className = 'fbtn evb'; ev.title = 'Évacuer un quartier menacé : les habitants sortent avant que le feu n\'arrive (3 ordres par mission)';
+  ev.innerHTML = '<span class="ic">🏃</span><span class="nm">Évacuer</span><span class="ct"></span><span class="k">E</span>';
+  ev.onclick = e => { e.stopPropagation(); evacMenu(); };
+  f.appendChild(ev);
 }
 function updateUI(force) {
   if (!currentMap || !stats) return;
@@ -3082,6 +3131,11 @@ function updateUI(force) {
   $('#wind .wtxt').innerHTML = `vent ${Math.round(wind.s * 40)} km/h${meteo.gust > 0.15 ? ' 💨' : ''}<br>${meteo.rain > 0.1 ? '🌧️ pluie' : droughtText()}`;
   // flotte
   for (const el of document.querySelectorAll('.fbtn')) {
+    if (el.classList.contains('evb')) {   // ordres d'évacuation restants
+      const left = MP.isClient ? (MP.evacLeftMe !== undefined ? MP.evacLeftMe : EVAC_MAX) : MP.isHost ? EVAC_MAX - (evacUsed[MP.id] || 0) : evacLeft;
+      el.classList.toggle('active', evacMode); el.querySelector('.ct').textContent = `${left} / ${EVAC_MAX}`; el.querySelector('.ct').classList.toggle('none', left <= 0);
+      continue;
+    }
     const t = el.dataset.t, list = vehicles.filter(v => v.type === t && v.state !== 'dead'), av = list.filter(available).length;
     el.classList.toggle('active', t === selectedType && !selectedVehicle);
     const ct = el.querySelector('.ct');
@@ -3132,6 +3186,7 @@ renderer.domElement.addEventListener('pointerup', e => {
   const hit = raycaster.intersectObject(terrain)[0];
   if (hit && MP.active && (e.shiftKey || e.altKey)) { mpPing(hit.point.x, hit.point.z); return; }
   if (hit && MP.active && MP.helpMode) { mpHelp(hit.point.x, hit.point.z, MP.helpMode); return; }
+  if (hit && evacMode) { evacClick(hit.point.x, hit.point.z); return; }
   if (hit) dispatch(hit.point.x, hit.point.z);
 });
 // ─── Visée des moyens aériens ──────────────────────────────────
@@ -3142,7 +3197,7 @@ let aimMesh = null, aimRing = null;
 function hideAim() { if (aimMesh) aimMesh.visible = false; if (aimRing) aimRing.visible = false; }
 function updateAim(x, z) {
   const v = currentMap && !gameOver ? pickVehicle(x, z) : null;
-  if (!v || !v.def.air) { hideAim(); return; }
+  if (!evacMode && (!v || !(v.def.air || v.type === 'dozer'))) { hideAim(); return; }
   if (!aimMesh) {
     aimMesh = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 9), new THREE.MeshBasicMaterial({ color: 0x4fc3f7, transparent: true, opacity: 0.35, depthTest: false, depthWrite: false, side: THREE.DoubleSide }));
     aimMesh.rotation.order = 'YXZ'; aimMesh.renderOrder = 5; scene.add(aimMesh);
@@ -3150,6 +3205,18 @@ function updateAim(x, z) {
     aimRing.rotation.x = -Math.PI / 2; aimRing.renderOrder = 5; scene.add(aimRing);
   }
   let homes = false;
+  aimRing.scale.setScalar(1);
+  if (evacMode) {   // zone d'évacuation (violet)
+    aimRing.scale.setScalar(EVAC_R / 2.3); aimRing.position.set(x, groundAt(x, z) + 0.4, z);
+    aimRing.visible = true; aimMesh.visible = false; aimMesh.material.color.setHex(0xb388ff); return;
+  }
+  if (v.type === 'dozer') {   // tranchée du bulldozer : 13 cases en travers du vent (brun)
+    const dir = dozerDir();
+    aimMesh.position.set(x, groundAt(x, z) + 0.4, z);
+    aimMesh.rotation.set(-Math.PI / 2, Math.atan2(dir.dx, dir.dz), 0);
+    aimMesh.scale.set(1.15, 6.5 / 4.5, 1);
+    aimMesh.visible = true; aimRing.visible = false; aimMesh.material.color.setHex(0xa1887f); return;
+  }
   if (v.type === 'canadair' || v.type === 'tanker') {
     const from = v.state === 'refill' || v.state === 'refillGo' ? (v.refillAt || v) : v;
     const h = Math.atan2(x - from.x, z - from.z), half = v.type === 'tanker' ? 7 : 4.5;
@@ -3187,6 +3254,8 @@ addEventListener('keydown', e => {
   if (MP.active && MP.chatOpen && /^[1-6]$/.test(k)) { mpChat(+k - 1); return; }
   if (MP.active && (MP.helpMode || MP.chatOpen || ($('#mppop') && $('#mppop').style.display === 'block')) && k === 'escape') { MP.helpMode = null; mpPopup(null); return; }
   if (k === 'b' && MP.active) { mpHelpMenu(); return; }
+  if (k === 'e') { evacMenu(); return; }
+  if (k === 'escape' && evacMode) { evacMode = false; hideAim(); flash('Évacuation annulée', 1000); return; }
   if (k === 't' && MP.active) { mpChatMenu(); return; }
   if (MP.active && MP.waiting > 0) return;
   if ((k === 'p' || k === 'escape') && MP.isClient) { MP.send({ k: 'pause' }, MP.host); return; }
@@ -3208,6 +3277,7 @@ function toggleHelp(show) {
       <h3>Eau</h3><p>Les camions ont une citerne (barre bleue) : à sec, ils vont se remplir à une caserne ou à la bouche d'incendie la plus proche, puis reviennent ; de retour à la caserne, ils refont le plein. Ils contournent les flammes (sauf le camion feu de forêt). Pris dans la chaleur, un camion s'abîme, se replie pour réparer, voire est perdu (le CCF est protégé). Canadair et hélicoptère se remplissent sur l'eau, l'avion de retardant à l'aérodrome. En survolant la carte avec un moyen aérien, tu vois où il larguera.</p>
       <h3>Feu et météo</h3><p>Le feu se propage de case en case, plus vite dans la forêt et <b>dans le sens du vent</b> (boussole en haut à droite). La <b>sécheresse</b> l'accélère et fait sécher l'eau plus vite ; par vent fort, des <b>brandons</b> allument la végétation ou un toit plusieurs cases plus loin : c'est ainsi qu'un feu de forêt gagne la ville. Les <b>rafales</b> l'emballent, la <b>pluie</b> le freine et éteint les petits foyers. Une case arrosée reste humide un moment ; un camion envoyé là où rien ne brûle mouille la végétation (coupe-feu). Le <b>retardant</b> (rouge) protège 2 minutes.</p>
       <h3>But</h3><p>Tenir jusqu'à la fin du temps sans dépasser les pertes tolérées (bâtiments, forêt, victimes : voir le panneau à gauche). Le niveau 10 est sans fin. Les grandes cartes ont deux casernes et un aérodrome.</p>
+      <h3>Nouveautés</h3><p>🚜 <b>Bulldozer</b> (<kbd>8</kbd>) : clique où creuser, il trace une tranchée de terre nue de 13 cases en travers du vent (aperçu brun) — le feu ne la franchit pas, sauf brandons. 🏃 <b>Évacuer</b> (<kbd>E</kbd>, 3 ordres par mission) : les habitants d'un quartier (rayon 7) sortent avant l'arrivée du feu ; chaque personne épargnée rapporte 40 points. ⚠️ <b>Incidents majeurs</b> (dès le niveau 2) : incendie d'usine qui explose s'il chauffe trop longtemps, carambolage (plusieurs fourgons puis des VL), feu menaçant un camping (tous les camions évacuent les campeurs). 🌙 <b>Missions de nuit</b> (case à cocher sur chaque carte) : avions au sol, feu un peu plus lent, points ×1,3. 🔧 <b>Caserne</b> : les crédits gagnés en mission (score ÷ 10) achètent des améliorations en solo.</p>
       <h3>Multijoueur (coopération)</h3><p>Tuile <b>Multijoueur</b> de l'accueil : crée un salon et partage son code (ou le lien), jusqu'à 4 joueurs. L'hôte choisit une des 4 cartes multijoueur (192 × 192 cases) et le niveau : chaque pompier a <b>sa ville et sa caserne</b> (pompiers, échelle, VL, CCF, hélico), loin des autres ; Canadair et avion de retardant sont <b>communs</b>, à l'aérodrome — le premier qui les demande les prend. Les alertes tombent à tour de rôle dans chaque secteur, et chacun peut envoyer ses véhicules en renfort chez les autres. Tu ne commandes que tes véhicules ; ceux des autres portent la couleur de leur pompier. La <b>mini-carte</b> (en bas à gauche) montre feux, casernes et véhicules : un clic dessus y déplace la vue, <kbd>C</kbd> ramène sur ta caserne. <b>Entraide</b> : <kbd>B</kbd> (ou 🆘 Renforts) demande un type de véhicule à un endroit — le premier coéquipier qui y envoie le sien répond à l'appel ; <kbd>T</kbd> ouvre les messages rapides ; 🔒 dans la liste réserve un avion commun 60 s. Une fois par mission, un <b>feu majeur</b> démarre entre deux secteurs. En fin de partie, un <b>bilan par pompier</b> (ordres, renforts, évacués, secours, bâtiments sauvés, foyers éteints, dégâts). Coupure ou page rechargée : tu as 2 minutes pour reprendre ta place. <kbd>Maj</kbd> + clic (ou <kbd>G</kbd>) pose un repère visible par toute l'équipe. <kbd>P</kbd> met la partie en pause pour tout le monde ; seul l'hôte règle la vitesse et relance.</p>
       <h3>Commandes</h3><p><kbd>Clic</kbd> envoyer · <kbd>Clic droit</kbd> pivoter · <kbd>Clic milieu</kbd> déplacer · <kbd>Molette</kbd> zoom · <kbd>1</kbd>–<kbd>7</kbd> type de véhicule · <kbd>F</kbd> vitesse ×2 · <kbd>P</kbd>/<kbd>Échap</kbd> pause · <kbd>R</kbd> recommencer · <kbd>M</kbd> menu</p>`;
   } else if (!MP.active) { paused = false; }
@@ -3232,6 +3302,7 @@ function buildHome() {
         <div class="best">${best ? '🏆 Meilleur score : ' + best : 'Jamais jouée'}</div>
         <div class="dots">${Array.from({ length: 10 }, (_, q) => `<button class="dot ${q + 1 === sel ? 'sel' : ''} ${q + 1 > un ? 'off' : ''}" data-l="${q + 1}">${q + 1}</button>`).join('')}</div>
         <div class="lvl-info"></div>
+        <label class="night-chk" title="De nuit, Canadair, hélicos et avion de retardant restent au sol ; le feu est un peu plus lent ; points ×1,3"><input type="checkbox"> 🌙 De nuit (sans avions, points ×1,3)</label>
         <button class="play"></button>
       </div>`;
     const info = () => {
@@ -3247,8 +3318,11 @@ function buildHome() {
       card.querySelectorAll('.dot').forEach(o => o.classList.toggle('sel', o === d));
       info();
     });
-    card.querySelector('.play').onclick = e => { e.stopPropagation(); startGame(id, sel); };
-    card.onclick = () => startGame(id, sel);
+    const chk = card.querySelector('.night-chk input');
+    card.querySelector('.night-chk').onclick = e => e.stopPropagation();
+    const go = () => { nightMode = chk.checked; startGame(id, sel); };
+    card.querySelector('.play').onclick = e => { e.stopPropagation(); go(); };
+    card.onclick = go;
     box.appendChild(card);
   }
 
@@ -3270,13 +3344,14 @@ function buildHome() {
     // NATIVE_RANDOM : le tirage ne consomme pas la graine (?seed=N) qui génère la carte
     const pool = ids.length > 1 ? ids.filter(id => id !== lastMap) : ids;
     const id = pool[Math.floor(NATIVE_RANDOM() * pool.length)], lvl = unlocked(id);
-    startGame(id, lvl);
+    nightMode = false; startGame(id, lvl);
     flash(`🎲 ${MAPS[id].icon} ${MAPS[id].name} — niveau ${lvl}`, 2600);
   };
   rnd.querySelector('.play').onclick = playRandom;
   rnd.onclick = playRandom;
   box.appendChild(rnd);
   mpHomeCard(box);
+  garageCard(box);
 }
 
 // ─── Boucle ────────────────────────────────────────────────────
@@ -3295,11 +3370,12 @@ function frame(now) {
     mpFrame(dt, t);
     miniTick(dt, t);
     coopFrame(dt, t);
+    wave2Frame(dt);
     drawFire(t, dt);
     smoke.update(paused ? 0 : dt); spray.update(paused ? 0 : dt);
     rain.update(paused ? 0 : dt, meteo.rain, controls.target.x, controls.target.z);
     // ciel plus sombre sous la pluie
-    scene.background.setHex(0x9cc7e8).lerp(_rainSky, meteo.rain * 0.7); scene.fog.color.copy(scene.background);
+    scene.background.setHex(skyColor()).lerp(_rainSky, meteo.rain * (nightMode ? 0.2 : 0.7)); scene.fog.color.copy(scene.background);
     for (const v of vehicles) {
       const ring = v.mesh.getObjectByName('ring');
       if (ring.visible) { ring.position.y = (v.def.air ? -v.y + groundAt(v.x, v.z) : 0) + 0.05; ring.scale.setScalar(1 + 0.1 * Math.sin(t * 5)); }
@@ -3324,6 +3400,7 @@ function simStep(sdt) {
   while (fireAcc >= 0.25) { fireAcc -= 0.25; fireTick(0.25); }
   for (const v of vehicles) { v.jet = null; if (v.def.air) updateAir(v, sdt); else updateGround(v, sdt); placeMesh(v); }
   if (MP.isHost) mpSimHook(sdt);   // coop : feu frontière, réservations, appels à l'aide
+  evacTick(sdt); majorTick(sdt);   // évacuations en cours, incidents majeurs
   updateIncidents(sdt);
   checkEnd();
 }
@@ -3375,13 +3452,13 @@ addEventListener('resize', () => {
 // reçoivent 5 instantanés par seconde (cases qui changent, bâtiments, véhicules, alertes,
 // météo, score) et envoient leurs ordres à l'hôte. Chaque joueur commande une partie de la flotte.
 const MP_COLORS = ['#ff8a3d', '#4fc3f7', '#9ccc65', '#ce93d8'];
-const MP_AFFINITY = ['fpt', 'epa', 'vl', 'ccf', 'helico', 'canadair', 'tanker'];   // types voisins = même rôle
+const MP_AFFINITY = ['fpt', 'epa', 'vl', 'ccf', 'dozer', 'helico', 'canadair', 'tanker'];   // types voisins = même rôle
 const MP_STATES = Object.keys(STATE_TXT);
 const MP_KINDS = Object.keys(INC);
 const MP_SNAP = 0.2;   // s entre deux instantanés
 const MP = {
   ws: null, code: null, id: -1, host: -1, players: [], locked: false,
-  active: false, shared: false, owners: [], cfg: { map: 'mp_foret', level: 1, shared: false }, stationPids: [],
+  active: false, shared: false, owners: [], cfg: { map: 'mp_foret', level: 1, shared: false, night: false }, stationPids: [],
   ready: new Set(), waiting: 0, inSim: false, outFlash: [], events: [], snapAcc: 0, seq: 0,
   lastCell: null, lastBld: [], pings: [], hover: null, savedSeed: null, accMap: new Map(), incMap: new Map(),
   get isHost() { return this.active && this.id === this.host; },
@@ -3579,6 +3656,8 @@ function mpOnMsg(from, d) {
     mpAddHelp(from, Math.max(-HALF, Math.min(HALF, +d.x || 0)), Math.max(-HALF, Math.min(HALF, +d.z || 0)), String(d.t));
   } else if (d.k === 'res') {
     mpDoReserve(vehicles[d.v], from);
+  } else if (d.k === 'evac') {
+    evacOrder(Math.max(-HALF, Math.min(HALF, +d.x || 0)), Math.max(-HALF, Math.min(HALF, +d.z || 0)), from);
   } else if (d.k === 'home') {
     const v = vehicles[d.v];
     if (v && (MP.owners[v.id] === from || MP.owners[v.id] === -1) && usable(v)) goHome(v);
@@ -3594,7 +3673,7 @@ function mpHostStart(mapId, level) {
   if (MP.id !== MP.host) return;
   MP.cfg.map = mapId; MP.cfg.level = level;
   const pids = MP.players.map(p => p.id).slice(0, 4);
-  const d = { k: 'start', map: mapId, level, seed: 1 + Math.floor(NATIVE_RANDOM() * 2e9), shared: MP.cfg.shared, pids };
+  const d = { k: 'start', map: mapId, level, seed: 1 + Math.floor(NATIVE_RANDOM() * 2e9), shared: MP.cfg.shared, pids, night: !!MP.cfg.night };
   if (MP.ws) MP.ws.send(JSON.stringify({ t: 'lock', on: true }));
   MP.send(d);
   MP.lastStart = d; MP.lastEnd = null;
@@ -3623,6 +3702,7 @@ function mpBeginGame(d) {
   for (const p of MP.pings) p.g.removeFromParent();
   MP.pings = []; MP.incMap.clear(); MP.accMap.clear();
   $('#mp-overlay').classList.remove('show');
+  nightMode = !!d.night;
   startGame(d.map, d.level);
   if (MP.isClient) { gameSpeed = 1; for (const v of vehicles) { v.path = null; } }
   mpStationLabels();
@@ -3676,7 +3756,7 @@ function mpCellCode(k) {
   const f = world.fire[k], fq = f > 0 ? Math.max(1, Math.round(f * 15)) : 0;
   const wq = Math.round(world.wet[k] * 4);
   const r = world.retard[k], rq = r > 0 ? Math.min(31, Math.ceil(r)) : 0;
-  return fq | wq << 4 | rq << 8 | (world.burned[k] ? 1 << 13 : 0);
+  return fq | wq << 4 | rq << 8 | (world.burned[k] ? 1 << 13 : 0) | (world.type[k] === T.DIRT ? 1 << 14 : 0);
 }
 const r2 = x => Math.round(x * 100) / 100;
 // full : état complet pour un joueur qui revient (cases différentes du départ, tous les bâtiments)
@@ -3693,7 +3773,7 @@ function mpMakeSnap(full) {
   // cases modifiées : 4 octets par case (n° sur 16 bits, état sur 16 bits), en base64
   const blds = [];
   for (const b of world.buildings) {
-    const row = [b.id, Math.round(b.fire * 100), Math.round(b.hp), b.lost ? 1 : 0, b.trapped || 0];
+    const row = [b.id, Math.round(b.fire * 100), Math.round(b.hp), b.lost ? 1 : 0, b.trapped || 0, b.evacT > 0 ? 1 : b.evacuated ? 2 : 0];
     const key = row.join();
     if (full) blds.push(row);
     else if (MP.lastBld[b.id] !== key) { MP.lastBld[b.id] = key; blds.push(row); }
@@ -3703,11 +3783,13 @@ function mpMakeSnap(full) {
     return [r2(v.x), r2(v.y), r2(v.z), r2(v.heading), MP_STATES.indexOf(v.state), Math.round(v.def.air ? v.tank * 100 : v.tank), Math.round(v.hp), v.jet ? v.jet.map(r2) : 0, lad ? r2(lad.rotation.x) : 0, v.by === undefined ? -1 : v.by, v.res === undefined ? -1 : v.res];
   });
   const incs = incidents.filter(i => !i.over).map(i => [i.id, MP_KINDS.indexOf(i.kind), r2(i.x), r2(i.y), r2(i.z)]);
-  const accs = accidents.map(a => [a.id, a.i, a.j, r2(a.x), r2(a.y), r2(a.z), Math.round(a.extract), Math.round(a.care), r2(a.timer), a.done ? 1 : 0, a.lost ? 1 : 0, a.victims]);
+  const accs = accidents.map(a => [a.id, a.i, a.j, r2(a.x), r2(a.y), r2(a.z), Math.round(a.extract), Math.round(a.care), r2(a.timer), a.done ? 1 : 0, a.lost ? 1 : 0, a.victims, a.mult || 0]);
   const snap = {
     k: 'snap', s: ++MP.seq, e: r2(elapsed), ni: r2(nextIncident), p: paused ? 1 : 0, g: gameSpeed,
     m: [r2(meteo.rain), r2(meteo.gust), r2(wind.a), r2(wind.s)], st: stats, c: packCells(cells), b: blds, v: veh, i: incs, a: accs,
   };
+  snap.cp = camps.map(c => [c.id, c.i, c.j, r2(c.x), r2(c.y), r2(c.z), c.people, c.lost ? 1 : 0, c.done ? 1 : 0]);
+  snap.ev8 = Object.fromEntries(Object.entries(evacUsed));
   snap.h = MP.helps.filter(h => !h.done).map(h => [h.id, h.from, r2(h.x), r2(h.z), h.type, h.need, h.got]);
   if (full) return snap;
   if (MP.outFlash.length) { snap.f = MP.outFlash; MP.outFlash = []; }
@@ -3737,17 +3819,21 @@ function mpApplySnap(d) {
   for (let q = 0; q < c.length; q += 2) {
     const k = c[q], code = c[q + 1];
     const fq = code & 15, wq = code >> 4 & 15, rq = code >> 8 & 31, bu = code >> 13 & 1;
+    if (code >> 14 & 1 && world.type[k] !== T.DIRT) {   // tranchée du bulldozer
+      world.type[k] = T.DIRT; world.fuel[k] = 0;
+      const tr = treesByCell.get(k); if (tr) tr.forEach(t => setTree(t, 'gone'));
+    }
     const before = treeStateOf(k);
     world.fire[k] = fq / 15; world.wet[k] = wq / 4; world.retard[k] = rq; world.burned[k] = bu;
     if (fq) burning.add(k); else burning.delete(k);
     const after = treeStateOf(k);
-    if (after !== before) { const tr = treesByCell.get(k); if (tr) tr.forEach(t => setTree(t, after)); }
+    if (after !== before && world.type[k] !== T.DIRT) { const tr = treesByCell.get(k); if (tr) tr.forEach(t => setTree(t, after)); }
     paintCell(k);
   }
   // bâtiments
-  for (const [id, f, hp, lost, trapped] of d.b) {
+  for (const [id, f, hp, lost, trapped, ev] of d.b) {
     const b = world.buildings[id]; if (!b) continue;
-    b.fire = f / 100; b.hp = hp; b.lost = !!lost; b.trapped = trapped;
+    b.fire = f / 100; b.hp = hp; b.lost = !!lost; b.trapped = trapped; b.evacState = ev || 0;
     setBuildingLook(b);
   }
   // véhicules
@@ -3775,22 +3861,34 @@ function mpApplySnap(d) {
   incidents = [...MP.incMap.values()];
   // accidents
   const aseen = new Set();
-  for (const [id, i, j, x, y, z, ex, care, timer, done, lost, victims] of d.a) {
+  for (const [id, i, j, x, y, z, ex, care, timer, done, lost, victims, mult] of d.a) {
     aseen.add(id);
     let a = MP.accMap.get(id);
-    if (!a) { a = { id, i, j, x, y, z }; accidentMesh(a); MP.accMap.set(id, a); }
+    if (!a) { a = { id, i, j, x, y, z, mult }; accidentMesh(a); MP.accMap.set(id, a); }
     if (done && !a.done) setTimeout(() => { a.mesh.removeFromParent(); disposeTree(a.mesh); }, 2500);
     if (lost && !a.lost) a.mesh.traverse(o => { if (o.material) o.material.color.multiplyScalar(0.35); });
     Object.assign(a, { extract: ex, care, timer, done: !!done, lost: !!lost, victims });
   }
   for (const [id, a] of MP.accMap) if (!aseen.has(id)) { if (!a.done) { a.mesh.removeFromParent(); disposeTree(a.mesh); } MP.accMap.delete(id); }
   accidents = [...MP.accMap.values()];
+  // campings menacés
+  for (const [id, i, j, x, y, z, people, lost, done] of d.cp || []) {
+    let c = camps.find(o => o.id === id);
+    if (!c) { c = { id, i, j, x, y, z }; campMesh(c); camps.push(c); }
+    Object.assign(c, { people, lost: !!lost, done: !!done });
+  }
+  for (const inc of incidents) if (inc.kind === 'camp' && !inc.camp) inc.camp = camps.find(c => Math.hypot(c.x - inc.x, c.z - inc.z) < 0.5);
+  if (d.ev8) MP.evacLeftMe = EVAC_MAX - (d.ev8[MP.id] || 0);
   // appels à l'aide
   MP.cHelps = (d.h || []).map(([id, from, x, z, type, need, got]) => ({ id, from, x, z, type, need, got, done: false }));
   mpSyncHelpFx(MP.cHelps);
   // messages et effets
   if (d.f) for (const [t, ms] of d.f) flash(t, ms);
-  if (d.ev) for (const e of d.ev) if (e[0] === 'd') dropFx(e[1], e[2], e[3], e[4], e[5]);
+  if (d.ev) for (const e of d.ev) {
+    if (e[0] === 'd') dropFx(e[1], e[2], e[3], e[4], e[5]);
+    else if (e[0] === 'x') explosionFx(e[1], e[2], e[3]);
+    else if (e[0] === 'e') evacZoneFx(e[1], e[2]);
+  }
 }
 
 // ─── Boucle multijoueur (appelée à chaque image) ───────────────
@@ -3916,8 +4014,9 @@ function mpRender() {
     <h3>Mission</h3>
     ${amHost ? `<div class="mp-row"><select id="mp-map">${Object.entries(MAPS).filter(([, m]) => m.mp).map(([id, m]) => `<option value="${id}" ${id === cfg.map ? 'selected' : ''}>${m.icon} ${m.name}</option>`).join('')}</select>
       <select id="mp-lvl">${Array.from({ length: 10 }, (_, q) => `<option value="${q + 1}" ${q + 1 === cfg.level ? 'selected' : ''} ${q + 1 > maxLv ? 'disabled' : ''}>Niveau ${q + 1}</option>`).join('')}</select></div>
-      <label class="mp-chk"><input type="checkbox" id="mp-shared" ${cfg.shared ? 'checked' : ''}> Flotte partagée (tout le monde commande tous les véhicules)</label>`
-    : `<div class="mp-mission">${MAPS[cfg.map] ? MAPS[cfg.map].icon + ' ' + MAPS[cfg.map].name : ''} — niveau ${cfg.level}${cfg.shared ? ' — flotte partagée' : ''}</div>`}
+      <label class="mp-chk"><input type="checkbox" id="mp-shared" ${cfg.shared ? 'checked' : ''}> Flotte partagée (tout le monde commande tous les véhicules)</label>
+      <label class="mp-chk"><input type="checkbox" id="mp-night" ${cfg.night ? 'checked' : ''}> 🌙 Mission de nuit (avions au sol, points ×1,3)</label>`
+    : `<div class="mp-mission">${MAPS[cfg.map] ? MAPS[cfg.map].icon + ' ' + MAPS[cfg.map].name : ''}— niveau ${cfg.level}${cfg.shared ? ' — flotte partagée' : ''}${cfg.night ? ' — 🌙 de nuit' : ''}</div>`}
     <div class="mp-btns">${amHost ? `<button class="primary" data-a="start">▶ Lancer la mission${MP.players.length < 2 ? ' (seul)' : ''}</button>` : '<div class="mp-wait">⏳ En attente de l\'hôte…</div>'}
       <button data-a="quit">Quitter le salon</button></div>
     <div id="mp-err" class="mp-err"></div>`;
@@ -3931,6 +4030,7 @@ function mpRender() {
     $('#mp-map').onchange = e => { cfg.map = e.target.value; cfg.level = Math.min(cfg.level, unlocked(cfg.map)); mpSendCfg(); mpRender(); };
     $('#mp-lvl').onchange = e => { cfg.level = +e.target.value; mpSendCfg(); mpRender(); };
     $('#mp-shared').onchange = e => { cfg.shared = e.target.checked; mpSendCfg(); mpRender(); };
+    $('#mp-night').onchange = e => { cfg.night = e.target.checked; mpSendCfg(); mpRender(); };
     p.querySelector('[data-a=start]').onclick = () => mpHostStart(cfg.map, cfg.level);
   }
 }
@@ -4339,6 +4439,378 @@ function coopFrame(dt, t) {
 }
 
 
+// ═══════════════════════════════════════════════════════════════
+// Vague 2 : nuit, bulldozer, incidents majeurs, évacuation de quartiers,
+// améliorations de la caserne entre les missions (solo)
+// ═══════════════════════════════════════════════════════════════
+
+// ─── Mission de nuit ───────────────────────────────────────────
+// Pas de moyens aériens (ils restent au sol), feu un peu plus lent (humidité), points ×1,3
+let nightMode = false;
+function skyColor() { return nightMode ? 0x0b1020 : 0x9cc7e8; }
+function applyNight() {
+  hemi.intensity = nightMode ? 0.4 : 1.1; hemi.color.setHex(nightMode ? 0x8090c8 : 0xdfefff);
+  sun.intensity = nightMode ? 0.35 : 1.6; sun.color.setHex(nightMode ? 0xa8b8ff : 0xfff1dc);
+  scene.background.setHex(skyColor()); scene.fog.color.setHex(skyColor());
+  if (!world) return;
+  for (const b of world.buildings) if (b.mat && b.mat.emissive) b.mat.emissive.setHex(nightMode && !b.lost && b.kind !== 'boat' ? (b.kind === 'tower' ? 0x4a3612 : b.kind === 'station' ? 0x2a0808 : 0x2c200c) : 0);
+}
+
+// ─── Bulldozer : tranchée de terre nue en travers du vent ──────
+function dozerDir() {
+  const wl = Math.hypot(wind.x, wind.z);
+  return wl > 0.05 ? { dx: -wind.z / wl, dz: wind.x / wl } : { dx: 1, dz: 0 };
+}
+function dozerCells(x, z, dir) {
+  const out = [], seen = new Set();
+  for (let s = -6; s <= 6; s += 0.5) {
+    const i = toI(x + dir.dx * s), j = toJ(z + dir.dz * s);
+    if (!inb(i, j)) continue;
+    const k = idx(i, j); if (!seen.has(k)) { seen.add(k); out.push(k); }
+  }
+  return out;
+}
+function clearCell(k) {
+  const t = world.type[k];
+  if (world.bld[k] >= 0 || world.fire[k] > 0 || ![T.FOREST, T.GRASS, T.FIELD].includes(t)) return false;
+  world.type[k] = T.DIRT; world.fuel[k] = 0; world.retard[k] = 0;
+  const tr = treesByCell.get(k); if (tr) tr.forEach(q => setTree(q, 'gone'));
+  paintCell(k);
+  return true;
+}
+function dozerWork(v, dt) {
+  if (!v.line) {
+    v.ldir = dozerDir();
+    v.line = dozerCells(v.target.x, v.target.z, v.ldir);
+    const a = v.line[0], b = v.line[v.line.length - 1], dk = k => Math.hypot(cx(k % N) - v.x, cz(Math.floor(k / N)) - v.z);
+    if (b !== undefined && dk(b) < dk(a)) v.line.reverse();
+    v.li = 0; v.cleared = 0;
+    flash(`🚜 ${v.def.short} ${v.num} : tranchée en travers du vent`, 1500);
+  }
+  if (v.li >= v.line.length) {
+    flash(`🚜 ${v.def.short} ${v.num} : coupe-feu terminé (${v.cleared} cases)`, 1800);
+    v.line = null; goHome(v); return;
+  }
+  const k = v.line[v.li], i = k % N, j = (k - i) / N, t = world.type[k];
+  if (t === T.WATER || t === T.ROCK || world.bld[k] >= 0) { v.li++; return; }
+  const tx = cx(i), tz = cz(j), d = Math.hypot(tx - v.x, tz - v.z);
+  if (d > 0.12) {
+    const step = Math.min(d, v.def.speed * 0.45 * dt);
+    v.heading = lerpAngle(v.heading, Math.atan2(tx - v.x, tz - v.z), 0.3);
+    v.x += (tx - v.x) / d * step; v.z += (tz - v.z) / d * step; v.y = groundAt(v.x, v.z);
+    if (NATIVE_RANDOM() < dt * 6) smoke.emit(v.x, v.y + 0.3, v.z);
+    return;
+  }
+  // la lame : la case et ses voisines dans l'axe du vent (tranchée de 3 cases de large)
+  const px = v.ldir.dz, pz = -v.ldir.dx;
+  for (const s of [-1, 0, 1]) { const ii = toI(tx + px * s), jj = toJ(tz + pz * s); if (inb(ii, jj) && clearCell(idx(ii, jj))) v.cleared++; }
+  v.li++;
+}
+
+// ─── Évacuation de quartiers ───────────────────────────────────
+// Un ordre fait sortir les habitants des bâtiments d'un rayon de 7 cases (10 à 16 s) :
+// si le feu arrive ensuite, personne n'est bloqué. 3 ordres par mission (par joueur en coop).
+const EVAC_R = 7, EVAC_MAX = 3;
+let evacMode = false, evacLeft = EVAC_MAX;
+const evacUsed = {};   // coop (hôte) : ordres utilisés par joueur
+let evacZones = [];
+function evacMenu() {
+  if (!currentMap || gameOver) return;
+  const left = MP.isClient ? (MP.evacLeftMe !== undefined ? MP.evacLeftMe : EVAC_MAX) : MP.isHost ? EVAC_MAX - (evacUsed[MP.id] || 0) : evacLeft;
+  if (left <= 0) { flash('🏃 Plus d\'ordre d\'évacuation disponible pour cette mission', 1800); return; }
+  evacMode = !evacMode; MP.helpMode = null;
+  flash(evacMode ? `🏃 Clique sur le quartier à évacuer (rayon ${EVAC_R} cases) — ${left} ordre${left > 1 ? 's' : ''} restant${left > 1 ? 's' : ''} · Échap annule` : 'Évacuation annulée', 2400);
+}
+function evacClick(x, z) {
+  evacMode = false; hideAim();
+  if (MP.isClient) { MP.send({ k: 'evac', x: r2(x), z: r2(z) }, MP.host); MP.evacLeftMe = Math.max(0, (MP.evacLeftMe !== undefined ? MP.evacLeftMe : EVAC_MAX) - 1); return; }
+  evacOrder(x, z, MP.active ? MP.id : -1);
+}
+function evacOrder(x, z, pid) {
+  if (!currentMap || gameOver) return;
+  if (pid >= 0) { if ((evacUsed[pid] || 0) >= EVAC_MAX) return; evacUsed[pid] = (evacUsed[pid] || 0) + 1; }
+  else { if (evacLeft <= 0) return; evacLeft--; }
+  let n = 0, people = 0;
+  for (const b of world.buildings) {
+    if (b.kind === 'station' || b.lost || b.fire > 0 || b.evacuated || b.evacT > 0 || !(b.occupants > 0)) continue;
+    if (Math.hypot(b.x - x, b.z - z) > EVAC_R) continue;
+    b.evacT = 10 + Math.random() * 6; n++; people += b.occupants;
+  }
+  stats.score -= 5 * n;
+  const who = pid >= 0 && MP.active ? `${MP.name(pid)} : ` : '';
+  const txt = n ? `🏃 ${who}évacuation de ${n} bâtiment${n > 1 ? 's' : ''} (${people} personnes) — secteur ${sector(x, z)}` : `🏃 ${who}rien à évacuer ici`;
+  flash(txt, 2600); if (MP.isHost) { MP.outFlash.push([txt, 2600]); MP.events.push(['e', r2(x), r2(z)]); }
+  if (pid >= 0) creditPid(pid, 'evacz', n);
+  evacZoneFx(x, z);
+}
+function evacTick(dt) {
+  for (const b of world.buildings) if (b.evacT > 0) {
+    b.evacT -= dt;
+    if (b.evacT <= 0) { b.evacT = 0; b.evacOcc = b.occupants; b.occupants = 0; b.evacuated = true; }
+  }
+}
+// Bâtiment évacué rattrapé par le feu : les vies épargnées comptent
+function evacSaved(b) {
+  if (!b.evacuated || !b.evacOcc) return;
+  stats.score += 40 * b.evacOcc;
+  const txt = `🏃 Évacuation préventive : ${b.evacOcc} personne${b.evacOcc > 1 ? 's' : ''} déjà à l'abri (+${40 * b.evacOcc})`;
+  flash(txt, 2200); if (MP.isHost) MP.outFlash.push([txt, 2200]);
+  b.evacOcc = 0;
+}
+function evacZoneFx(x, z) {
+  const ring = new THREE.Mesh(new THREE.RingGeometry(EVAC_R - 0.35, EVAC_R, 64), new THREE.MeshBasicMaterial({ color: 0xb388ff, transparent: true, opacity: 0.8, depthTest: false, depthWrite: false, side: THREE.DoubleSide }));
+  ring.rotation.x = -Math.PI / 2; ring.renderOrder = 6; ring.position.set(x, groundAt(x, z) + 0.4, z);
+  mapGroup.add(ring); evacZones.push({ ring, life: 14 });
+}
+// Icône 🏃 au-dessus des bâtiments en cours d'évacuation (hôte et joueurs)
+function evacSprites() {
+  for (const b of world.buildings) {
+    const on = b.evacT > 0 || b.evacState === 1;
+    if (on && !b.evSprite) { b.evSprite = emojiSprite('🏃', N > 48 ? 1.6 : 1.1); b.evSprite.position.set(b.x, (b.y0 || 0) + b.h + 1.3, b.z); mapGroup.add(b.evSprite); }
+    else if (!on && b.evSprite) { b.evSprite.removeFromParent(); b.evSprite.material.dispose(); b.evSprite = null; }
+  }
+}
+
+// ─── Incidents majeurs ─────────────────────────────────────────
+// Une fois par mission (dès le niveau 2 en solo) : incendie d'usine avec risque d'explosion,
+// carambolage, ou feu de forêt qui menace un camping.
+let major = null;
+let camps = [];
+const BIG_LABEL = { usine: 'Incendie d\'usine maîtrisé', pileup: 'Carambolage : tout le monde est secouru', camp: 'Camping évacué', border: 'Feu majeur maîtrisé' };
+function majorTick(dt) {
+  if (!world || gameOver) return;
+  if (!major) major = { at: isFinite(L.duration) ? L.duration * (0.5 + 0.2 * Math.random()) : 220, done: currentLevel < 2 && !MP.active };
+  if (!major.done && elapsed >= major.at && elapsed < L.duration) {
+    major.done = true;
+    if (world.region) incRegion = Math.floor(Math.random() * world.towns.length);
+    const kinds = [];
+    if (world.buildings.some(b => b.kind === 'warehouse' && !b.lost && b.fire <= 0)) kinds.push('usine');
+    kinds.push('pileup');
+    if (world.forestTotal > 200) kinds.push('camp', 'camp');
+    // ordre tiré au hasard (le camping compte double), puis on essaie chaque type au plus une fois
+    const order = [];
+    while (kinds.length) { const k = kinds.splice(Math.floor(Math.random() * kinds.length), 1)[0]; if (!order.includes(k)) order.push(k); }
+    for (const k of order) if (k === 'usine' ? majorFactory() : k === 'pileup' ? majorPileup() : majorCamp()) break;
+    incRegion = -1;
+  }
+  // usine : la chaleur fait monter le risque d'explosion
+  for (const b of world.buildings) {
+    if (!b.factory || b.lost || b.exploded) continue;
+    if (b.fire > 0.45) b.boomT = (b.boomT || 0) + dt; else b.boomT = Math.max(0, (b.boomT || 0) - dt * 0.5);
+    if (b.boomT > 20 && !b.warned) { b.warned = true; flash('⚠️ L\'usine chauffe : elle va exploser si le feu n\'est pas maîtrisé !', 2600); }
+    if (b.boomT > 35) explodeFactory(b);
+  }
+  // campings : les campeurs partent peu à peu seuls ; si le feu arrive, c'est le drame
+  for (const c of camps) {
+    if (c.done || c.lost) continue;
+    c.self = (c.self || 0) + dt;
+    if (c.self > 7 && c.people > 0) { c.self = 0; c.people--; }
+    let reached = false;
+    for (let dj = -2; dj <= 2 && !reached; dj++) for (let di = -2; di <= 2; di++) { const i = c.i + di, j = c.j + dj; if (inb(i, j) && world.fire[idx(i, j)] > 0.3) { reached = true; break; } }
+    if (c.people <= 0) { c.done = true; flash('⛺ Le camping est entièrement évacué', 2000); }
+    else if (reached) {
+      c.lost = true; const v = Math.ceil(c.people / 3); stats.victims += v;
+      flash(`⛺🔥 Le feu atteint le camping : ${v} victime${v > 1 ? 's' : ''}`, 3000);
+      c.people = 0;
+    }
+  }
+}
+function majorFactory() {
+  const list = world.buildings.filter(b => b.kind === 'warehouse' && !b.lost && b.fire <= 0 && inRegion(idx(b.i0, b.j0)));
+  if (!list.length) return false;
+  const b = list[Math.floor(Math.random() * list.length)];
+  b.factory = true; b.boomT = 0;
+  igniteBuilding(b, 0.6);
+  const inc = { kind: 'warehouse', x: b.x, z: b.z, y: b.y0 + b.h, b, t: elapsed, big: 'usine' };
+  addIncident(inc, '🏭💥 INCENDIE D\'USINE — risque d\'explosion : plusieurs fourgons vite');
+  inc.sprite.scale.multiplyScalar(1.5);
+  return true;
+}
+function explodeFactory(b) {
+  b.exploded = true;
+  const x = b.x, z = b.z, y = (b.y0 || 0) + b.h;
+  collapse(b, '💥 EXPLOSION DE L\'USINE');
+  for (let dj = -5; dj <= 5; dj++) for (let di = -5; di <= 5; di++) {
+    const i = b.i0 + di, j = b.j0 + dj; if (!inb(i, j) || Math.hypot(di, dj) > 5) continue;
+    const k = idx(i, j); if (FLAM[world.type[k]] > 0) ignite(k, 0.7);
+  }
+  for (const o of world.buildings) if (o !== b && !o.lost && o.kind !== 'station' && Math.hypot(o.x - x, o.z - z) < 7) { o.hp -= 30; igniteBuilding(o, 0.4, true); setBuildingLook(o); }
+  for (const v of vehicles) if (!v.def.air && v.state !== 'dead' && Math.hypot(v.x - x, v.z - z) < 4) { v.hp = Math.max(1, v.hp - 70); if (v.state !== 'retreat' && v.state !== 'repair') { goHome(v); v.state = 'retreat'; } }
+  stats.injured += 2; stats.score -= 300;
+  explosionFx(x, y, z);
+  if (MP.isHost) MP.events.push(['x', r2(x), r2(y), r2(z)]);
+}
+function explosionFx(x, y, z) {
+  for (let q = 0; q < 70; q++) smoke.emit(x + (NATIVE_RANDOM() - 0.5) * 4, y + NATIVE_RANDOM() * 2, z + (NATIVE_RANDOM() - 0.5) * 4);
+  const sp = emojiSprite('💥', 6); sp.position.set(x, y + 2, z); mapGroup.add(sp);
+  let t = 0; const grow = () => { t += 0.05; sp.scale.setScalar(6 + t * 10); sp.material.opacity = Math.max(0, 1 - t / 1.6); if (t < 1.6) setTimeout(grow, 50); else { sp.removeFromParent(); sp.material.dispose(); } };
+  grow();
+}
+function majorPileup() {
+  const cands = [];
+  for (let k = 0; k < N * N; k++) {
+    if (world.type[k] !== T.ROAD || !inRegion(k)) continue;
+    const i = k % N, j = (k - i) / N;
+    if (world.stations.some(st => Math.hypot(i - st.door[0], j - st.door[1]) < 10)) continue;
+    if (accidents.some(a => Math.hypot(a.i - i, a.j - j) < 6)) continue;
+    cands.push(k);
+  }
+  if (!cands.length) return false;
+  const k = cands[Math.floor(Math.random() * cands.length)], i = k % N, j = (k - i) / N;
+  const T0 = L.accidentTime * 1.8 * (N > 48 ? 1.5 : 1);
+  const a = { i, j, x: cx(i), z: cz(j), y: cellH(i, j), timer: T0, maxT: T0, extract: 0, care: 0, victims: 5 + Math.floor(Math.random() * 3), mult: 3, done: false, lost: false };
+  a.id = ++incSeq; accidentMesh(a); accidents.push(a);
+  const inc = { kind: 'accident', x: a.x, z: a.z, y: a.y, acc: a, t: elapsed, big: 'pileup' };
+  addIncident(inc, `🚗💥 CARAMBOLAGE — ${a.victims} victimes coincées : plusieurs fourgons puis des VL`);
+  inc.sprite.scale.multiplyScalar(1.5);
+  return true;
+}
+function majorCamp() {
+  // une clairière (3 × 3 cases d'herbe ou de champ) en lisière de forêt, loin des maisons, près d'une route
+  const cands = [];
+  for (let j = 3; j < N - 3; j += 2) for (let i = 3; i < N - 3; i += 2) {
+    if (!inRegion(idx(i, j))) continue;
+    let ok = true, forest = 0, road = false;
+    for (let dj = -1; dj <= 1 && ok; dj++) for (let di = -1; di <= 1; di++) { const t = world.type[idx(i + di, j + dj)]; if ((t !== T.GRASS && t !== T.FIELD) || world.bld[idx(i + di, j + dj)] >= 0) { ok = false; break; } }
+    if (!ok) continue;
+    for (let dj = -4; dj <= 4; dj++) for (let di = -4; di <= 4; di++) { if (!inb(i + di, j + dj)) continue; const t = world.type[idx(i + di, j + dj)]; if (t === T.FOREST) forest++; if (t === T.ROAD && Math.hypot(di, dj) < 6) road = true; if (world.bld[idx(i + di, j + dj)] >= 0) ok = false; }
+    if (ok && road && forest > 25) cands.push([i, j]);
+  }
+  if (!cands.length) return false;
+  const [i, j] = cands[Math.floor(Math.random() * cands.length)];
+  const c = { id: ++incSeq, i, j, x: cx(i), z: cz(j), y: cellH(i, j), people: 10 + Math.floor(Math.random() * 5), evac: 0, done: false, lost: false };
+  campMesh(c); camps.push(c);
+  // le feu part dans la forêt, au vent du camping
+  const wl = Math.hypot(wind.x, wind.z) || 1, ux = -wind.x / wl, uz = -wind.z / wl;
+  let fi = -1, bd = Infinity;
+  for (let s = 6; s <= 12; s++) for (let w = -3; w <= 3; w++) {
+    const ii = Math.round(i + ux * s - uz * w), jj = Math.round(j + uz * s + ux * w);
+    if (!inb(ii, jj) || world.type[idx(ii, jj)] !== T.FOREST) continue;
+    const d = Math.abs(s - 8) + Math.abs(w); if (d < bd) { bd = d; fi = idx(ii, jj); }
+  }
+  if (fi < 0) for (let r = 4; r < 12 && fi < 0; r++) for (let dj = -r; dj <= r && fi < 0; dj++) for (let di = -r; di <= r; di++) { const ii = i + di, jj = j + dj; if (inb(ii, jj) && world.type[idx(ii, jj)] === T.FOREST) { fi = idx(ii, jj); break; } }
+  if (fi >= 0) { const fi0 = fi % N, fj0 = (fi - fi0) / N; for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) if (inb(fi0 + di, fj0 + dj)) ignite(idx(fi0 + di, fj0 + dj), 0.45); }
+  const inc = { kind: 'camp', x: c.x, z: c.z, y: c.y, camp: c, t: elapsed, big: 'camp' };
+  addIncident(inc, `⛺🔥 FEU PRÈS D'UN CAMPING — ${c.people} campeurs à évacuer (tous les camions peuvent aider)`);
+  inc.sprite.scale.multiplyScalar(1.5);
+  return true;
+}
+function campMesh(c) {
+  const g = new THREE.Group();
+  const cols = [0xff7043, 0x42a5f5, 0x66bb6a, 0xffca28, 0xab47bc];
+  for (let q = 0; q < 5; q++) {
+    const tent = new THREE.Mesh(new THREE.ConeGeometry(0.42, 0.55, 4), new THREE.MeshLambertMaterial({ color: cols[q] }));
+    tent.position.set(((q * 0.61) % 1 - 0.5) * 2.2, 0.28, ((q * 0.37 + 0.2) % 1 - 0.5) * 2.2); tent.rotation.y = q; tent.castShadow = true;
+    g.add(tent);
+  }
+  g.add(box(0.36, 0.22, 0.62, 0xeeeeee, 0.9, 0.13, -0.9));
+  g.position.set(c.x, c.y, c.z); mapGroup.add(g); c.mesh = g;
+}
+// Travail d'un camion au camping : il fait monter les campeurs et les éloigne
+function campJob(v) {
+  if (v.def.air || v.type === 'dozer') return null;
+  for (const c of camps) if (!c.done && !c.lost && c.people > 0 && Math.hypot(c.x - v.x, c.z - v.z) <= Math.max(2.5, v.def.reach || 0)) return c;
+  return null;
+}
+function campNear(v, x, z, radius) {
+  if (v.def.air || v.type === 'dozer') return null;
+  let best = null, bd = radius;
+  for (const c of camps) if (!c.done && !c.lost && c.people > 0) { const d = Math.hypot(c.x - x, c.z - z); if (d < bd) { bd = d; best = { i: c.i, j: c.j + 2 }; } }
+  return best;
+}
+function campWork(v, c, dt) {
+  c.evac += (v.type === 'vl' ? 1.6 : v.type === 'fpt' ? 1 : 0.7) * dt;
+  if (c.evac >= 1) { c.evac -= 1; c.people--; stats.evacuated++; stats.score += 40; credit(v, 'evac'); helper(c, v); }
+}
+
+// ─── Améliorations de la caserne (solo) ────────────────────────
+// Les missions rapportent des crédits (score / 10 ; moitié en cas d'échec) à dépenser ici.
+const UPGRADES = [
+  { id: 'fpt', icon: '🚒', name: 'Fourgon supplémentaire', desc: '+1 camion de pompiers sur chaque carte', cost: 500 },
+  { id: 'ccf', icon: '🚛', name: 'CCF supplémentaire', desc: '+1 camion feu de forêt sur chaque carte', cost: 500 },
+  { id: 'helico', icon: '🚁', name: 'Deuxième hélico', desc: '+1 hélicoptère bombardier sur chaque carte', cost: 800 },
+  { id: 'tank', icon: '💧', name: 'Citernes agrandies', desc: '+30 % d\'eau dans chaque camion', cost: 350 },
+  { id: 'engine', icon: '⚡', name: 'Moteurs gonflés', desc: 'Camions 12 % plus rapides', cost: 350 },
+  { id: 'armor', icon: '🛡️', name: 'Protection thermique', desc: 'Camions 30 % moins abîmés par la chaleur', cost: 300 },
+  { id: 'refill', icon: '🧯', name: 'Remplissage rapide', desc: 'Citernes, seaux et soutes remplis 60 % plus vite', cost: 300 },
+];
+const ownedUp = () => store.get('upgrades', {});
+const credits = () => store.get('credits', 0);
+function upgradedDef(type) {
+  const base = VEH[type];
+  if (MP.active) return base;
+  const up = ownedUp(), d = Object.assign({}, base);
+  if (!d.air) {
+    if (up.tank && d.cap) d.cap = Math.round(d.cap * 1.3);
+    if (up.engine) d.speed *= 1.12;
+    if (up.armor && d.armor) d.armor *= 0.7;
+  }
+  if (up.refill) d.refill = 1.6;
+  return d;
+}
+function upgradeFleet(fleet) {
+  if (MP.active) return fleet;
+  const up = ownedUp(), f = Object.assign({}, fleet);
+  for (const t of ['fpt', 'ccf', 'helico']) if (up[t] && f[t] !== undefined) f[t] = (f[t] || 0) + 1;
+  return f;
+}
+function garageCard(box) {
+  const card = document.createElement('div');
+  card.className = 'map-card glass garage-card';
+  const n = Object.keys(ownedUp()).length;
+  card.innerHTML = `
+    <div class="art garage-art"><span>🔧</span></div>
+    <div class="body">
+      <div class="top"><h3>Caserne</h3><span class="badge bgar">💰 ${credits()}</span></div>
+      <div class="desc">Dépense les crédits gagnés en mission (score ÷ 10) : camions en plus, citernes, moteurs, protection, remplissage. ${n} amélioration${n > 1 ? 's' : ''} sur ${UPGRADES.length}. Valable en solo.</div>
+      <button class="play">🔧 Améliorer la caserne</button>
+    </div>`;
+  const go = e => { if (e) e.stopPropagation(); openGarage(); };
+  card.querySelector('.play').onclick = go; card.onclick = go;
+  box.appendChild(card);
+}
+function openGarage() {
+  let ov = $('#garage-overlay');
+  if (!ov) { ov = document.createElement('div'); ov.id = 'garage-overlay'; ov.innerHTML = '<div id="garage-panel" class="glass"></div>'; document.body.appendChild(ov); ov.onclick = e => { if (e.target === ov) ov.classList.remove('show'); }; }
+  const p = $('#garage-panel'), up = ownedUp(), cr = credits();
+  p.innerHTML = `<button class="x">✕</button><h2>🔧 Améliorations de la caserne</h2>
+    <div class="gar-cr">💰 <b>${cr}</b> crédits — chaque mission rapporte son score ÷ 10 (moitié si elle échoue). Les améliorations valent pour toutes les cartes en solo (pas en multijoueur).</div>
+    <div class="gar-list">${UPGRADES.map(u => `<div class="gar-it ${up[u.id] ? 'own' : ''}"><span class="gi">${u.icon}</span><div><b>${u.name}</b><div class="gd">${u.desc}</div></div>
+      ${up[u.id] ? '<span class="gok">✔ acquis</span>' : `<button data-u="${u.id}" ${cr < u.cost ? 'disabled' : ''}>💰 ${u.cost}</button>`}</div>`).join('')}</div>`;
+  p.querySelector('.x').onclick = () => ov.classList.remove('show');
+  p.querySelectorAll('[data-u]').forEach(b => b.onclick = () => {
+    const u = UPGRADES.find(x => x.id === b.dataset.u), c = credits();
+    if (!u || c < u.cost) return;
+    store.set('credits', c - u.cost); const o = ownedUp(); o[u.id] = true; store.set('upgrades', o);
+    openGarage(); buildHome();
+  });
+  ov.classList.add('show');
+}
+// Fin de mission : crédits gagnés (solo)
+function earnCredits(score, win) {
+  if (MP.active) return 0;
+  const n = Math.max(0, Math.round(score / 10 * (win ? 1 : 0.5)));
+  store.set('credits', credits() + n);
+  return n;
+}
+
+// ─── Réinitialisation à chaque partie ──────────────────────────
+function wave2Reset() {
+  major = null; camps = []; evacLeft = EVAC_MAX; evacMode = false;
+  for (const k of Object.keys(evacUsed)) delete evacUsed[k];
+  for (const z of evacZones) z.ring.removeFromParent();
+  evacZones = []; MP.evacLeftMe = undefined;
+  applyNight();
+}
+// Chaque image (hôte, solo et joueurs)
+function wave2Frame(dt) {
+  if (!currentMap || !world) return;
+  for (const z of evacZones) { z.life -= dt; z.ring.material.opacity = Math.min(0.8, z.life / 4); if (z.life <= 0) { z.ring.removeFromParent(); z.ring.geometry.dispose(); } }
+  evacZones = evacZones.filter(z => z.life > 0);
+  evacSprites();
+}
+
+
 // ─── Démarrage ─────────────────────────────────────────────────
 buildHome();
 requestAnimationFrame(frame);
@@ -4354,7 +4826,7 @@ requestAnimationFrame(frame);
 window.__ffProject = (x, z) => { const v = new THREE.Vector3(x, groundAt(x, z), z).project(camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; };
 window.__ff = { get world() { return world; }, get vehicles() { return vehicles; }, get stats() { return stats; }, get incidents() { return incidents; }, get accidents() { return accidents; },
   startGame, dispatch, goHome, igniteBuilding, meteo, run(sec, ai) { paused = true; const n = Math.round(sec / 0.1); for (let q = 0; q < n && !gameOver; q++) { if (ai) ai(); simStep(0.1); } paused = false; }, spawnIncident, makeIncident, sendTo, get burning() { return burning; }, setElapsed: v => { elapsed = v; }, get elapsed() { return elapsed; }, setSpeed: s => { gameSpeed = s; },
-  MP, mpPing, mpHostStart, mpHelp, mpReserve, mpChat, mpSimHook, setGenPlayers: n => { GEN_PLAYERS = n; }, gridPath, costFn, get N() { return N; }, get paused() { return paused; }, get gameOver() { return gameOver; } };
+  setNight: b => { nightMode = b; }, evacOrder, majorFactory, majorPileup, majorCamp, explodeFactory, get camps() { return camps; }, openGarage, credits, get major() { return major; }, MP, mpPing, mpHostStart, mpHelp, mpReserve, mpChat, mpSimHook, setGenPlayers: n => { GEN_PLAYERS = n; }, gridPath, costFn, get N() { return N; }, get paused() { return paused; }, get gameOver() { return gameOver; } };
 
 </script>
 </body>
