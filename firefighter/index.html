@@ -209,6 +209,30 @@
   .gar-it .gok { color: #9fe39f; font-weight: 700; font-size: 0.85em; }
   .fbtn.evb { border-color: rgba(179,136,255,0.45); }
   .fbtn.evb.active { border-color: #b388ff; background: rgba(179,136,255,0.25); box-shadow: 0 0 0 1px #b388ff inset; }
+  #qpill { margin: -14px 0 18px; padding: 6px 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.8); font: 600 0.8em Inter, sans-serif; cursor: pointer; }
+  #qpill:hover { background: rgba(255,140,60,0.2); }
+  .specnote { padding: 10px 16px; font-size: 0.85em; color: rgba(255,255,255,0.85); }
+  .mp-specs { margin-top: 8px; font-size: 0.85em; color: rgba(255,255,255,0.7); }
+  .lb-art { background: linear-gradient(135deg, #f9a825, #6a1b9a); }
+  .lb-art span { position: relative; font-size: 54px; }
+  .blb { background: linear-gradient(90deg, #8e24aa, #f9a825); }
+  #lb-overlay { position: fixed; inset: 0; z-index: 37; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.55); }
+  #lb-overlay.show { display: flex; }
+  #lb-panel { width: min(560px, 94vw); max-height: 90vh; overflow-y: auto; padding: 22px 24px; position: relative; font-size: 0.9em; }
+  #lb-panel .x { position: absolute; top: 12px; right: 14px; background: none; border: none; color: #fff; font-size: 1.2em; cursor: pointer; }
+  #lb-panel select { padding: 7px 9px; border-radius: 8px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.22); color: #fff; font: inherit; }
+  #lb-panel select option { background: #1a1f2b; }
+  ol.lb { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; text-align: left; }
+  ol.lb li { display: grid; grid-template-columns: 34px 1fr auto; gap: 8px; align-items: center; padding: 6px 10px; border-radius: 8px; background: rgba(255,255,255,0.05); }
+  ol.lb li.me { background: rgba(255,140,60,0.25); }
+  ol.lb .lr { text-align: center; font-weight: 700; }
+  ol.lb small { color: rgba(255,255,255,0.55); }
+  .lb-empty { margin-top: 12px; color: rgba(255,255,255,0.6); }
+  .pub { margin: 0 auto 14px; max-width: 380px; }
+  .pub-r { display: flex; gap: 8px; justify-content: center; }
+  .pub input { padding: 7px 10px; border-radius: 8px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.22); color: #fff; font: inherit; width: 150px; }
+  .pub-out { margin-top: 8px; font-size: 0.85em; }
+  .pub-rank { font-weight: 700; color: #ffd54f; }
   /* ─── Version update notification ──────────────────────── */
   #version-banner {
     position: fixed; bottom: 24px; right: 24px;
@@ -417,7 +441,7 @@
 <div id="vlist" class="glass"></div>
 <div id="fleet" class="glass"></div>
 <div id="message" class="glass"></div>
-<div id="controls" class="glass">🖱️ <kbd>Clic</kbd> envoyer · <kbd>Clic droit</kbd> pivoter · <kbd>Molette</kbd> zoom · <kbd>Clic milieu</kbd> déplacer · <kbd>1</kbd>–<kbd>8</kbd> véhicule · <kbd>E</kbd> évacuer · <kbd>F</kbd> vitesse ×2 · <kbd>P</kbd> pause · <kbd>H</kbd> aide · <kbd>R</kbd> recommencer · <kbd>C</kbd> caserne · <kbd>M</kbd> menu</div>
+<div id="controls" class="glass">🖱️ <kbd>Clic</kbd> envoyer · <kbd>Clic droit</kbd> pivoter · <kbd>Molette</kbd> zoom · <kbd>Clic milieu</kbd> déplacer · <kbd>1</kbd>–<kbd>8</kbd> véhicule · <kbd>E</kbd> évacuer · <kbd>F</kbd> vitesse ×2 · <kbd>P</kbd> pause · <kbd>H</kbd> aide · <kbd>R</kbd> recommencer · <kbd>C</kbd> caserne · <kbd>Q</kbd> qualité · <kbd>M</kbd> menu</div>
 <div id="pause-overlay">⏸ Pause</div>
 
 <div id="end-overlay"><div id="end-panel" class="glass"></div></div>
@@ -468,7 +492,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 // ─── Version ──────────────────────────────────────────────────
-const GAME_VERSION = "2026.10.009";
+const GAME_VERSION = "2026.10.010";
 document.querySelector("meta[name=version]").setAttribute("content", GAME_VERSION);
 document.getElementById('home-version').textContent = 'v' + GAME_VERSION;
 console.log("Firefighter v" + GAME_VERSION);
@@ -1852,18 +1876,23 @@ function buildTrees() {
   geo.translate(0, 0.85, 0);
   const trunk = new THREE.CylinderGeometry(0.07, 0.09, 0.3, 5); trunk.translate(0, 0.15, 0);
   // fusion simple : on garde le cône (le tronc est suggéré par la couleur sombre au pied)
-  treeMesh = new THREE.InstancedMesh(geo, new THREE.MeshLambertMaterial({ color: 0xffffff }), Math.max(1, n));
+  // qualité graphique : seule une partie des arbres est affichée (treeInst[q] = instance, −1 = masqué)
+  treeInst = new Int32Array(n); let m = 0;
+  for (let q = 0; q < n; q++) treeInst[q] = treeShown(q) ? m++ : -1;
+  treeMesh = new THREE.InstancedMesh(geo, new THREE.MeshLambertMaterial({ color: 0xffffff }), Math.max(1, m));
   treeMesh.castShadow = true;
   world.trees.forEach((t, q) => {
     t.y = groundAt(t.x, t.z);
     setTree(q, 'ok');
   });
-  treeMesh.count = n;
+  treeMesh.count = m;
   mapGroup.add(treeMesh);
   trunk.dispose();
 }
-function setTree(q, state) {
-  const t = world.trees[q];
+let treeInst = null;
+function setTree(q0, state) {
+  const t = world.trees[q0], q = treeInst ? treeInst[q0] : q0;
+  if (q < 0) return;
   const s = state === 'gone' ? 0.001 : state === 'burned' ? t.s * 0.55 : t.s;   // gone : arbre arraché par le bulldozer
   _m.compose(_v.set(t.x, t.y, t.z), _q.identity(), _s.set(s, state === 'burned' ? s * 0.8 : s, s));
   treeMesh.setMatrixAt(q, _m);
@@ -2184,7 +2213,8 @@ function startGame(mapId, level) {
   Object.assign(sun.shadow.camera, { left: -HALF - 8, right: HALF + 8, top: HALF + 8, bottom: -HALF - 8, far: 120 * sc });
   sun.position.set(-25 * sc, 40 * sc, 18 * sc); sun.shadow.camera.updateProjectionMatrix();
   if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
-  sun.shadow.mapSize.set(sc > 1 ? 4096 : 2048, sc > 1 ? 4096 : 2048);
+  const smap = Math.min(sc > 1 ? 4096 : 2048, Q().shadowMax);
+  sun.shadow.mapSize.set(smap, smap);
   scene.fog.near = 60 * sc; scene.fog.far = 140 * sc; camera.far = 400 * sc; camera.updateProjectionMatrix();
   // interface
   $('#home').classList.add('hidden');
@@ -3051,6 +3081,7 @@ function endGame(win, why) {
       ⭐ Score : <b>${score}</b>${nightMode ? ' (🌙 ×1,3)' : ''}${score > best ? ' — nouveau record !' : ''}${earned ? `<br>💰 +${earned} crédits pour la caserne (${credits()} au total)` : ''}
     </div>
     ${MP.active ? `<div class="sub">👥 Équipe : ${MP.players.map(q => q.name.replace(/[<>&]/g, '')).join(', ')}</div>${mpReportHtml()}` : ''}
+    ${publishBlock()}
     <div class="btns">
       ${MP.isClient ? '<div class="mp-wait">⏳ L\'hôte choisit la suite…</div><button data-a="menu">Quitter le salon</button>' : `
       ${win && currentLevel < 10 ? '<button class="primary" data-a="next">▶ Niveau suivant</button>' : ''}
@@ -3058,7 +3089,7 @@ function endGame(win, why) {
       ${MP.isHost ? '<button data-a="lobby">👥 Salon</button>' : ''}
       <button data-a="menu">☰ Menu</button>`}
     </div>`;
-  p.querySelectorAll('button').forEach(bt => bt.onclick = () => {
+  p.querySelectorAll('.btns button').forEach(bt => bt.onclick = () => {
     const a = bt.dataset.a;
     if (MP.isHost && (a === 'next' || a === 'again')) mpHostStart(currentMap, currentLevel + (a === 'next' ? 1 : 0));
     else if (a === 'next') startGame(currentMap, currentLevel + 1);
@@ -3066,6 +3097,7 @@ function endGame(win, why) {
     else if (a === 'lobby') { MP.send({ k: 'lobby' }); if (MP.ws) MP.ws.send(JSON.stringify({ t: 'lock', on: false })); mpBackToLobby(); }
     else goToMenu();
   });
+  bindPublish(p);
   $('#end-overlay').classList.add('show');
   _checkDeferredAutoReload();
 }
@@ -3081,6 +3113,7 @@ function flash(text, ms) {
 function fmt(t) { if (!isFinite(t)) return '∞'; t = Math.max(0, Math.ceil(t)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); }
 function buildFleetBar() {
   const f = $('#fleet'); f.innerHTML = '';
+  if (MP.spectator) { f.innerHTML = '<div class="specnote">👁 Mode spectateur — <kbd>C</kbd> passe d\'une caserne à l\'autre · <kbd>T</kbd> message · <kbd>Maj</kbd>+clic repère</div>'; return; }
   for (const t of VTYPES) {
     const n = currentFleet[t] || 0;
     if (!n) continue;   // types absents de cette carte (ex. avion de retardant hors grandes cartes)
@@ -3248,6 +3281,8 @@ addEventListener('keydown', e => {
   if (k === 'h' || k === '?') { toggleHelp(true); return; }
   if (k === 'm') { if (!MP.active || confirm('Quitter la partie et le salon ?')) goToMenu(); return; }
   if (k === 'r') { if (MP.isHost) mpHostStart(currentMap, currentLevel); else if (!MP.active) startGame(currentMap, currentLevel); return; }
+  if (k === 'q') { cycleQuality(); return; }
+  if (spectatorKey(k)) return;
   if (k === 'c') { focusStation(MP.active ? MP.myStation() : 0); return; }
   if (gameOver) return;
   if (k === 'g' && MP.active && MP.hover) { mpPing(MP.hover[0], MP.hover[1]); return; }
@@ -3278,6 +3313,7 @@ function toggleHelp(show) {
       <h3>Feu et météo</h3><p>Le feu se propage de case en case, plus vite dans la forêt et <b>dans le sens du vent</b> (boussole en haut à droite). La <b>sécheresse</b> l'accélère et fait sécher l'eau plus vite ; par vent fort, des <b>brandons</b> allument la végétation ou un toit plusieurs cases plus loin : c'est ainsi qu'un feu de forêt gagne la ville. Les <b>rafales</b> l'emballent, la <b>pluie</b> le freine et éteint les petits foyers. Une case arrosée reste humide un moment ; un camion envoyé là où rien ne brûle mouille la végétation (coupe-feu). Le <b>retardant</b> (rouge) protège 2 minutes.</p>
       <h3>But</h3><p>Tenir jusqu'à la fin du temps sans dépasser les pertes tolérées (bâtiments, forêt, victimes : voir le panneau à gauche). Le niveau 10 est sans fin. Les grandes cartes ont deux casernes et un aérodrome.</p>
       <h3>Nouveautés</h3><p>🚜 <b>Bulldozer</b> (<kbd>8</kbd>) : clique où creuser, il trace une tranchée de terre nue de 13 cases en travers du vent (aperçu brun) — le feu ne la franchit pas, sauf brandons. 🏃 <b>Évacuer</b> (<kbd>E</kbd>, 3 ordres par mission) : les habitants d'un quartier (rayon 7) sortent avant l'arrivée du feu ; chaque personne épargnée rapporte 40 points. ⚠️ <b>Incidents majeurs</b> (dès le niveau 2) : incendie d'usine qui explose s'il chauffe trop longtemps, carambolage (plusieurs fourgons puis des VL), feu menaçant un camping (tous les camions évacuent les campeurs). 🌙 <b>Missions de nuit</b> (case à cocher sur chaque carte) : avions au sol, feu un peu plus lent, points ×1,3. 🔧 <b>Caserne</b> : les crédits gagnés en mission (score ÷ 10) achètent des améliorations en solo.</p>
+      <h3>Graphismes, spectateur, classement</h3><p>⚙️ <kbd>Q</kbd> (ou le bouton de l'accueil) change la qualité graphique : Haute, Moyenne (résolution normale, 60 % des arbres) ou Basse (sans ombres, 35 % des arbres). 👁 Dans le salon, « Regarder » rejoint une partie en spectateur, même commencée : <kbd>C</kbd> passe d'une caserne à l'autre. 🏆 En fin de mission, « Publier » envoie ton score (ou celui de l'équipe) au classement en ligne, visible depuis la tuile Classement.</p>
       <h3>Multijoueur (coopération)</h3><p>Tuile <b>Multijoueur</b> de l'accueil : crée un salon et partage son code (ou le lien), jusqu'à 4 joueurs. L'hôte choisit une des 4 cartes multijoueur (192 × 192 cases) et le niveau : chaque pompier a <b>sa ville et sa caserne</b> (pompiers, échelle, VL, CCF, hélico), loin des autres ; Canadair et avion de retardant sont <b>communs</b>, à l'aérodrome — le premier qui les demande les prend. Les alertes tombent à tour de rôle dans chaque secteur, et chacun peut envoyer ses véhicules en renfort chez les autres. Tu ne commandes que tes véhicules ; ceux des autres portent la couleur de leur pompier. La <b>mini-carte</b> (en bas à gauche) montre feux, casernes et véhicules : un clic dessus y déplace la vue, <kbd>C</kbd> ramène sur ta caserne. <b>Entraide</b> : <kbd>B</kbd> (ou 🆘 Renforts) demande un type de véhicule à un endroit — le premier coéquipier qui y envoie le sien répond à l'appel ; <kbd>T</kbd> ouvre les messages rapides ; 🔒 dans la liste réserve un avion commun 60 s. Une fois par mission, un <b>feu majeur</b> démarre entre deux secteurs. En fin de partie, un <b>bilan par pompier</b> (ordres, renforts, évacués, secours, bâtiments sauvés, foyers éteints, dégâts). Coupure ou page rechargée : tu as 2 minutes pour reprendre ta place. <kbd>Maj</kbd> + clic (ou <kbd>G</kbd>) pose un repère visible par toute l'équipe. <kbd>P</kbd> met la partie en pause pour tout le monde ; seul l'hôte règle la vitesse et relance.</p>
       <h3>Commandes</h3><p><kbd>Clic</kbd> envoyer · <kbd>Clic droit</kbd> pivoter · <kbd>Clic milieu</kbd> déplacer · <kbd>Molette</kbd> zoom · <kbd>1</kbd>–<kbd>7</kbd> type de véhicule · <kbd>F</kbd> vitesse ×2 · <kbd>P</kbd>/<kbd>Échap</kbd> pause · <kbd>R</kbd> recommencer · <kbd>M</kbd> menu</p>`;
   } else if (!MP.active) { paused = false; }
@@ -3352,6 +3388,8 @@ function buildHome() {
   box.appendChild(rnd);
   mpHomeCard(box);
   garageCard(box);
+  leaderCard(box);
+  qualityPill();
 }
 
 // ─── Boucle ────────────────────────────────────────────────────
@@ -3371,6 +3409,7 @@ function frame(now) {
     miniTick(dt, t);
     coopFrame(dt, t);
     wave2Frame(dt);
+    wave3Frame(dt);
     drawFire(t, dt);
     smoke.update(paused ? 0 : dt); spray.update(paused ? 0 : dt);
     rain.update(paused ? 0 : dt, meteo.rain, controls.target.x, controls.target.z);
@@ -3407,7 +3446,7 @@ function simStep(sdt) {
 function drawFire(t, dt) {
   let q = 0;
   const put = (x, y, z, s, hot, seed) => {
-    if (q >= MAX_FLAMES) return;
+    if (q >= Math.min(MAX_FLAMES, Q().flames)) return;
     const f = 0.75 + 0.35 * Math.sin(t * 9 + seed * 1.7) + 0.15 * Math.sin(t * 23 + seed);
     _m.compose(_v.set(x, y, z), _q.setFromAxisAngle(_v2.set(0, 1, 0), seed), _s.set(s * 0.9, s * f * 1.2, s * 0.9));
     flameMesh.setMatrixAt(q, _m);
@@ -3469,12 +3508,12 @@ const MP = {
     return (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + location.pathname.replace(/[^/]*$/, '') + 'ws';
   },
   send(d, to) { if (this.ws && this.ws.readyState === 1) this.ws.send(JSON.stringify(to === undefined ? { t: 'msg', d } : { t: 'msg', to, d })); },
-  player(id) { return this.players.find(p => p.id === id); },
-  color(id) { const n = this.players.findIndex(p => p.id === id); return MP_COLORS[(n < 0 ? (id >= 0 ? id : 0) : n) % 4]; },
+  player(id) { return this.players.find(p => p.id === id) || (this.specs || []).find(p => p.id === id); },
+  color(id) { if ((this.specs || []).some(p => p.id === id)) return '#b0bec5'; const n = this.players.findIndex(p => p.id === id); return MP_COLORS[(n < 0 ? (id >= 0 ? id : 0) : n) % 4]; },
   name(id) { const p = this.player(id); return p ? p.name : '?'; },
   myStation() { const s = this.stationPids.indexOf(this.id); return s < 0 ? 0 : s; },
 };
-function mine(v) { return !MP.active || MP.owners[v.id] === -1 || MP.owners[v.id] === MP.id || MP.owners[v.id] === undefined; }
+function mine(v) { if (MP.spectator && MP.active) return false; return !MP.active || MP.owners[v.id] === -1 || MP.owners[v.id] === MP.id || MP.owners[v.id] === undefined; }
 function mpOwnerOf(v) { return MP.owners[v.id]; }
 
 // ─── Répartition de la flotte ──────────────────────────────────
@@ -3558,7 +3597,7 @@ function mpOnServer(m) {
     mpError(m.msg); return;
   }
   if (m.t === 'joined') {
-    MP.code = m.code; MP.id = m.id; MP.host = m.host;
+    MP.code = m.code; MP.id = m.id; MP.host = m.host; MP.spectator = !!m.spectator;
     if (m.token) mpSaveSess(m);
     mpSetJoinParam(m.code);
     if (m.rejoin) {   // place retrouvée : l'hôte va renvoyer la partie
@@ -3582,7 +3621,7 @@ function mpOnServer(m) {
   }
   if (m.t === 'peers') {
     const before = MP.players.map(p => p.id).join();
-    MP.players = m.players; MP.host = m.host; MP.locked = m.locked;
+    MP.players = m.players; MP.host = m.host; MP.locked = m.locked; MP.specs = m.specs || [];
     if (MP.isHost && before !== MP.players.map(p => p.id).join()) mpSendCfg();
     mpRender(); updateMpBar(); return;
   }
@@ -3598,6 +3637,12 @@ function mpOnServer(m) {
     return;
   }
   if (m.t === 'closed') { mpClosed(m.why); return; }
+  if (m.t === 'spec') {   // un spectateur arrive : l'hôte lui envoie la partie en cours
+    flash(`👁 ${m.name} regarde la partie`, 2000); mpFeed(-1, `👁 ${m.name} regarde la partie`);
+    if (MP.id === MP.host) mpResync(m.id);
+    return;
+  }
+  if (m.t === 'specleft') { mpFeed(-1, `👁 ${m.name} ne regarde plus`); return; }
   if (m.t === 'msg') mpOnMsg(m.from, m.d || {});
 }
 // ?join=CODE dans l'adresse : recharger la page ramène au salon (les autres paramètres sont gardés)
@@ -3619,7 +3664,7 @@ function mpClosed(why) {
 }
 function mpReset() {
   if (MP.ws) { const ws = MP.ws; MP.ws = null; try { ws.send(JSON.stringify({ t: 'leave' })); ws.close(); } catch (_) { /* fermé */ } }
-  Object.assign(MP, { code: null, id: -1, host: -1, players: [], active: false, owners: [], waiting: 0, lastCell: null, lastBld: [] });
+  Object.assign(MP, { code: null, id: -1, host: -1, players: [], specs: [], spectator: false, active: false, owners: [], waiting: 0, lastCell: null, lastBld: [] });
   MP.ready.clear(); MP.incMap.clear(); MP.accMap.clear();
   for (const p of MP.pings) p.g.removeFromParent();
   MP.pings = [];
@@ -3642,6 +3687,7 @@ function mpOnMsg(from, d) {
   if (d.k === 'lobby' && from === MP.host) { mpBackToLobby(); return; }
   if (d.k === 'ping') { mpPingFx(+d.x || 0, +d.z || 0, from); return; }
   if (!MP.isHost) return;
+  if (isSpec(from)) return;   // les spectateurs ne commandent rien
   // ─ côté hôte : ordres des joueurs ─
   if (d.k === 'ready') { MP.ready.add(from); return; }
   if (!currentMap || gameOver) return;
@@ -3982,7 +4028,7 @@ function mpRender() {
       </div>
       <div class="mp-box">
         <h3>Rejoindre un salon</h3>
-        <div class="mp-row"><input id="mp-code" maxlength="4" placeholder="CODE" value="${esc(join)}" style="text-transform:uppercase;letter-spacing:4px;width:110px;text-align:center;font-weight:800"><button class="primary" data-a="join">➜ Rejoindre</button></div>
+        <div class="mp-row"><input id="mp-code" maxlength="4" placeholder="CODE" value="${esc(join)}" style="text-transform:uppercase;letter-spacing:4px;width:110px;text-align:center;font-weight:800"><button class="primary" data-a="join">➜ Rejoindre</button><button data-a="watch" title="Regarder la partie sans jouer (même si elle a commencé)">👁 Regarder</button></div>
       </div>
       <div id="mp-err" class="mp-err"></div>`;
     const nm = () => { const v = $('#mp-name').value.trim().slice(0, 16); store.set('mpname', v); return v || 'Pompier'; };
@@ -3991,6 +4037,11 @@ function mpRender() {
       const code = $('#mp-code').value.trim().toUpperCase();
       if (!/^[A-Z]{4}$/.test(code)) { mpError('Le code fait 4 lettres'); return; }
       mpConnect({ t: 'join', code, name: nm() });
+    };
+    p.querySelector('[data-a=watch]').onclick = () => {
+      const code = $('#mp-code').value.trim().toUpperCase();
+      if (!/^[A-Z]{4}$/.test(code)) { mpError('Le code fait 4 lettres'); return; }
+      mpConnect({ t: 'join', code, name: nm(), spectator: true });
     };
     $('#mp-code').onkeydown = e => { if (e.key === 'Enter') p.querySelector('[data-a=join]').click(); };
     p.querySelector('[data-a=close]').onclick = () => { $('#mp-overlay').classList.remove('show'); mpReset(); };
@@ -4017,7 +4068,8 @@ function mpRender() {
       <label class="mp-chk"><input type="checkbox" id="mp-shared" ${cfg.shared ? 'checked' : ''}> Flotte partagée (tout le monde commande tous les véhicules)</label>
       <label class="mp-chk"><input type="checkbox" id="mp-night" ${cfg.night ? 'checked' : ''}> 🌙 Mission de nuit (avions au sol, points ×1,3)</label>`
     : `<div class="mp-mission">${MAPS[cfg.map] ? MAPS[cfg.map].icon + ' ' + MAPS[cfg.map].name : ''}— niveau ${cfg.level}${cfg.shared ? ' — flotte partagée' : ''}${cfg.night ? ' — 🌙 de nuit' : ''}</div>`}
-    <div class="mp-btns">${amHost ? `<button class="primary" data-a="start">▶ Lancer la mission${MP.players.length < 2 ? ' (seul)' : ''}</button>` : '<div class="mp-wait">⏳ En attente de l\'hôte…</div>'}
+    ${(MP.specs || []).length ? `<div class="mp-specs">👁 Spectateurs : ${MP.specs.map(s => esc(s.name)).join(', ')}</div>` : ''}
+    <div class="mp-btns">${amHost ? `<button class="primary" data-a="start">▶ Lancer la mission${MP.players.length < 2 ? ' (seul)' : ''}</button>` : `<div class="mp-wait">${MP.spectator ? '👁 Tu regardes en spectateur — ' : ''}⏳ En attente de l'hôte…</div>`}
       <button data-a="quit">Quitter le salon</button></div>
     <div id="mp-err" class="mp-err"></div>`;
   p.querySelectorAll('[data-a=quit]').forEach(b => b.onclick = () => { mpReset(); mpRender(); });
@@ -4051,7 +4103,7 @@ function updateMpBar() {
   if (!MP.active || !currentMap) { bar.style.display = 'none'; mpPopup(null); return; }
   bar.style.display = 'flex';
   bar.innerHTML = `<div class="mp-row1"><span class="mp-lbl">👥 ${MP.code}</span>` + MP.players.map(q => `<span class="mp-p ${q.away ? 'away' : ''}"><span class="mp-dot" style="background:${MP.color(q.id)}"></span>${q.name.replace(/[<>&]/g, '')}${q.id === MP.host ? ' ★' : ''}${q.away ? ' 📴' : ''}</span>`).join('') + '<span class="mp-hint"><kbd>Maj</kbd>+clic repère · <kbd>B</kbd> renforts · <kbd>T</kbd> message</span></div>'
-    + `<div class="mp-row2">${mpBarButtons()}</div>`;
+    + `${(MP.specs || []).length ? `<span class="mp-p">👁 ${MP.specs.length}</span>` : ''}<div class="mp-row2">${MP.spectator ? '<span class="mp-lbl">👁 Spectateur</span><button class="mpb" data-b="chat">💬</button>' : mpBarButtons()}</div>`;
   bindMpBar(bar);
   mpLayoutLeft();
 }
@@ -4345,7 +4397,7 @@ function mpChat(m) {
   mpShowChat(MP.id, d);
 }
 function mpShowChat(pid, d) {
-  const txt = QUICK[d.m]; if (!txt) return;
+  const txt = d.m === -1 ? String(d.txt || '').replace(/[<>&]/g, '').slice(0, 120) : QUICK[d.m]; if (!txt) return;
   mpFeed(pid, txt + (d.x !== undefined ? ` — ${sector(d.x, d.z)}` : ''));
   if (d.x !== undefined) mpPingFx(d.x, d.z, pid, true);
 }
@@ -4811,7 +4863,150 @@ function wave2Frame(dt) {
 }
 
 
+// ═══════════════════════════════════════════════════════════════
+// Vague 3 : qualité graphique, mode spectateur, classement en ligne
+// ═══════════════════════════════════════════════════════════════
+
+// ─── Qualité graphique ─────────────────────────────────────────
+// haute : tout ; moyenne : résolution 1×, ombres 2048, 60 % des arbres ; basse : sans ombres, 35 % des arbres
+const QUALITY = {
+  haute: { label: 'Haute', pr: 2, shadows: true, shadowMax: 4096, trees: 1, flames: 4000 },
+  moyenne: { label: 'Moyenne', pr: 1, shadows: true, shadowMax: 2048, trees: 0.6, flames: 2500 },
+  basse: { label: 'Basse', pr: 0.85, shadows: false, shadowMax: 1024, trees: 0.35, flames: 1200 },
+};
+const QORDER = ['haute', 'moyenne', 'basse'];
+let quality = QUALITY[store.get('quality', 'haute')] ? store.get('quality', 'haute') : 'haute';
+const Q = () => QUALITY[quality];
+// Arbres affichés : un sous-ensemble fixe (même tirage à chaque fois pour un indice donné)
+function treeShown(q) { return Q().trees >= 1 || ((Math.imul(q + 1, 2654435761) >>> 0) % 1000) / 1000 < Q().trees; }
+function applyQuality(live) {
+  const q = Q();
+  renderer.setPixelRatio(Math.min(devicePixelRatio, q.pr)); renderer.setSize(innerWidth, innerHeight);
+  if (renderer.shadowMap.enabled !== q.shadows) {
+    renderer.shadowMap.enabled = q.shadows; sun.castShadow = q.shadows;
+    scene.traverse(o => { if (o.material) [].concat(o.material).forEach(m => { m.needsUpdate = true; }); });
+  }
+  const want = Math.min(q.shadowMax, sun.shadow.mapSize.x || q.shadowMax);
+  if (sun.shadow.mapSize.x > q.shadowMax) { sun.shadow.mapSize.set(want, want); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
+  if (live && world && treeMesh) rebuildTrees();
+}
+function rebuildTrees() {
+  treeMesh.removeFromParent(); treeMesh.geometry.dispose(); treeMesh.material.dispose();
+  buildTrees();
+  world.trees.forEach((t, q) => {
+    const k = t.k, st = world.type[k] === T.DIRT ? 'gone' : treeStateOf(k);
+    if (st !== 'ok') setTree(q, st);
+  });
+}
+function cycleQuality() {
+  quality = QORDER[(QORDER.indexOf(quality) + 1) % QORDER.length];
+  store.set('quality', quality);
+  applyQuality(true);
+  flash(`⚙️ Qualité graphique : ${Q().label}`, 1600);
+  const pill = $('#qpill'); if (pill) pill.textContent = `⚙️ Graphismes : ${Q().label}`;
+}
+// Ça rame ? On le propose une fois par session
+const fpsMon = { t: 0, n: 0, told: false };
+function wave3Frame(dt) {
+  if (!currentMap || paused || fpsMon.told || quality === 'basse') return;
+  fpsMon.t += dt; fpsMon.n++;
+  if (fpsMon.t > 8) {
+    if (fpsMon.n / fpsMon.t < 24) { fpsMon.told = true; flash(`⚙️ Ça rame ? Touche Q : qualité graphique plus légère (actuelle : ${Q().label})`, 4000); }
+    fpsMon.t = 0; fpsMon.n = 0;
+  }
+}
+function qualityPill() {
+  const h = $('#home'); if (!h || $('#qpill')) return;
+  const b = document.createElement('button'); b.id = 'qpill';
+  b.textContent = `⚙️ Graphismes : ${Q().label}`;
+  b.title = 'Haute : tout · Moyenne : résolution normale, 60 % des arbres · Basse : sans ombres, 35 % des arbres (touche Q en partie)';
+  b.onclick = cycleQuality;
+  h.insertBefore(b, $('#map-cards'));
+}
+
+// ─── Mode spectateur ───────────────────────────────────────────
+// Rejoindre un salon pour regarder (même en pleine partie) : on ne commande rien, on peut écrire et poser des repères.
+function isSpec(pid) { return (MP.specs || []).some(s => s.id === pid); }
+let specCam = 0;
+function spectatorKey(k) {
+  if (!MP.spectator || MP.chatOpen) return false;
+  if (k === 'c') { specCam = (specCam + 1) % Math.max(1, world.stations.length); focusStation(specCam); const pid = MP.stationPids[specCam]; flash(`👁 Caserne de ${pid !== undefined ? MP.name(pid) : specCam + 1}`, 1200); return true; }
+  return ['b', 'e', 'p', 'f', 'r', 'escape'].includes(k) || /^[1-8]$/.test(k);
+}
+
+// ─── Classement en ligne ───────────────────────────────────────
+function scoresUrl() {
+  const q = new URLSearchParams(location.search).get('relay');
+  if (q) return q.replace(/^ws/, 'http').replace(/\/+$/, '') + '/scores';
+  return location.origin + location.pathname.replace(/[^/]*$/, '') + 'ws/scores';
+}
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function topHtml(top, mine) {
+  if (!top || !top.length) return '<div class="lb-empty">Aucun score pour l\'instant : à toi de jouer !</div>';
+  return `<ol class="lb">${top.map((e, q) => `<li class="${mine && e.t === mine.t && e.score === mine.score ? 'me' : ''}"><span class="lr">${q < 3 ? ['🥇', '🥈', '🥉'][q] : q + 1}</span><span class="ln">${esc(e.name)}${e.players ? ` <small>(${e.players.map(esc).join(', ')})</small>` : ''}${e.night ? ' 🌙' : ''}</span><b>${e.score}</b></li>`).join('')}</ol>`;
+}
+// Bouton « Publier » de l'écran de fin
+function publishBlock() {
+  if (MP.isClient) return '';
+  const coop = MP.active;
+  return `<div class="pub"><div class="pub-r">${coop ? '' : `<input id="pub-name" maxlength="16" placeholder="Ton nom" value="${esc(mpName())}">`}<button data-a="publish">🏆 Publier ${coop ? 'le score de l\'équipe' : 'mon score'}</button></div><div class="pub-out"></div></div>`;
+}
+function bindPublish(panel) {
+  const b = panel.querySelector('[data-a=publish]'); if (!b) return;
+  b.onclick = async () => {
+    const coop = MP.active, out = panel.querySelector('.pub-out');
+    const name = coop ? (MP.players.map(p => p.name).join(' & ').slice(0, 16) || 'Équipe') : (($('#pub-name') || {}).value || '').trim().slice(0, 16) || 'Pompier';
+    if (!coop) store.set('mpname', name);
+    b.disabled = true; out.textContent = 'Envoi…';
+    try {
+      const r = await fetch(scoresUrl(), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ map: currentMap, level: currentLevel, mode: coop ? 'coop' : 'solo', name, score: stats.final, night: nightMode, players: coop ? MP.players.map(p => p.name) : undefined }) });
+      const j = await r.json();
+      if (!r.ok) { out.textContent = '⚠️ ' + (j.error || 'envoi impossible'); b.disabled = false; return; }
+      const me = j.top.find(e => e.name === name && e.score === stats.final);
+      out.innerHTML = (j.rank ? `<div class="pub-rank">${j.rank <= 3 ? ['🥇', '🥈', '🥉'][j.rank - 1] : '🏆'} ${j.rank}${j.rank === 1 ? 'er' : 'e'} du classement ${MAPS[currentMap].name} niveau ${currentLevel}${coop ? ' (coop)' : ''}</div>` : '<div class="pub-rank">Pas dans les 50 meilleurs cette fois</div>') + topHtml(j.top.slice(0, 5), me);
+      if (MP.isHost) MP.send({ k: 'chat', m: -1, txt: j.rank ? `🏆 score publié : ${j.rank}${j.rank === 1 ? 'er' : 'e'} du classement` : '🏆 score publié' });
+    } catch (e) { out.textContent = '⚠️ Serveur de classement injoignable'; b.disabled = false; }
+  };
+}
+// Tuile et fenêtre du classement
+function leaderCard(box) {
+  const card = document.createElement('div');
+  card.className = 'map-card glass lb-card';
+  card.innerHTML = `
+    <div class="art lb-art"><span>🏆</span></div>
+    <div class="body">
+      <div class="top"><h3>Classement</h3><span class="badge blb">🌍 En ligne</span></div>
+      <div class="desc">Les meilleurs scores de tous les joueurs, par carte et par niveau, en solo et en coopération. Publie le tien depuis l'écran de fin de mission.</div>
+      <button class="play">🏆 Voir le classement</button>
+    </div>`;
+  const go = e => { if (e) e.stopPropagation(); openLeaders(); };
+  card.querySelector('.play').onclick = go; card.onclick = go;
+  box.appendChild(card);
+}
+const lbSel = { map: 'village', level: 1, mode: 'solo' };
+async function openLeaders() {
+  let ov = $('#lb-overlay');
+  if (!ov) { ov = document.createElement('div'); ov.id = 'lb-overlay'; ov.innerHTML = '<div id="lb-panel" class="glass"></div>'; document.body.appendChild(ov); ov.onclick = e => { if (e.target === ov) ov.classList.remove('show'); }; }
+  const p = $('#lb-panel');
+  if (MAPS[lbSel.map].mp && lbSel.mode === 'solo') lbSel.mode = 'coop';
+  p.innerHTML = `<button class="x">✕</button><h2>🏆 Classement en ligne</h2>
+    <div class="mp-row"><select id="lb-map">${Object.entries(MAPS).map(([id, m]) => `<option value="${id}" ${id === lbSel.map ? 'selected' : ''}>${m.icon} ${m.name}${m.mp ? ' (multi)' : ''}</option>`).join('')}</select>
+    <select id="lb-lvl">${Array.from({ length: 10 }, (_, q) => `<option value="${q + 1}" ${q + 1 === lbSel.level ? 'selected' : ''}>Niveau ${q + 1}</option>`).join('')}</select>
+    <select id="lb-mode"><option value="solo" ${lbSel.mode === 'solo' ? 'selected' : ''} ${MAPS[lbSel.map].mp ? 'disabled' : ''}>Solo</option><option value="coop" ${lbSel.mode === 'coop' ? 'selected' : ''}>Coopération</option></select></div>
+    <div class="lb-body">Chargement…</div>`;
+  p.querySelector('.x').onclick = () => ov.classList.remove('show');
+  for (const [id, key, num] of [['#lb-map', 'map'], ['#lb-lvl', 'level', 1], ['#lb-mode', 'mode']]) $(id).onchange = e => { lbSel[key] = num ? +e.target.value : e.target.value; openLeaders(); };
+  ov.classList.add('show');
+  try {
+    const r = await fetch(`${scoresUrl()}?map=${lbSel.map}&level=${lbSel.level}&mode=${lbSel.mode}`);
+    const j = await r.json();
+    p.querySelector('.lb-body').innerHTML = topHtml(j.top);
+  } catch (e) { p.querySelector('.lb-body').textContent = '⚠️ Serveur de classement injoignable pour l\'instant.'; }
+}
+
+
 // ─── Démarrage ─────────────────────────────────────────────────
+applyQuality(false);
 buildHome();
 requestAnimationFrame(frame);
 (function () {
@@ -4826,7 +5021,7 @@ requestAnimationFrame(frame);
 window.__ffProject = (x, z) => { const v = new THREE.Vector3(x, groundAt(x, z), z).project(camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; };
 window.__ff = { get world() { return world; }, get vehicles() { return vehicles; }, get stats() { return stats; }, get incidents() { return incidents; }, get accidents() { return accidents; },
   startGame, dispatch, goHome, igniteBuilding, meteo, run(sec, ai) { paused = true; const n = Math.round(sec / 0.1); for (let q = 0; q < n && !gameOver; q++) { if (ai) ai(); simStep(0.1); } paused = false; }, spawnIncident, makeIncident, sendTo, get burning() { return burning; }, setElapsed: v => { elapsed = v; }, get elapsed() { return elapsed; }, setSpeed: s => { gameSpeed = s; },
-  setNight: b => { nightMode = b; }, evacOrder, majorFactory, majorPileup, majorCamp, explodeFactory, get camps() { return camps; }, openGarage, credits, get major() { return major; }, MP, mpPing, mpHostStart, mpHelp, mpReserve, mpChat, mpSimHook, setGenPlayers: n => { GEN_PLAYERS = n; }, gridPath, costFn, get N() { return N; }, get paused() { return paused; }, get gameOver() { return gameOver; } };
+  setNight: b => { nightMode = b; }, evacOrder, majorFactory, majorPileup, majorCamp, explodeFactory, get camps() { return camps; }, openGarage, credits, get major() { return major; }, get quality() { return quality; }, cycleQuality, scoresUrl, MP, mpPing, mpHostStart, mpHelp, mpReserve, mpChat, mpSimHook, setGenPlayers: n => { GEN_PLAYERS = n; }, gridPath, costFn, get N() { return N; }, get paused() { return paused; }, get gameOver() { return gameOver; } };
 
 </script>
 </body>

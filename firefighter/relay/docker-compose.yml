@@ -8,3 +8,8 @@ services:
     # Port hôte surchargeable : FF_RELAY_PORT=8010 docker compose up -d
     ports:
       - "127.0.0.1:${FF_RELAY_PORT:-8008}:8008"
+    # classement en ligne : conservé dans un volume
+    volumes:
+      - ff-scores:/data
+volumes:
+  ff-scores:

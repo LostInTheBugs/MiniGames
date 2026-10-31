@@ -2,6 +2,14 @@
 
 All notable changes to Firefighter are documented in this file.
 
+## [2026.10.010] — 2026-10-31
+
+### Added — third wave: comfort
+- **Graphics quality** ⚙️: Haute / Moyenne / Basse — button on the home screen, key **Q** in game (applied at once). Moyenne renders at 1× resolution with 2048 shadows and 60 % of the trees; Basse has no shadows, 35 % of the trees and fewer flames. If the game runs below ~24 fps, a one-time hint suggests key Q
+- **Spectator mode** 👁: « Regarder » in the room screen joins a room to watch, even after the game has started (up to 4 spectators): the host sends them the whole game; they command nothing, **C** jumps from one fire station to the next, they can send quick messages and pings
+- **Online leaderboard** 🏆: « Publier » on the end screen sends your score (in co-op, the host publishes the team's score with the players' names); a new « Classement » tile shows the top 20 per map, level and mode (solo / co-op), with 🌙 for night missions
+- Relay: spectators (`spec`, `specleft`), `GET/POST /scores` stored in `/data/scores.json` (Docker volume `ff-scores`; 50 best kept per map, level and mode; one submission every 15 s per address)
+
 ## [2026.10.009] — 2026-10-31
 
 ### Added — second wave: gameplay

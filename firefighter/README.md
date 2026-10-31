@@ -2,7 +2,7 @@
 
 3D fire and rescue dispatch game — send canadairs, water-bombing helicopters and fire engines to forest fires, burning houses and towers, and road accidents.
 
-Part of the [MiniGames](../README.md) collection. Current version: **2026.10.009** — [releases](https://github.com/LostInTheBugs/MiniGames/releases?q=firefighter&expanded=true).
+Part of the [MiniGames](../README.md) collection. Current version: **2026.10.010** — [releases](https://github.com/LostInTheBugs/MiniGames/releases?q=firefighter&expanded=true).
 
 ## 🗺️ Maps
 
@@ -48,6 +48,7 @@ Trucks carry water (blue gauge): when empty they refill at the fire station or t
 | 🖱️ Wheel | Zoom |
 | ⌨️ **1–8** | Vehicle type |
 | ⌨️ **E** | Evacuate a district |
+| ⌨️ **Q** | Graphics quality |
 | ⌨️ **F** | Speed ×2 |
 | ⌨️ **P** / **Esc** | Pause |
 | ⌨️ **H** / **?** | Help |
@@ -61,6 +62,12 @@ Trucks carry water (blue gauge): when empty they refill at the fire station or t
 - **Evacuate a district** (**E**, 3 orders per mission): residents within 7 cells leave before the fire arrives
 - **Night missions** (tick box on each map card): no aircraft, slightly slower fire, score ×1.3
 - **Fire station upgrades** (« Caserne » tile, solo): missions earn credits (score ÷ 10) to buy an extra fire engine, forest truck or helicopter, bigger tanks, faster trucks, heat protection, faster refills
+
+### ⚙️ Graphics, spectators, leaderboard
+
+- **Graphics quality** (home button or **Q**): Haute, Moyenne (1× resolution, 60 % of the trees) or Basse (no shadows, 35 % of the trees)
+- **Spectator**: « Regarder » in the room screen watches a co-op game, even one already started (**C** switches station)
+- **Online leaderboard**: publish your score from the end screen; the « Classement » tile shows the top 20 per map, level and mode
 
 ### 🎲 Aléatoire
 
@@ -114,7 +121,7 @@ The co-op mode needs the small WebSocket relay in [`relay/`](relay/) (Node 22 + 
 cd firefighter/relay
 docker compose up -d --build        # listens on 127.0.0.1:8008
 FF_RELAY_PORT=8010 docker compose up -d --build   # other host port
-curl http://127.0.0.1:8008/health   # {"ok":true,"version":"2026.10.008","rooms":0}
+curl http://127.0.0.1:8008/health   # {"ok":true,"version":"2026.10.010","rooms":0}
 ```
 
 | Variable | Default | Meaning |
@@ -124,6 +131,8 @@ curl http://127.0.0.1:8008/health   # {"ok":true,"version":"2026.10.008","rooms"
 | `FF_MAX_PLAYERS` | `4` | players per room |
 | `FF_MAX_ROOMS` | `200` | simultaneous rooms |
 | `FF_AWAY_MS` | `120000` | how long a disconnected player's slot is kept during a game |
+| `FF_MAX_SPECTATORS` | `4` | spectators per room |
+| `FF_SCORES_FILE` | `/data/scores.json` | leaderboard file (keep `/data` on a volume: `ff-scores` in the compose file) |
 
 The game connects to `wss://<host>/firefighter/ws` (same origin as the page), so the reverse proxy must forward that path, with the WebSocket upgrade headers, to the relay — e.g. nginx:
 
@@ -137,7 +146,9 @@ location /firefighter/ws {
 }
 ```
 
-For local tests: `node relay/server.js` then open `http://localhost:8080/firefighter/?relay=ws://localhost:8008`.
+The relay also serves the leaderboard: `GET /scores?map=village&level=1&mode=solo` and `POST /scores` (JSON `{map, level, mode, name, score, night, players}`), reached by the game at `/firefighter/ws/scores`.
+
+For local tests: `FF_SCORES_FILE=/tmp/scores.json node relay/server.js` then open `http://localhost:8080/firefighter/?relay=ws://localhost:8008`.
 
 ## 🔄 Updates
 
