@@ -2,6 +2,14 @@
 
 All notable changes to Firefighter are documented in this file.
 
+## [2026.10.005] — 2026-10-31
+
+### Changed
+- Difficulty curve reworked after playtesting (level 1 had become hard with the new weather and occupants):
+  - levels 1–2: slower spread and growth, weaker wind, wetter weather (drought −0.25, more showers), alerts every ~42 s, longer accident countdown (95 s), no embers, rarer gusts, fewer trapped occupants who also get out on their own faster
+  - the pressure then rises level by level: embers from level 3 (full at level 6), drought +0.06 per level, alerts down to every ~10 s
+- Balance check: levels 1–2 are forgiving even with few interventions; from level 3 an idle player loses on every map, a simple automatic player still wins up to level 5
+
 ## [2026.10.004] — 2026-10-31
 
 ### Added

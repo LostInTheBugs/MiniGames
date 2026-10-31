@@ -2,7 +2,7 @@
 
 3D fire and rescue dispatch game — send canadairs, water-bombing helicopters and fire engines to forest fires, burning houses and towers, and road accidents.
 
-Part of the [MiniGames](../README.md) collection. Current version: **2026.10.004** — [releases](https://github.com/LostInTheBugs/MiniGames/releases?q=firefighter&expanded=true).
+Part of the [MiniGames](../README.md) collection. Current version: **2026.10.005** — [releases](https://github.com/LostInTheBugs/MiniGames/releases?q=firefighter&expanded=true).
 
 ## 🗺️ Maps
 
@@ -83,6 +83,9 @@ The game checks this repository's `firefighter-` releases every hour (GitHub API
 ## 📋 Release notes
 
 See [CHANGELOG.md](CHANGELOG.md).
+
+### 2026.10.005
+- Gentler start: levels 1–2 are easy again, difficulty ramps up from level 3
 
 ### 2026.10.004
 - Weather (drought, gusts, rain, embers), trapped occupants, two-step accidents, damaged trucks, firebreaks, two large maps with a retardant aircraft

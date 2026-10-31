@@ -380,7 +380,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 // ─── Version ──────────────────────────────────────────────────
-const GAME_VERSION = "2026.10.004";
+const GAME_VERSION = "2026.10.005";
 document.querySelector("meta[name=version]").setAttribute("content", GAME_VERSION);
 document.getElementById('home-version').textContent = 'v' + GAME_VERSION;
 console.log("Firefighter v" + GAME_VERSION);
@@ -1749,16 +1749,20 @@ function levelCfg(mapId, lv) {
   const m = MAPS[mapId];
   return {
     duration: lv === 10 ? Infinity : (150 + 15 * (lv - 1)) * (m.size ? 1.5 : 1),   // grandes cartes : missions plus longues
-    interval: Math.max(10, 32 - 2.4 * (lv - 1)),
-    spread: m.spread * (0.75 + 0.08 * (lv - 1)),
-    wind: (0.25 + 0.07 * (lv - 1)) * ((m.climate && m.climate.wind) || 1),
-    drought: Math.min(0.95, ((m.climate && m.climate.drought) || 0.4) + 0.035 * (lv - 1)),
-    rainChance: Math.max(0.05, ((m.climate && m.climate.rain) || 0.35) - 0.025 * (lv - 1)),
+    // courbe de difficulté : niveaux 1-2 vraiment doux (feu lent, peu de vent, temps humide, alertes espacées)
+    interval: Math.max(10, 42 - 3.5 * (lv - 1)),
+    spread: m.spread * (0.55 + 0.1 * (lv - 1)),
+    wind: (0.18 + 0.075 * (lv - 1)) * ((m.climate && m.climate.wind) || 1),
+    drought: Math.max(0.1, Math.min(0.95, ((m.climate && m.climate.drought) || 0.4) - 0.25 + 0.06 * (lv - 1))),
+    rainChance: Math.max(0.05, ((m.climate && m.climate.rain) || 0.35) + 0.15 - 0.04 * (lv - 1)),
+    embers: Math.min(1, Math.max(0, (lv - 2) / 4)),     // pas de sautes de feu aux niveaux 1-2, plein effet au niveau 6
+    gusts: Math.min(1, 0.2 + 0.1 * (lv - 1)),
+    trappedMul: Math.min(1, 0.4 + 0.1 * (lv - 1)),
     lostPct: 0.2 - 0.01 * (lv - 1),
     forestPct: 35 - 1.5 * (lv - 1),
     victims: lv <= 3 ? 4 : lv <= 6 ? 3 : lv <= 8 ? 2 : 1,   // défaite dès ce nombre de victimes
-    accidentTime: 75 - 3 * (lv - 1),
-    growth: 1 + 0.06 * (lv - 1),
+    accidentTime: 95 - 5 * (lv - 1),
+    growth: 0.8 + 0.07 * (lv - 1),
   };
 }
 
@@ -1838,7 +1842,7 @@ function weatherTick(dt) {
   meteo.rain += Math.sign(meteo.rainTarget - meteo.rain) * Math.min(Math.abs(meteo.rainTarget - meteo.rain), dt * 0.25);
   // rafales : le vent forcit par moments (plus souvent par sécheresse)
   meteo.gust = Math.max(0, meteo.gust - dt * 0.08);
-  if (Math.random() < dt * 0.012 * (0.5 + meteo.drought)) { meteo.gust = 0.4 + Math.random() * 0.5; flash('💨 Rafales : le feu s\'emballe', 1800); }
+  if (Math.random() < dt * 0.012 * L.gusts * (0.5 + meteo.drought)) { meteo.gust = 0.4 + Math.random() * 0.5; flash('💨 Rafales : le feu s\'emballe', 1800); }
   wind.s = meteo.windBase * (1 + meteo.gust) * (1 - 0.3 * meteo.rain);
   setWind();
 }
@@ -1876,8 +1880,8 @@ function igniteBuilding(b, v, spread) {
   if (b.kind === 'station' || b.lost || b.fire > 0) return false;
   b.fire = v || 0.15;
   const occ = b.occupants || 0;
-  b.trapped = b.kind === 'tower' ? Math.max(0, Math.round(occ * Math.max(0, b.floors - 2) / b.floors * (0.6 + 0.3 * Math.random())))
-    : Math.round(occ * (0.35 + 0.4 * Math.random()));
+  b.trapped = b.kind === 'tower' ? Math.max(0, Math.round(occ * Math.max(0, b.floors - 2) / b.floors * (0.6 + 0.3 * Math.random()) * L.trappedMul))
+    : Math.round(occ * (0.35 + 0.4 * Math.random()) * L.trappedMul);
   b.evac = 0;
   if (spread && stats) alertBuilding(b);
   return true;
@@ -1930,8 +1934,8 @@ function fireTick(dt) {
       if (p > 0 && Math.random() < p) ignite(nk, 0.15);
     }
     // sautes de feu : par vent fort et sécheresse, des brandons allument la végétation (ou un toit) 2 à 5 cases sous le vent
-    if (world.type[k] === T.FOREST && f > 0.6 && wind.s > 0.35) {
-      const pj = 0.025 * f * (wind.s - 0.3) * meteo.drought * (1 - meteo.rain) * dt;
+    if (L.embers > 0 && world.type[k] === T.FOREST && f > 0.6 && wind.s > 0.35) {
+      const pj = 0.025 * L.embers * f * (wind.s - 0.3) * meteo.drought * (1 - meteo.rain) * dt;
       if (Math.random() < pj) {
         const dist = 2 + Math.random() * 3, wl = Math.hypot(wind.x, wind.z) || 1;
         const si = Math.round(i + wind.x / wl * dist + (Math.random() - 0.5) * 2), sj = Math.round(j + wind.z / wl * dist + (Math.random() - 0.5) * 2);
@@ -1948,7 +1952,7 @@ function fireTick(dt) {
     if (b.fire <= 0 || b.lost) continue;
     b.fire = Math.min(1, b.fire + 0.05 * dt * grow);
     // tant que le feu est encore modéré, les occupants d'une maison finissent par sortir seuls
-    if (b.trapped > 0 && b.kind !== 'tower' && b.fire < 0.5) { b.selfEvac = (b.selfEvac || 0) + dt / 15; if (b.selfEvac >= 1) { b.selfEvac = 0; b.trapped--; } }
+    if (b.trapped > 0 && b.kind !== 'tower' && b.fire < 0.5) { b.selfEvac = (b.selfEvac || 0) + dt / (8 + currentLevel * 1.5); if (b.selfEvac >= 1) { b.selfEvac = 0; b.trapped--; } }
     b.hp -= 3.0 * b.fire * dt * (b.kind === 'tower' ? 0.75 : 1);
     if (b.hp <= 0) { collapse(b); continue; }
     if (Math.random() < 0.3) setBuildingLook(b);
