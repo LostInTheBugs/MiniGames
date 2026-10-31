@@ -1,6 +1,6 @@
 {
   "name": "firefighter-relay",
-  "version": "2026.10.007",
+  "version": "2026.10.008",
   "description": "WebSocket relay for Firefighter co-op mode (rooms with a 4-letter code, up to 4 players)",
   "main": "server.js",
   "private": true,

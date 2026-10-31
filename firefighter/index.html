@@ -157,7 +157,30 @@
   .mp-btns { display: flex; gap: 10px; align-items: center; margin-top: 16px; flex-wrap: wrap; }
   .mp-wait { color: rgba(255,255,255,0.7); font-weight: 600; }
   .mp-err { color: #ff8a80; min-height: 1.2em; font-size: 0.88em; margin-top: 10px; }
-  #mpbar { position: fixed; bottom: 54px; left: 14px; z-index: 10; display: none; gap: 10px; align-items: center; padding: 6px 12px; font-size: 0.75em; flex-wrap: wrap; max-width: 30vw; }
+  #mpbar { position: fixed; top: 200px; left: 14px; z-index: 10; display: none; flex-direction: column; gap: 5px; padding: 6px 10px; font-size: 0.75em; max-width: min(440px, 40vw); }
+  #mpbar .mp-row1, #mpbar .mp-row2 { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  #mpbar .mp-p.away { opacity: 0.5; }
+  #mpbar .mpb { padding: 3px 9px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); color: #fff; font: 600 1em Inter, sans-serif; cursor: pointer; }
+  #mpbar .mpb:hover { background: rgba(255,140,60,0.25); }
+  #mpbar .mpb.hq { border-width: 2px; animation: hqb 1.2s infinite; }
+  @keyframes hqb { 50% { background: rgba(255,60,40,0.35); } }
+  #mpfeed { position: fixed; left: 14px; top: 300px; z-index: 11; display: none; flex-direction: column; gap: 3px; max-width: min(420px, 40vw); pointer-events: none; }
+  #mpfeed .fd { background: rgba(14,18,28,0.8); border-radius: 8px; padding: 4px 9px; font-size: 0.78em; border: 1px solid rgba(255,255,255,0.08); }
+  #mpfeed .fd.st { border-color: rgba(255,140,60,0.6); }
+  #mppop { position: fixed; left: 14px; top: 300px; z-index: 16; display: none; padding: 10px 12px; font-size: 0.82em; max-width: 360px; }
+  #mppop .pp-t { font-weight: 700; margin-bottom: 8px; }
+  #mppop .pp-g { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  #mppop .pp-g button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px; font-size: 20px; }
+  #mppop .pp-g small { font-size: 10px; }
+  #mppop .pp-l { display: flex; flex-direction: column; gap: 5px; }
+  #mppop button { border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.07); color: #fff; font: 600 1em Inter, sans-serif; cursor: pointer; text-align: left; padding: 5px 9px; }
+  #mppop button:hover { background: rgba(255,140,60,0.25); }
+  #mppop .pp-n { margin-top: 8px; color: rgba(255,255,255,0.6); font-size: 0.9em; }
+  .vrow .vres { margin-left: 6px; padding: 0 5px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.08); cursor: pointer; font-size: 0.9em; }
+  table.pst { margin: 4px auto 4px; border-collapse: collapse; font-size: 0.85em; }
+  table.pst th, table.pst td { padding: 3px 7px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  table.pst td:first-child { text-align: left; white-space: nowrap; }
+  .pst-l { font-size: 0.7em; color: rgba(255,255,255,0.55); margin-bottom: 12px; }
   #mpbar .mp-p { display: inline-flex; gap: 5px; align-items: center; font-weight: 600; }
   #mpbar .mp-hint { color: rgba(255,255,255,0.5); }
   .vrow.other { cursor: default; opacity: 0.62; }
@@ -425,7 +448,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 // ─── Version ──────────────────────────────────────────────────
-const GAME_VERSION = "2026.10.007";
+const GAME_VERSION = "2026.10.008";
 document.querySelector("meta[name=version]").setAttribute("content", GAME_VERSION);
 document.getElementById('home-version').textContent = 'v' + GAME_VERSION;
 console.log("Firefighter v" + GAME_VERSION);
@@ -2424,7 +2447,11 @@ function updateIncidents(dt) {
     if (!active) {
       inc.over = true;
       inc.sprite.removeFromParent(); inc.sprite.material.dispose();
-      if (ok) { stats.resolved++; stats.score += 100; flash(`✅ ${INC[inc.kind].label} maîtrisé`, 1800); }
+      if (ok) {
+        stats.resolved++; stats.score += 100 + (inc.big ? 300 : 0);
+        flash(inc.big ? '✅🔥 Feu majeur maîtrisé : bravo l\'équipe ! (+300)' : `✅ ${INC[inc.kind].label} maîtrisé`, inc.big ? 3000 : 1800);
+        if (inc.b) creditHelpers(inc.b, 'bld');
+      }
     } else {
       inc.sprite.position.y = inc.y + 2.6 + Math.sin(elapsed * 3 + inc.x) * 0.25;
     }
@@ -2434,7 +2461,7 @@ function updateIncidents(dt) {
     if (a.done || a.lost) continue;
     a.timer -= dt;
     if (a.extract >= 100 && a.care >= 100) {
-      a.done = true; stats.rescued += a.victims; stats.score += 50 * a.victims;
+      a.done = true; stats.rescued += a.victims; stats.score += 50 * a.victims; creditHelpers(a, 'rescue');
       flash(`🚑 ${a.victims} victime${a.victims > 1 ? 's' : ''} secourue${a.victims > 1 ? 's' : ''}`, 1800);
       setTimeout(() => { a.mesh.removeFromParent(); disposeTree(a.mesh); }, 2500);
     } else if (a.timer <= 0) {
@@ -2520,8 +2547,8 @@ function usable(v) { return v.state !== 'dead' && v.state !== 'retreat' && v.sta
 
 // Véhicule qui partira si on clique en (x, z) : celui choisi dans la liste, sinon le plus proche disponible du type
 function pickVehicle(x, z) {
-  if (selectedVehicle && mine(selectedVehicle)) return selectedVehicle;
-  const list = vehicles.filter(o => o.type === selectedType && usable(o) && mine(o));
+  if (selectedVehicle && mine(selectedVehicle) && !reservedByOther(selectedVehicle)) return selectedVehicle;
+  const list = vehicles.filter(o => o.type === selectedType && usable(o) && mine(o) && !reservedByOther(o));
   if (!list.length) return null;
   const score = o => (available(o) ? 0 : o.state === 'ret' ? 1000 : 3000) + Math.hypot(o.x - x, o.z - z);
   return list.sort((a, b) => score(a) - score(b))[0];
@@ -2533,7 +2560,7 @@ function dispatch(x, z) {
   if (!usable(v)) { flash(`${v.def.short} ${v.num} est ${STATE_TXT[v.state]}`, 1500); selectedVehicle = null; return; }
   selectedVehicle = null;
   if (MP.isClient) MP.send({ k: 'go', v: v.id, x: r2(x), z: r2(z) }, MP.host);   // l'hôte exécute l'ordre
-  else { sendTo(v, x, z); v.by = MP.active ? MP.id : undefined; }
+  else { sendTo(v, x, z); v.by = MP.active ? MP.id : undefined; if (MP.isHost) mpOnOrder(v, x, z, MP.id); }
   const homes = aimMesh && aimMesh.visible && v.type !== 'helico' && aimMesh.material.color.getHex() === 0xff5252;
   flash(`${v.def.icon} ${v.def.short} ${v.num} → secteur ${sector(x, z)}${homes ? ' — ⚠️ zone habitée : le largage va faire des dégâts' : ''}`, homes ? 2600 : 1300);
   hideAim();
@@ -2661,22 +2688,24 @@ function workGround(v, dt) {
       if (a.extract < 100 && !d.extract) { /* attend le fourgon pompe */ }
       else if (a.extract < 100) { a.extract = Math.min(100, a.extract + d.extract * dt); if (a.extract >= 100 && !vehicles.some(o => o.type === 'vl' && usable(o) && o.target && Math.hypot(o.target.x - a.x, o.target.z - a.z) < 6)) flash('🔧 Victimes sorties : il faut maintenant les soigner (VL)', 2000); }
       else a.care = Math.min(100, a.care + d.care * dt);
-      tx = a.x; tz = a.z; ty = a.y + 0.3;
+      tx = a.x; tz = a.z; ty = a.y + 0.3; helper(a, v);
     } else if (job.evac) {
       // évacuation : une personne toutes les 1 / evac secondes (lance aussi si le camion a de l'eau)
       const b = job.b;
       b.evac += d.evac * (b.kind === 'tower' && v.type === 'epa' ? 1 : 1) * dt;
-      if (b.evac >= 1) { b.evac -= 1; b.trapped--; stats.evacuated++; stats.score += 60; if (b.trapped === 0) flash(`👤 ${kindName(b)} : tout le monde est sorti`, 1600); }
+      if (b.evac >= 1) { b.evac -= 1; b.trapped--; stats.evacuated++; stats.score += 60; credit(v, 'evac'); helper(b, v); if (b.trapped === 0) flash(`👤 ${kindName(b)} : tout le monde est sorti`, 1600); }
       if (d.cap > 0 && v.tank > 0 && b.fire > 0) { coolBuilding(b, 0.05 * d.bEff * dt); v.tank -= d.flow * 0.5 * dt; }
       tx = b.x; tz = b.z; ty = b.y0 + b.h * 0.7;
     } else if (job.b) {
       const b = job.b, tall = b.kind === 'tower' && b.floors >= 4;
-      coolBuilding(b, 0.11 * d.bEff * (tall ? d.tallEff : 1) * dt);
+      coolBuilding(b, 0.11 * d.bEff * (tall ? d.tallEff : 1) * dt); helper(b, v);
       tx = b.x; tz = b.z; ty = b.y0 + b.h * (tall && v.type === 'epa' ? 0.8 : 0.45);
       v.tank -= d.flow * dt;
     } else {
       const i = job.k % N, j = (job.k - i) / N;
+      const wasF = world.fire[job.k] > 0;
       extinguishCell(job.k, 1.1 * (d.cellEff || 1) * dt);
+      if (wasF && world.fire[job.k] <= 0) credit(v, 'cells');
       for (const [di, dj] of NB8.slice(0, 4)) if (inb(i + di, j + dj)) extinguishCell(idx(i + di, j + dj), 0.35 * (d.cellEff || 1) * dt);
       tx = cx(i); tz = cz(j); ty = cellH(i, j) + 0.3;
       v.tank -= d.flow * dt;
@@ -2737,6 +2766,7 @@ function airDrop(v) {
     const hx = Math.sin(v.heading), hz = Math.cos(v.heading);
     const hit = new Set(), street = new Set();
     for (const k of canadairStrip(v.x, v.z, v.heading)) {
+      if (world.fire[k] > 0) credit(v, 'cells');
       extinguishCell(k, 1);
       const bi = world.bld[k];
       if (bi >= 0 && world.buildings[bi].kind !== 'station') hit.add(world.buildings[bi]);
@@ -2749,7 +2779,7 @@ function airDrop(v) {
       if (b.lost) continue;
       b.fire = 0;
       b.hp -= b.kind === 'tower' ? 35 : 55;
-      stats.collateral++; wrecked++;
+      stats.collateral++; wrecked++; credit(v, 'collat');
       if (b.hp <= 0) collapse(b, `💥 ${kindName(b)} ${b.kind === 'house' ? 'écrasée' : 'écrasé'} par le largage`);
       else setBuildingLook(b);
     }
@@ -2774,11 +2804,12 @@ function airDrop(v) {
       const i = toI(v.x) + di, j = toJ(v.z) + dj;
       if (!inb(i, j) || Math.hypot(cx(i) - v.x, cz(j) - v.z) > 2.3) continue;
       const k = idx(i, j);
+      if (world.fire[k] > 0) credit(v, 'cells');
       extinguishCell(k, 0.95);
     }
     // le seau (environ 1 tonne) éteint un toit mais abîme un peu une maison ; un immeuble n'est attaqué que par le haut
     for (const b of world.buildings) if (!b.lost && b.kind !== 'station' && distToBuilding(b, v.x, v.z) < 1.6) {
-      if (b.fire > 0) coolBuilding(b, b.kind === 'tower' ? 0.35 : 0.6);
+      if (b.fire > 0) { coolBuilding(b, b.kind === 'tower' ? 0.35 : 0.6); helper(b, v); }
       if (b.kind === 'house' || b.kind === 'boat') { b.hp -= 8; if (b.hp <= 0) collapse(b); else setBuildingLook(b); }
     }
   }
@@ -2954,7 +2985,7 @@ function checkEnd() {
 }
 function endGame(win, why) {
   gameOver = true;
-  if (MP.isHost) { if (MP.players.length > 1) MP.send(mpMakeSnap()); MP.send({ k: 'end', win, why: why || '', stats, elapsed }); }
+  if (MP.isHost) { if (MP.players.length > 1) MP.send(mpMakeSnap()); MP.lastEnd = { win, why: why || '' }; MP.send({ k: 'end', win, why: why || '', stats, elapsed, pst: MP.pst }); }
   const fp = Math.round(forestBurnedPct());
   const score = Math.max(0, Math.round(stats.score + Math.min(elapsed, 900) * 2 + (stats.buildTotal - stats.lost) * 10 - fp * 15 - stats.victims * 150));
   stats.final = score;
@@ -2975,7 +3006,7 @@ function endGame(win, why) {
       ${stats.vehLost ? `💥 Véhicules perdus dans le feu : <b>${stats.vehLost}</b><br>` : ''}
       ⭐ Score : <b>${score}</b>${score > best ? ' — nouveau record !' : ''}
     </div>
-    ${MP.active ? `<div class="sub">👥 Équipe : ${MP.players.map(q => q.name.replace(/[<>&]/g, '')).join(', ')}</div>` : ''}
+    ${MP.active ? `<div class="sub">👥 Équipe : ${MP.players.map(q => q.name.replace(/[<>&]/g, '')).join(', ')}</div>${mpReportHtml()}` : ''}
     <div class="btns">
       ${MP.isClient ? '<div class="mp-wait">⏳ L\'hôte choisit la suite…</div><button data-a="menu">Quitter le salon</button>' : `
       ${win && currentLevel < 10 ? '<button class="primary" data-a="next">▶ Niveau suivant</button>' : ''}
@@ -3066,7 +3097,9 @@ function updateUI(force) {
       r.className = 'vrow';
       const own = mpOwnerOf(v), other = MP.active && !mine(v);
       if (other) r.classList.add('other');
-      r.innerHTML = `<span class="vi">${v.def.icon}</span><div><div class="vn">${v.def.short} ${v.num}${MP.active && own >= 0 ? ` <span class="vo" style="color:${MP.color(own)}">● ${MP.name(own).replace(/[<>&]/g, '')}</span>` : ''}</div><div class="vs"></div><div class="bar"><i></i></div></div>`;
+      r.innerHTML = `<span class="vi">${v.def.icon}</span><div><div class="vn">${v.def.short} ${v.num}${MP.active && own >= 0 ? ` <span class="vo" style="color:${MP.color(own)}">● ${MP.name(own).replace(/[<>&]/g, '')}</span>` : ''}${MP.active && v.sta < 0 && !MP.shared && MP.players.length > 1 ? '<button class="vres" title="Réserver cet avion commun pour ton prochain largage (60 s)">🔒</button>' : ''}</div><div class="vs"></div><div class="bar"><i></i></div></div>`;
+      const rb = r.querySelector('.vres');
+      if (rb) rb.onclick = e => { e.stopPropagation(); mpReserve(v); };
       r.onclick = e => { e.stopPropagation(); if (other) { flash(`${v.def.short} ${v.num} est commandé par ${MP.name(own)}`, 1500); return; } selectedVehicle = selectedVehicle === v ? null : v; if (selectedVehicle) selectedType = v.type; flash(selectedVehicle ? `${v.def.icon} ${v.def.short} ${v.num} sélectionné : clique sur la carte` : 'Sélection annulée', 1400); updateUI(true); };
       vl.appendChild(r);
       return r;
@@ -3077,8 +3110,9 @@ function updateUI(force) {
     const r = vl._rows[q]; if (!r) return;
     r.classList.toggle('sel', selectedVehicle === v);
     r.querySelector('.vs').textContent = (STATE_TXT[v.state] || v.state) + (!v.def.air && v.hp < 100 && v.state !== 'dead' ? ` · ${Math.round(v.hp)} %` : '')
-      + (MP.active && v.sta < 0 && v.by !== undefined && !available(v) ? ` · pour ${MP.name(v.by)}` : '');   // avion commun : qui l'a demandé
-    r.style.opacity = v.state === 'dead' ? 0.4 : 1;
+      + (MP.active && v.sta < 0 && v.by !== undefined && !available(v) ? ` · pour ${MP.name(v.by)}` : '')
+      + (MP.active && v.res !== undefined ? ` · 🔒 ${v.res === MP.id ? 'réservé pour toi' : 'réservé par ' + MP.name(v.res)}` : '');   // avion commun : qui l'a demandé
+    r.style.opacity = v.state === 'dead' ? 0.4 : reservedByOther(v) ? 0.55 : 1;
     const cap = v.def.air ? 1 : v.def.cap;
     r.querySelector('.bar').style.display = cap ? 'block' : 'none';
     if (cap) r.querySelector('.bar i').style.width = Math.round(100 * Math.max(0, v.tank) / cap) + '%';
@@ -3097,6 +3131,7 @@ renderer.domElement.addEventListener('pointerup', e => {
   raycaster.setFromCamera(mouse, camera);
   const hit = raycaster.intersectObject(terrain)[0];
   if (hit && MP.active && (e.shiftKey || e.altKey)) { mpPing(hit.point.x, hit.point.z); return; }
+  if (hit && MP.active && MP.helpMode) { mpHelp(hit.point.x, hit.point.z, MP.helpMode); return; }
   if (hit) dispatch(hit.point.x, hit.point.z);
 });
 // ─── Visée des moyens aériens ──────────────────────────────────
@@ -3149,6 +3184,10 @@ addEventListener('keydown', e => {
   if (k === 'c') { focusStation(MP.active ? MP.myStation() : 0); return; }
   if (gameOver) return;
   if (k === 'g' && MP.active && MP.hover) { mpPing(MP.hover[0], MP.hover[1]); return; }
+  if (MP.active && MP.chatOpen && /^[1-6]$/.test(k)) { mpChat(+k - 1); return; }
+  if (MP.active && (MP.helpMode || MP.chatOpen || ($('#mppop') && $('#mppop').style.display === 'block')) && k === 'escape') { MP.helpMode = null; mpPopup(null); return; }
+  if (k === 'b' && MP.active) { mpHelpMenu(); return; }
+  if (k === 't' && MP.active) { mpChatMenu(); return; }
   if (MP.active && MP.waiting > 0) return;
   if ((k === 'p' || k === 'escape') && MP.isClient) { MP.send({ k: 'pause' }, MP.host); return; }
   if (k === 'p' || k === 'escape') { paused = !paused; $('#pause-overlay').classList.toggle('show', paused); if (MP.active) flash(paused ? '⏸ Pause pour toute l\'équipe' : '▶ Reprise', 1400); return; }
@@ -3169,7 +3208,7 @@ function toggleHelp(show) {
       <h3>Eau</h3><p>Les camions ont une citerne (barre bleue) : à sec, ils vont se remplir à une caserne ou à la bouche d'incendie la plus proche, puis reviennent ; de retour à la caserne, ils refont le plein. Ils contournent les flammes (sauf le camion feu de forêt). Pris dans la chaleur, un camion s'abîme, se replie pour réparer, voire est perdu (le CCF est protégé). Canadair et hélicoptère se remplissent sur l'eau, l'avion de retardant à l'aérodrome. En survolant la carte avec un moyen aérien, tu vois où il larguera.</p>
       <h3>Feu et météo</h3><p>Le feu se propage de case en case, plus vite dans la forêt et <b>dans le sens du vent</b> (boussole en haut à droite). La <b>sécheresse</b> l'accélère et fait sécher l'eau plus vite ; par vent fort, des <b>brandons</b> allument la végétation ou un toit plusieurs cases plus loin : c'est ainsi qu'un feu de forêt gagne la ville. Les <b>rafales</b> l'emballent, la <b>pluie</b> le freine et éteint les petits foyers. Une case arrosée reste humide un moment ; un camion envoyé là où rien ne brûle mouille la végétation (coupe-feu). Le <b>retardant</b> (rouge) protège 2 minutes.</p>
       <h3>But</h3><p>Tenir jusqu'à la fin du temps sans dépasser les pertes tolérées (bâtiments, forêt, victimes : voir le panneau à gauche). Le niveau 10 est sans fin. Les grandes cartes ont deux casernes et un aérodrome.</p>
-      <h3>Multijoueur (coopération)</h3><p>Tuile <b>Multijoueur</b> de l'accueil : crée un salon et partage son code (ou le lien), jusqu'à 4 joueurs. L'hôte choisit une des 4 cartes multijoueur (192 × 192 cases) et le niveau : chaque pompier a <b>sa ville et sa caserne</b> (pompiers, échelle, VL, CCF, hélico), loin des autres ; Canadair et avion de retardant sont <b>communs</b>, à l'aérodrome — le premier qui les demande les prend. Les alertes tombent à tour de rôle dans chaque secteur, et chacun peut envoyer ses véhicules en renfort chez les autres. Tu ne commandes que tes véhicules ; ceux des autres portent la couleur de leur pompier. La <b>mini-carte</b> (en bas à gauche) montre feux, casernes et véhicules : un clic dessus y déplace la vue, <kbd>C</kbd> ramène sur ta caserne. <kbd>Maj</kbd> + clic (ou <kbd>G</kbd>) pose un repère visible par toute l'équipe. <kbd>P</kbd> met la partie en pause pour tout le monde ; seul l'hôte règle la vitesse et relance.</p>
+      <h3>Multijoueur (coopération)</h3><p>Tuile <b>Multijoueur</b> de l'accueil : crée un salon et partage son code (ou le lien), jusqu'à 4 joueurs. L'hôte choisit une des 4 cartes multijoueur (192 × 192 cases) et le niveau : chaque pompier a <b>sa ville et sa caserne</b> (pompiers, échelle, VL, CCF, hélico), loin des autres ; Canadair et avion de retardant sont <b>communs</b>, à l'aérodrome — le premier qui les demande les prend. Les alertes tombent à tour de rôle dans chaque secteur, et chacun peut envoyer ses véhicules en renfort chez les autres. Tu ne commandes que tes véhicules ; ceux des autres portent la couleur de leur pompier. La <b>mini-carte</b> (en bas à gauche) montre feux, casernes et véhicules : un clic dessus y déplace la vue, <kbd>C</kbd> ramène sur ta caserne. <b>Entraide</b> : <kbd>B</kbd> (ou 🆘 Renforts) demande un type de véhicule à un endroit — le premier coéquipier qui y envoie le sien répond à l'appel ; <kbd>T</kbd> ouvre les messages rapides ; 🔒 dans la liste réserve un avion commun 60 s. Une fois par mission, un <b>feu majeur</b> démarre entre deux secteurs. En fin de partie, un <b>bilan par pompier</b> (ordres, renforts, évacués, secours, bâtiments sauvés, foyers éteints, dégâts). Coupure ou page rechargée : tu as 2 minutes pour reprendre ta place. <kbd>Maj</kbd> + clic (ou <kbd>G</kbd>) pose un repère visible par toute l'équipe. <kbd>P</kbd> met la partie en pause pour tout le monde ; seul l'hôte règle la vitesse et relance.</p>
       <h3>Commandes</h3><p><kbd>Clic</kbd> envoyer · <kbd>Clic droit</kbd> pivoter · <kbd>Clic milieu</kbd> déplacer · <kbd>Molette</kbd> zoom · <kbd>1</kbd>–<kbd>7</kbd> type de véhicule · <kbd>F</kbd> vitesse ×2 · <kbd>P</kbd>/<kbd>Échap</kbd> pause · <kbd>R</kbd> recommencer · <kbd>M</kbd> menu</p>`;
   } else if (!MP.active) { paused = false; }
 }
@@ -3255,6 +3294,7 @@ function frame(now) {
     }
     mpFrame(dt, t);
     miniTick(dt, t);
+    coopFrame(dt, t);
     drawFire(t, dt);
     smoke.update(paused ? 0 : dt); spray.update(paused ? 0 : dt);
     rain.update(paused ? 0 : dt, meteo.rain, controls.target.x, controls.target.z);
@@ -3283,6 +3323,7 @@ function simStep(sdt) {
   fireAcc += sdt;
   while (fireAcc >= 0.25) { fireAcc -= 0.25; fireTick(0.25); }
   for (const v of vehicles) { v.jet = null; if (v.def.air) updateAir(v, sdt); else updateGround(v, sdt); placeMesh(v); }
+  if (MP.isHost) mpSimHook(sdt);   // coop : feu frontière, réservations, appels à l'aide
   updateIncidents(sdt);
   checkEnd();
 }
@@ -3352,7 +3393,7 @@ const MP = {
   },
   send(d, to) { if (this.ws && this.ws.readyState === 1) this.ws.send(JSON.stringify(to === undefined ? { t: 'msg', d } : { t: 'msg', to, d })); },
   player(id) { return this.players.find(p => p.id === id); },
-  color(id) { const n = this.players.findIndex(p => p.id === id); return MP_COLORS[(n < 0 ? 0 : n) % 4]; },
+  color(id) { const n = this.players.findIndex(p => p.id === id); return MP_COLORS[(n < 0 ? (id >= 0 ? id : 0) : n) % 4]; },
   name(id) { const p = this.player(id); return p ? p.name : '?'; },
   myStation() { const s = this.stationPids.indexOf(this.id); return s < 0 ? 0 : s; },
 };
@@ -3415,7 +3456,7 @@ function mpPreviewRoles(mapId, pids, shared) {
 }
 
 // ─── Connexion ─────────────────────────────────────────────────
-function mpConnect(first) {
+function mpConnect(first, rejoin) {
   if (MP.ws) { try { MP.ws.close(); } catch (_) { /* déjà fermé */ } }
   mpError('');
   let ws;
@@ -3428,15 +3469,39 @@ function mpConnect(first) {
     if (MP.ws !== ws) return;
     const was = MP.code;
     MP.ws = null;
+    // joueur (pas l'hôte) en pleine partie : on tente de reprendre sa place
+    if (was && MP.active && MP.id !== MP.host && mpTryRejoin()) return;
     if (was) mpClosed('Connexion au serveur perdue');
+    else if (rejoin) mpClosed('Impossible de reprendre la partie');
   };
 }
 function mpOnServer(m) {
-  if (m.t === 'error') { mpError(m.msg); return; }
+  if (m.t === 'error') {
+    if (MP.rejoinTry) { mpClosed(m.msg); return; }
+    mpError(m.msg); return;
+  }
   if (m.t === 'joined') {
     MP.code = m.code; MP.id = m.id; MP.host = m.host;
+    if (m.token) mpSaveSess(m);
     mpSetJoinParam(m.code);
+    if (m.rejoin) {   // place retrouvée : l'hôte va renvoyer la partie
+      MP.rejoinTry = 0;
+      $('#mp-overlay').classList.remove('show');
+      if (!currentMap) { $('#home').classList.add('hidden'); }
+      mpPauseText('⏳ Reprise de la partie…');
+      return;
+    }
     mpRender(); return;
+  }
+  if (m.t === 'away') {
+    flash(`📴 ${m.name} a perdu la connexion — 2 min pour revenir, ses véhicules continuent`, 3000);
+    mpFeed(m.id, '📴 déconnecté');
+    return;
+  }
+  if (m.t === 'back') {
+    flash(`🔌 ${m.name} est de retour`, 2200); mpFeed(m.id, '🔌 de retour');
+    if (MP.isHost || MP.id === MP.host) mpResync(m.id);
+    return;
   }
   if (m.t === 'peers') {
     const before = MP.players.map(p => p.id).join();
@@ -3471,6 +3536,7 @@ function mpClosed(why) {
   const inGame = !!currentMap;
   mpReset();
   if (inGame) goToMenu();
+  else { $('#home').classList.remove('hidden'); $('#pause-overlay').classList.remove('show'); }
   mpOpen();
   mpError(why || 'Salon fermé');
 }
@@ -3480,6 +3546,9 @@ function mpReset() {
   MP.ready.clear(); MP.incMap.clear(); MP.accMap.clear();
   for (const p of MP.pings) p.g.removeFromParent();
   MP.pings = [];
+  for (const fx of MP.helpFx.values()) fx.g.removeFromParent();
+  MP.helpFx.clear(); MP.helps = []; MP.cHelps = []; MP.feed = []; MP.helpMode = null; MP.rejoinTry = 0; mpPopup(null); renderFeed();
+  store.set(SESS_KEY, null);
   if (MP.savedSeed !== null) { SEED = MP.savedSeed === 'none' ? null : MP.savedSeed; MP.savedSeed = null; }
   mpSetJoinParam(null);
   updateMpBar();
@@ -3489,11 +3558,12 @@ function mpReset() {
 function mpOnMsg(from, d) {
   if (d.k === 'cfg' && from === MP.host) { MP.cfg = d.cfg; mpRender(); return; }
   if (d.k === 'start' && from === MP.host) { mpBeginGame(d); MP.send({ k: 'ready' }, MP.host); return; }
+  if (d.k === 'chat') { mpShowChat(from, d); return; }
   if (d.k === 'own' && from === MP.host) { MP.owners = d.owners; mpAfterOwners(); return; }
   if (d.k === 'snap' && from === MP.host && MP.isClient && world) { mpApplySnap(d); return; }
-  if (d.k === 'end' && from === MP.host && MP.isClient && currentMap) { stats = d.stats; elapsed = d.elapsed; endGame(d.win, d.why); return; }
+  if (d.k === 'end' && from === MP.host && MP.isClient && currentMap) { stats = d.stats; elapsed = d.elapsed; MP.pst = d.pst || {}; endGame(d.win, d.why); return; }
   if (d.k === 'lobby' && from === MP.host) { mpBackToLobby(); return; }
-  if (d.k === 'ping') { mpPingFx(d.x, d.z, from); return; }
+  if (d.k === 'ping') { mpPingFx(+d.x || 0, +d.z || 0, from); return; }
   if (!MP.isHost) return;
   // ─ côté hôte : ordres des joueurs ─
   if (d.k === 'ready') { MP.ready.add(from); return; }
@@ -3501,8 +3571,14 @@ function mpOnMsg(from, d) {
   if (d.k === 'go') {
     const v = vehicles[d.v];
     if (!v || !(MP.owners[v.id] === from || MP.owners[v.id] === -1) || !usable(v)) return;
+    if (v.res !== undefined && v.res !== from) return;   // avion réservé par un autre
     const x = Math.max(-HALF, Math.min(HALF, +d.x || 0)), z = Math.max(-HALF, Math.min(HALF, +d.z || 0));
     sendTo(v, x, z); v.by = from;
+    mpOnOrder(v, x, z, from);
+  } else if (d.k === 'help') {
+    mpAddHelp(from, Math.max(-HALF, Math.min(HALF, +d.x || 0)), Math.max(-HALF, Math.min(HALF, +d.z || 0)), String(d.t));
+  } else if (d.k === 'res') {
+    mpDoReserve(vehicles[d.v], from);
   } else if (d.k === 'home') {
     const v = vehicles[d.v];
     if (v && (MP.owners[v.id] === from || MP.owners[v.id] === -1) && usable(v)) goHome(v);
@@ -3521,7 +3597,12 @@ function mpHostStart(mapId, level) {
   const d = { k: 'start', map: mapId, level, seed: 1 + Math.floor(NATIVE_RANDOM() * 2e9), shared: MP.cfg.shared, pids };
   if (MP.ws) MP.ws.send(JSON.stringify({ t: 'lock', on: true }));
   MP.send(d);
+  MP.lastStart = d; MP.lastEnd = null;
   mpBeginGame(d);
+  // état de départ (identique chez tout le monde) : base des différences et des reprises après déconnexion
+  MP.lastCell = new Int16Array(N * N);
+  for (let k = 0; k < N * N; k++) MP.lastCell[k] = mpCellCode(k);
+  MP.initCell = MP.lastCell.slice();
   MP.owners = mpAssign(pids, d.shared);
   MP.send({ k: 'own', owners: MP.owners });
   mpAfterOwners();
@@ -3536,6 +3617,9 @@ function mpBeginGame(d) {
   GEN_PLAYERS = MP.stationPids.length;   // une ville et une caserne par joueur
   MP.active = true; MP.shared = !!d.shared; MP.owners = [];
   MP.lastCell = null; MP.lastBld = []; MP.snapAcc = 0; MP.outFlash = []; MP.events = [];
+  MP.pst = {}; MP.helps = []; MP.cHelps = []; MP.border = null; MP.helpMode = null; MP.feed = [];
+  for (const fx of MP.helpFx.values()) fx.g.removeFromParent();
+  MP.helpFx.clear(); mpPopup(null);
   for (const p of MP.pings) p.g.removeFromParent();
   MP.pings = []; MP.incMap.clear(); MP.accMap.clear();
   $('#mp-overlay').classList.remove('show');
@@ -3595,24 +3679,28 @@ function mpCellCode(k) {
   return fq | wq << 4 | rq << 8 | (world.burned[k] ? 1 << 13 : 0);
 }
 const r2 = x => Math.round(x * 100) / 100;
-function mpMakeSnap() {
+// full : état complet pour un joueur qui revient (cases différentes du départ, tous les bâtiments)
+function mpMakeSnap(full) {
   const NN = N * N;
   if (!MP.lastCell || MP.lastCell.length !== NN) {   // état de départ : identique chez tout le monde
     MP.lastCell = new Int16Array(NN);
     for (let k = 0; k < NN; k++) MP.lastCell[k] = mpCellCode(k);
+    MP.initCell = MP.lastCell.slice();
   }
   const cells = [];
-  for (let k = 0; k < NN; k++) { const c = mpCellCode(k); if (c !== MP.lastCell[k]) { MP.lastCell[k] = c; cells.push(k, c); } }
+  if (full) { for (let k = 0; k < NN; k++) { const c = mpCellCode(k); if (c !== MP.initCell[k]) cells.push(k, c); } }
+  else for (let k = 0; k < NN; k++) { const c = mpCellCode(k); if (c !== MP.lastCell[k]) { MP.lastCell[k] = c; cells.push(k, c); } }
   // cases modifiées : 4 octets par case (n° sur 16 bits, état sur 16 bits), en base64
   const blds = [];
   for (const b of world.buildings) {
     const row = [b.id, Math.round(b.fire * 100), Math.round(b.hp), b.lost ? 1 : 0, b.trapped || 0];
     const key = row.join();
-    if (MP.lastBld[b.id] !== key) { MP.lastBld[b.id] = key; blds.push(row); }
+    if (full) blds.push(row);
+    else if (MP.lastBld[b.id] !== key) { MP.lastBld[b.id] = key; blds.push(row); }
   }
   const veh = vehicles.map(v => {
     const lad = v.mesh.getObjectByName('ladder');
-    return [r2(v.x), r2(v.y), r2(v.z), r2(v.heading), MP_STATES.indexOf(v.state), Math.round(v.def.air ? v.tank * 100 : v.tank), Math.round(v.hp), v.jet ? v.jet.map(r2) : 0, lad ? r2(lad.rotation.x) : 0, v.by === undefined ? -1 : v.by];
+    return [r2(v.x), r2(v.y), r2(v.z), r2(v.heading), MP_STATES.indexOf(v.state), Math.round(v.def.air ? v.tank * 100 : v.tank), Math.round(v.hp), v.jet ? v.jet.map(r2) : 0, lad ? r2(lad.rotation.x) : 0, v.by === undefined ? -1 : v.by, v.res === undefined ? -1 : v.res];
   });
   const incs = incidents.filter(i => !i.over).map(i => [i.id, MP_KINDS.indexOf(i.kind), r2(i.x), r2(i.y), r2(i.z)]);
   const accs = accidents.map(a => [a.id, a.i, a.j, r2(a.x), r2(a.y), r2(a.z), Math.round(a.extract), Math.round(a.care), r2(a.timer), a.done ? 1 : 0, a.lost ? 1 : 0, a.victims]);
@@ -3620,6 +3708,8 @@ function mpMakeSnap() {
     k: 'snap', s: ++MP.seq, e: r2(elapsed), ni: r2(nextIncident), p: paused ? 1 : 0, g: gameSpeed,
     m: [r2(meteo.rain), r2(meteo.gust), r2(wind.a), r2(wind.s)], st: stats, c: packCells(cells), b: blds, v: veh, i: incs, a: accs,
   };
+  snap.h = MP.helps.filter(h => !h.done).map(h => [h.id, h.from, r2(h.x), r2(h.z), h.type, h.need, h.got]);
+  if (full) return snap;
   if (MP.outFlash.length) { snap.f = MP.outFlash; MP.outFlash = []; }
   if (MP.events.length) { snap.ev = MP.events; MP.events = []; }
   return snap;
@@ -3663,8 +3753,8 @@ function mpApplySnap(d) {
   // véhicules
   d.v.forEach((row, q) => {
     const v = vehicles[q]; if (!v) return;
-    const [x, y, z, h, s, tank, hp, jet, lad, by] = row;
-    v.by = by >= 0 ? by : undefined;
+    const [x, y, z, h, s, tank, hp, jet, lad, by, res] = row;
+    v.by = by >= 0 ? by : undefined; v.res = res >= 0 ? res : undefined;
     const st = MP_STATES[s] || 'idle';
     if (st === 'dead' && v.state !== 'dead') v.mesh.traverse(o => { if (o.material && o.material.color) o.material.color.multiplyScalar(0.25); });
     v.state = st; v.tank = v.def.air ? tank / 100 : tank; v.hp = hp; v.jet = jet || null; v.lad = lad;
@@ -3695,6 +3785,9 @@ function mpApplySnap(d) {
   }
   for (const [id, a] of MP.accMap) if (!aseen.has(id)) { if (!a.done) { a.mesh.removeFromParent(); disposeTree(a.mesh); } MP.accMap.delete(id); }
   accidents = [...MP.accMap.values()];
+  // appels à l'aide
+  MP.cHelps = (d.h || []).map(([id, from, x, z, type, need, got]) => ({ id, from, x, z, type, need, got, done: false }));
+  mpSyncHelpFx(MP.cHelps);
   // messages et effets
   if (d.f) for (const [t, ms] of d.f) flash(t, ms);
   if (d.ev) for (const e of d.ev) if (e[0] === 'd') dropFx(e[1], e[2], e[3], e[4], e[5]);
@@ -3706,7 +3799,7 @@ function mpFrame(dt, t) {
   if (MP.isHost) {
     if (MP.waiting > 0) {
       MP.waiting -= dt;
-      if (MP.players.every(p => p.id === MP.id || MP.ready.has(p.id)) || MP.waiting <= 0) {
+      if (MP.players.every(p => p.id === MP.id || p.away || MP.ready.has(p.id)) || MP.waiting <= 0) {
         MP.waiting = 0; paused = false; const o = $('#pause-overlay'); o.textContent = '⏸ Pause'; o.classList.remove('show');
         flash('👥 Tout le monde est là : c\'est parti !', 2000);
       }
@@ -3756,7 +3849,7 @@ function mpPing(x, z) {
   MP.send({ k: 'ping', x: r2(x), z: r2(z) });
   mpPingFx(x, z, MP.id);
 }
-function mpPingFx(x, z, pid) {
+function mpPingFx(x, z, pid, silent) {
   if (!currentMap || !world) return;
   const col = new THREE.Color(MP.color(pid)), y = groundAt(x, z);
   const g = new THREE.Group();
@@ -3765,7 +3858,7 @@ function mpPingFx(x, z, pid) {
   const sp = emojiSprite('📍', N > 48 ? 2.2 : 1.6);
   g.add(ring, sp); g.position.set(x, y, z); mapGroup.add(g);
   MP.pings.push({ g, ring, sp, y: 0, life: 5 });
-  flash(`📍 ${MP.name(pid)} : regardez ici — secteur ${sector(x, z)}`, 2200);
+  if (!silent) flash(`📍 ${MP.name(pid)} : regardez ici — secteur ${sector(x, z)}`, 2200);
 }
 
 // ─── Interface : salon ─────────────────────────────────────────
@@ -3782,7 +3875,7 @@ function mpRender() {
     const join = (new URLSearchParams(location.search).get('join') || '').toUpperCase().slice(0, 4);
     p.innerHTML = `<button class="x" data-a="close">✕</button>
       <h2>👥 Multijoueur — coopération</h2>
-      <p class="mp-intro">Jusqu'à 4 pompiers sur la même carte : chacun commande une partie de la flotte (urbain, forêt, aérien…), on gagne ou on perd ensemble. Pose des repères avec <kbd>Maj</kbd> + clic pour te coordonner.</p>
+      <p class="mp-intro">Jusqu'à 4 pompiers sur une grande carte : chacun a sa ville et sa caserne, les avions sont communs, on gagne ou on perd ensemble. Demande des renforts, envoie des messages rapides, pose des repères (<kbd>Maj</kbd> + clic) pour te coordonner.</p>
       <div class="mp-row"><label>Ton nom</label><input id="mp-name" maxlength="16" placeholder="Pompier" value="${esc(mpName())}"></div>
       <div class="mp-box">
         <h3>Créer un salon</h3>
@@ -3841,12 +3934,26 @@ function mpRender() {
     p.querySelector('[data-a=start]').onclick = () => mpHostStart(cfg.map, cfg.level);
   }
 }
+// Colonne de gauche : panneau de jeu, puis barre des joueurs, puis fil d'infos / fenêtres
+function mpLayoutLeft() {
+  const hud = $('#hud'), bar = $('#mpbar'); if (!hud || !bar) return;
+  const top = hud.getBoundingClientRect().bottom + 10;
+  bar.style.top = top + 'px';
+  const below = bar.getBoundingClientRect().bottom + 8;
+  for (const id of ['#mpfeed', '#mppop']) { const el = $(id); if (el) el.style.top = below + 'px'; }
+}
 // Bandeau des joueurs en partie
 function updateMpBar() {
   const bar = $('#mpbar'); if (!bar) return;
-  if (!MP.active || !currentMap) { bar.style.display = 'none'; return; }
+  document.body.classList.toggle('mp', MP.active && !!currentMap);
+  document.body.classList.toggle('mini', !!(mini.on && currentMap));
+  renderFeed();
+  if (!MP.active || !currentMap) { bar.style.display = 'none'; mpPopup(null); return; }
   bar.style.display = 'flex';
-  bar.innerHTML = `<span class="mp-lbl">👥 ${MP.code}</span>` + MP.players.map(q => `<span class="mp-p"><span class="mp-dot" style="background:${MP.color(q.id)}"></span>${q.name.replace(/[<>&]/g, '')}${q.id === MP.host ? ' ★' : ''}</span>`).join('') + '<span class="mp-hint"><kbd>Maj</kbd>+clic : repère</span>';
+  bar.innerHTML = `<div class="mp-row1"><span class="mp-lbl">👥 ${MP.code}</span>` + MP.players.map(q => `<span class="mp-p ${q.away ? 'away' : ''}"><span class="mp-dot" style="background:${MP.color(q.id)}"></span>${q.name.replace(/[<>&]/g, '')}${q.id === MP.host ? ' ★' : ''}${q.away ? ' 📴' : ''}</span>`).join('') + '<span class="mp-hint"><kbd>Maj</kbd>+clic repère · <kbd>B</kbd> renforts · <kbd>T</kbd> message</span></div>'
+    + `<div class="mp-row2">${mpBarButtons()}</div>`;
+  bindMpBar(bar);
+  mpLayoutLeft();
 }
 
 // ─── Tuile de l'accueil ────────────────────────────────────────
@@ -3857,7 +3964,7 @@ function mpHomeCard(box) {
     <div class="art mp-art"><span class="mp-ppl">👩‍🚒🧑‍🚒</span><span class="mp-net">📡</span></div>
     <div class="body">
       <div class="top"><h3>Multijoueur</h3><span class="badge bmp">👥 Coop 2-4</span></div>
-      <div class="desc">En ligne avec un code de salon : jusqu'à 4 pompiers sur la même carte, chacun aux commandes d'une partie de la flotte. Repères partagés, victoire ou défaite ensemble.</div>
+      <div class="desc">En ligne avec un code de salon : jusqu'à 4 pompiers, chacun sa ville et sa caserne sur une carte géante, avions communs. Renforts, feu frontière, messages rapides et bilan par joueur.</div>
       <button class="play">▶ Jouer à plusieurs</button>
     </div>`;
   const go = e => { if (e) e.stopPropagation(); mpOpen(); };
@@ -3972,14 +4079,282 @@ function miniTick(dt, t) {
   g.strokeStyle = 'rgba(255,255,255,0.85)'; g.lineWidth = 2; g.strokeRect(tx - vr, ty - vr * 0.6, vr * 2, vr * 1.2);
 }
 
+
+
+// ═══════════════════════════════════════════════════════════════
+// Coopération : renforts, feu frontière, réservation des avions,
+// messages rapides, bilan par joueur, reconnexion
+// ═══════════════════════════════════════════════════════════════
+const QUICK = ['👍 OK, j\'y vais', '🆘 Besoin d\'aide ici !', '💧 Il me faut un avion', '🔥 Feu hors de contrôle', '✅ C\'est maîtrisé', '⏳ Attendez-moi'];
+const PST_KEYS = [['orders', '🚨', 'ordres'], ['reinf', '🤝', 'renforts'], ['evac', '👤', 'évacués'], ['rescue', '🚑', 'secours'], ['bld', '🏠', 'bâtiments sauvés'], ['cells', '🔥', 'foyers éteints'], ['collat', '⚠️', 'dégâts']];
+Object.assign(MP, { pst: {}, helps: [], helpSeq: 0, helpFx: new Map(), helpMode: null, feed: [], border: null, initCell: null, lastStart: null, rejoinTry: 0 });
+
+// ─── Bilan par joueur (tenu par l'hôte) ────────────────────────
+function pidOf(v) { const o = MP.owners[v.id]; return o >= 0 ? o : v.by; }
+function credit(v, key, n) {
+  if (!MP.isHost || !v) return;
+  const pid = pidOf(v); if (pid === undefined) return;
+  creditPid(pid, key, n);
+}
+function creditPid(pid, key, n) {
+  const p = MP.pst[pid] = MP.pst[pid] || {};
+  p[key] = (p[key] || 0) + (n === undefined ? 1 : n);
+}
+function helper(o, v) { if (MP.isHost && o && v) (o.helpers = o.helpers || new Set()).add(v.id); }
+// Bâtiment ou accident résolu : chaque pompier dont un véhicule y a travaillé est crédité
+function creditHelpers(o, key) {
+  if (!MP.isHost || !o || !o.helpers) return;
+  const pids = new Set([...o.helpers].map(id => pidOf(vehicles[id])).filter(p => p !== undefined));
+  for (const p of pids) creditPid(p, key);
+}
+// Un ordre vient d'être donné (hôte) : ordres, renforts chez les autres, réponses aux appels, réservations
+function mpOnOrder(v, x, z, pid) {
+  if (!MP.isHost) return;
+  creditPid(pid, 'orders');
+  if (v.res === pid) { v.res = undefined; }
+  if (world.region && v.sta >= 0) {
+    const i = Math.max(0, Math.min(N - 1, toI(x))), j = Math.max(0, Math.min(N - 1, toJ(z)));
+    const sec = world.region[idx(i, j)], owner = MP.stationPids[sec];
+    if (owner !== undefined && owner !== pid) {
+      creditPid(pid, 'reinf');
+      const txt = `🤝 ${MP.name(pid)} envoie ${v.def.icon} ${v.def.short} ${v.num} en renfort chez ${MP.name(owner)}`;
+      MP.outFlash.push([txt, 2200]); flash(txt, 2200);
+      mpFeed(pid, `🤝 renfort ${v.def.icon} → ${MP.name(owner)}`);
+    }
+  }
+  for (const h of MP.helps) {
+    if (h.done || h.from === pid || Math.hypot(h.x - x, h.z - z) > 10) continue;
+    if (h.type !== 'any' && h.type !== v.type) continue;
+    h.got++; stats.score += 60;
+    const txt = `🤝 ${MP.name(pid)} répond à l'appel de ${MP.name(h.from)} (${v.def.icon} ${v.def.short})`;
+    MP.outFlash.push([txt, 2400]); flash(txt, 2400); mpFeed(pid, txt.replace(/^🤝 [^ ]+ /, '🤝 '), true);
+    if (h.got >= h.need) h.done = true;
+    break;
+  }
+}
+
+// ─── Feu frontière (hôte) ──────────────────────────────────────
+// Une fois par mission, un gros feu de forêt démarre entre deux secteurs : il faut le tenir à deux.
+function mpSimHook(dt) {
+  if (!MP.isHost || !world || !world.towns) return;
+  // réservations d'avions : 60 s au plus
+  for (const v of vehicles) if (v.res !== undefined && (v.resT = (v.resT || 0) - dt) <= 0) { v.res = undefined; }
+  // appels à l'aide : 2 minutes
+  for (const h of MP.helps) if (!h.done && elapsed - h.t > 120) h.done = true;
+  MP.helps = MP.helps.filter(h => !h.done || elapsed - h.t < 125);
+  const P = world.towns.length;
+  if (P < 2) return;
+  if (!MP.border) MP.border = { at: isFinite(L.duration) ? L.duration * (0.3 + 0.15 * Math.random()) : 160, done: false };
+  if (MP.border.done || elapsed < MP.border.at) return;
+  MP.border.done = true;
+  const q = Math.floor(Math.random() * P), r = P === 2 ? 1 - q : (q + 1) % P;
+  const A = world.towns[q], B = world.towns[r], mi = (A.ci + B.ci) / 2, mj = (A.cj + B.cj) / 2;
+  let best = -1, bd = Infinity;
+  for (let j = Math.max(0, Math.floor(mj - 30)); j < Math.min(N, mj + 30); j++) for (let i = Math.max(0, Math.floor(mi - 30)); i < Math.min(N, mi + 30); i++) {
+    const k = idx(i, j);
+    if (world.type[k] !== T.FOREST || world.burned[k] || world.fire[k] > 0) continue;
+    const d = Math.hypot(i - mi, j - mj); if (d < bd) { bd = d; best = k; }
+  }
+  if (best < 0) return;
+  const bi = best % N, bj = (best - bi) / N;
+  for (let dj = -3; dj <= 3; dj++) for (let di = -3; di <= 3; di++) if (inb(bi + di, bj + dj) && Math.hypot(di, dj) <= 3.2 && Math.random() < 0.8) ignite(idx(bi + di, bj + dj), 0.5);
+  const pa = MP.stationPids[q], pb = MP.stationPids[r];
+  const inc = { kind: 'forest', x: cx(bi), z: cz(bj), y: cellH(bi, bj), t: elapsed, big: true };
+  addIncident(inc, `🔥🔥 FEU MAJEUR entre ${MP.name(pa)} et ${MP.name(pb)}`);
+  inc.sprite.scale.multiplyScalar(1.6);
+  mpFeed(-1, `🔥🔥 Feu majeur entre ${MP.name(pa)} et ${MP.name(pb)} : il faut le tenir à deux`, true);
+}
+
+// ─── Appels à l'aide (renforts) ────────────────────────────────
+function mpHelpMenu() {
+  if (!MP.active || !currentMap || gameOver) return;
+  const types = VTYPES.filter(t => currentFleet[t]);
+  mpPopup(`<div class="pp-t">🆘 Demander des renforts — quoi ?</div>
+    <div class="pp-g">${types.map(t => `<button data-h="${t}">${VEH[t].icon}<small>${VEH[t].short}</small></button>`).join('')}<button data-h="any">🚨<small>N'importe</small></button></div>
+    <div class="pp-n">puis clique sur la carte là où il faut aider · <kbd>Échap</kbd> annuler</div>`, el => {
+    el.querySelectorAll('[data-h]').forEach(b => b.onclick = e => {
+      e.stopPropagation(); MP.helpMode = b.dataset.h; mpPopup(null);
+      flash(`🆘 Clique sur la carte : appel à l'aide (${b.dataset.h === 'any' ? 'tous moyens' : VEH[b.dataset.h].short})`, 2200);
+    });
+  });
+}
+function mpHelp(x, z, type) {
+  MP.helpMode = null;
+  if (MP.isHost) mpAddHelp(MP.id, x, z, type);
+  else MP.send({ k: 'help', x: r2(x), z: r2(z), t: type }, MP.host);
+}
+function mpAddHelp(from, x, z, type) {
+  if (!currentMap || gameOver) return;
+  if (type !== 'any' && !VEH[type]) return;
+  if (MP.helps.filter(h => h.from === from && !h.done).length >= 3) return;   // 3 appels ouverts au plus par joueur
+  const h = { id: ++MP.helpSeq, from, x, z, type, need: type === 'any' ? 2 : 1, got: 0, t: elapsed, done: false };
+  MP.helps.push(h);
+  const txt = `🆘 ${MP.name(from)} demande des renforts : ${type === 'any' ? 'tous moyens' : VEH[type].icon + ' ' + VEH[type].short} — secteur ${sector(x, z)}`;
+  MP.outFlash.push([txt, 3000]); flash(txt, 3000);
+  mpFeed(from, `🆘 renforts ${type === 'any' ? '🚨' : VEH[type].icon} demandés`, true);
+}
+// Marqueurs 3D des appels ouverts (hôte : MP.helps ; joueurs : liste reçue)
+function mpSyncHelpFx(list) {
+  const open = new Set();
+  for (const h of list) {
+    if (h.done) continue;
+    open.add(h.id);
+    let fx = MP.helpFx.get(h.id);
+    if (!fx) {
+      const g = new THREE.Group();
+      const ring = new THREE.Mesh(new THREE.RingGeometry(2.2, 2.6, 36), new THREE.MeshBasicMaterial({ color: new THREE.Color(MP.color(h.from)), transparent: true, opacity: 0.85, depthTest: false, depthWrite: false, side: THREE.DoubleSide }));
+      ring.rotation.x = -Math.PI / 2; ring.position.y = 0.4; ring.renderOrder = 6;
+      const sp = emojiSprite('🆘', N > 48 ? 2.6 : 1.8); sp.position.y = 3.2;
+      const ic = emojiSprite(h.type === 'any' ? '🚨' : VEH[h.type].icon, N > 48 ? 1.8 : 1.3); ic.position.set(1.6, 3.2, 0);
+      g.add(ring, sp, ic); g.position.set(h.x, groundAt(h.x, h.z), h.z); mapGroup.add(g);
+      fx = { g, ring, sp }; MP.helpFx.set(h.id, fx);
+    }
+  }
+  for (const [id, fx] of MP.helpFx) if (!open.has(id)) { fx.g.removeFromParent(); disposeTree(fx.g); MP.helpFx.delete(id); }
+}
+
+// ─── Réservation des avions communs ────────────────────────────
+function reservedByOther(v) { return MP.active && v.res !== undefined && v.res !== MP.id; }
+function mpReserve(v) {
+  if (MP.isHost) mpDoReserve(v, MP.id);
+  else MP.send({ k: 'res', v: v.id }, MP.host);
+}
+function mpDoReserve(v, pid) {
+  if (!v || v.sta >= 0 || v.state === 'dead') return;
+  if (v.res !== undefined && v.res !== pid) return;
+  if (v.res === pid) { v.res = undefined; return; }
+  v.res = pid; v.resT = 60;
+  const txt = `🔒 ${MP.name(pid)} réserve ${v.def.icon} ${v.def.short} ${v.num} (60 s)`;
+  MP.outFlash.push([txt, 1800]); flash(txt, 1800);
+}
+
+// ─── Messages rapides ──────────────────────────────────────────
+function mpChatMenu() {
+  if (!MP.active || !currentMap) return;
+  mpPopup(`<div class="pp-t">💬 Message rapide</div>
+    <div class="pp-l">${QUICK.map((m, q) => `<button data-c="${q}"><kbd>${q + 1}</kbd> ${m}</button>`).join('')}</div>`, el => {
+    el.querySelectorAll('[data-c]').forEach(b => b.onclick = e => { e.stopPropagation(); mpChat(+b.dataset.c); });
+  });
+  MP.chatOpen = true;
+}
+function mpChat(m) {
+  mpPopup(null);
+  const d = { k: 'chat', m };
+  if ((m === 1 || m === 3) && MP.hover) { d.x = r2(MP.hover[0]); d.z = r2(MP.hover[1]); }
+  MP.send(d);
+  mpShowChat(MP.id, d);
+}
+function mpShowChat(pid, d) {
+  const txt = QUICK[d.m]; if (!txt) return;
+  mpFeed(pid, txt + (d.x !== undefined ? ` — ${sector(d.x, d.z)}` : ''));
+  if (d.x !== undefined) mpPingFx(d.x, d.z, pid, true);
+}
+
+// ─── Fil d'infos (messages, renforts, retours) ─────────────────
+function mpFeed(pid, text, strong) {
+  MP.feed.push({ pid, text, t: performance.now(), strong });
+  if (MP.feed.length > 5) MP.feed.shift();
+  renderFeed();
+}
+function renderFeed() {
+  let el = $('#mpfeed');
+  if (!el) { el = document.createElement('div'); el.id = 'mpfeed'; document.body.appendChild(el); }
+  const now = performance.now();
+  MP.feed = MP.feed.filter(f => now - f.t < 20000);
+  el.style.display = MP.active && currentMap && MP.feed.length ? 'flex' : 'none';
+  const esc = s => String(s).replace(/[<>&]/g, '');
+  mpLayoutLeft();
+  el.innerHTML = MP.feed.map(f => `<div class="fd ${f.strong ? 'st' : ''}" style="opacity:${Math.max(0.35, 1 - (now - f.t) / 20000)}">${f.pid >= 0 ? `<b style="color:${MP.color(f.pid)}">${esc(MP.name(f.pid))}</b> ` : ''}${esc(f.text)}</div>`).join('');
+}
+
+// ─── Petite fenêtre au-dessus de la barre des joueurs ──────────
+function mpPopup(html, bind) {
+  let el = $('#mppop');
+  if (!el) { el = document.createElement('div'); el.id = 'mppop'; el.className = 'glass'; document.body.appendChild(el); el.addEventListener('pointerdown', e => e.stopPropagation()); }
+  MP.chatOpen = false;
+  if (!html) { el.style.display = 'none'; return; }
+  el.innerHTML = html; el.style.display = 'block'; mpLayoutLeft();
+  if (bind) bind(el);
+}
+
+// ─── Bilan de fin de partie ────────────────────────────────────
+function mpReportHtml() {
+  const pids = MP.stationPids.length ? MP.stationPids : MP.players.map(p => p.id);
+  const all = new Set(pids.concat(Object.keys(MP.pst).map(Number)));
+  const rows = [...all].filter(pid => MP.player(pid) || MP.pst[pid]);
+  if (!rows.length) return '';
+  const score = p => { const s = MP.pst[p] || {}; return (s.evac || 0) * 60 + (s.rescue || 0) * 80 + (s.bld || 0) * 100 + (s.cells || 0) * 3 + (s.reinf || 0) * 40 - (s.collat || 0) * 120; };
+  const best = rows.reduce((a, b) => score(b) > score(a) ? b : a, rows[0]);
+  const esc = s => String(s).replace(/[<>&]/g, '');
+  return `<table class="pst"><tr><th></th>${PST_KEYS.map(([, ic, lb]) => `<th title="${lb}">${ic}</th>`).join('')}</tr>
+    ${rows.map(p => `<tr><td><span class="mp-dot" style="background:${MP.color(p)}"></span> ${esc(MP.name(p))}${p === best && rows.length > 1 && score(p) > 0 ? ' 🏅' : ''}</td>${PST_KEYS.map(([k]) => `<td>${Math.round((MP.pst[p] || {})[k] || 0)}</td>`).join('')}</tr>`).join('')}
+  </table><div class="pst-l">${PST_KEYS.map(([, ic, lb]) => `${ic} ${lb}`).join(' · ')}${rows.length > 1 ? ' · 🏅 pompier du jour' : ''}</div>`;
+}
+
+// ─── Reconnexion ───────────────────────────────────────────────
+// Le relais garde la place d'un joueur déconnecté 2 minutes ; on revient avec le jeton du salon.
+const SESS_KEY = 'mpsess';
+function mpSaveSess(m) { store.set(SESS_KEY, { code: m.code, id: m.id, token: m.token, t: Date.now() }); }
+function mpSess() { const s = store.get(SESS_KEY, null); return s && Date.now() - s.t < 3 * 60 * 1000 ? s : null; }
+function mpTryRejoin() {
+  const s = mpSess();
+  if (!s || s.code !== MP.code || MP.rejoinTry >= 6) return false;
+  MP.rejoinTry++;
+  mpPauseText(`🔌 Connexion perdue — reconnexion (${MP.rejoinTry}/6)…`);
+  setTimeout(() => mpConnect({ t: 'join', code: s.code, name: mpName() || 'Pompier', token: s.token }, true), 1500 + 500 * MP.rejoinTry);
+  return true;
+}
+// L'hôte renvoie tout à un joueur revenu : départ, flotte, état complet
+function mpResync(pid) {
+  if (!MP.isHost) return;
+  if (!currentMap || !MP.lastStart) { mpSendCfg(); return; }
+  MP.send(MP.lastStart, pid);
+  MP.send({ k: 'own', owners: MP.owners }, pid);
+  MP.send(mpMakeSnap(true), pid);
+  if (gameOver) MP.send({ k: 'end', win: MP.lastEnd ? MP.lastEnd.win : false, why: MP.lastEnd ? MP.lastEnd.why : '', stats, elapsed, pst: MP.pst }, pid);
+}
+
+// ─── Barre des joueurs : boutons ───────────────────────────────
+function mpBarButtons() {
+  const open = (MP.isHost ? MP.helps : MP.cHelps || []).filter(h => !h.done);
+  return `<button class="mpb" data-b="help" title="Demander des renforts (B)">🆘 Renforts</button><button class="mpb" data-b="chat" title="Message rapide (T)">💬</button>`
+    + open.map(h => `<button class="mpb hq" data-hx="${h.x}" data-hz="${h.z}" style="border-color:${MP.color(h.from)}" title="Aller voir">🆘 ${String(MP.name(h.from)).replace(/[<>&]/g, '')} ${h.type === 'any' ? '🚨' : VEH[h.type].icon} ${h.got}/${h.need}</button>`).join('');
+}
+function bindMpBar(bar) {
+  bar.querySelectorAll('[data-b=help]').forEach(b => b.onclick = e => { e.stopPropagation(); mpHelpMenu(); });
+  bar.querySelectorAll('[data-b=chat]').forEach(b => b.onclick = e => { e.stopPropagation(); mpChatMenu(); });
+  bar.querySelectorAll('[data-hx]').forEach(b => b.onclick = e => {
+    e.stopPropagation();
+    const x = +b.dataset.hx, z = +b.dataset.hz, dx = x - controls.target.x, dz = z - controls.target.z;
+    controls.target.x += dx; controls.target.z += dz; camera.position.x += dx; camera.position.z += dz;
+  });
+}
+let mpBarAcc = 0;
+function coopFrame(dt, t) {
+  if (!MP.active || !currentMap) return;
+  if (MP.isHost) mpSyncHelpFx(MP.helps);
+  for (const fx of MP.helpFx.values()) { const s = 1 + 0.25 * Math.sin(t * 6); fx.ring.scale.set(s, s, s); fx.sp.position.y = 3.2 + 0.3 * Math.sin(t * 4); }
+  mpBarAcc += dt;
+  if (mpBarAcc > 1) { mpBarAcc = 0; updateMpBar(); renderFeed(); }
+}
+
+
 // ─── Démarrage ─────────────────────────────────────────────────
 buildHome();
 requestAnimationFrame(frame);
-if (new URLSearchParams(location.search).get('join')) mpOpen();
+(function () {
+  const j = (new URLSearchParams(location.search).get('join') || '').toUpperCase(), sess = mpSess();
+  if (j && sess && sess.code === j) {   // page rechargée en pleine partie : on reprend sa place
+    MP.code = j; MP.rejoinTry = 1;
+    $('#home').classList.add('hidden'); mpPauseText('🔌 Reprise de ta place dans la partie…');
+    mpConnect({ t: 'join', code: j, name: mpName() || 'Pompier', token: sess.token }, true);
+    MP.code = null;
+  } else if (j) mpOpen();
+})();
 window.__ffProject = (x, z) => { const v = new THREE.Vector3(x, groundAt(x, z), z).project(camera); return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight]; };
 window.__ff = { get world() { return world; }, get vehicles() { return vehicles; }, get stats() { return stats; }, get incidents() { return incidents; }, get accidents() { return accidents; },
   startGame, dispatch, goHome, igniteBuilding, meteo, run(sec, ai) { paused = true; const n = Math.round(sec / 0.1); for (let q = 0; q < n && !gameOver; q++) { if (ai) ai(); simStep(0.1); } paused = false; }, spawnIncident, makeIncident, sendTo, get burning() { return burning; }, setElapsed: v => { elapsed = v; }, get elapsed() { return elapsed; }, setSpeed: s => { gameSpeed = s; },
-  MP, mpPing, mpHostStart, setGenPlayers: n => { GEN_PLAYERS = n; }, gridPath, costFn, get N() { return N; }, get paused() { return paused; }, get gameOver() { return gameOver; } };
+  MP, mpPing, mpHostStart, mpHelp, mpReserve, mpChat, mpSimHook, setGenPlayers: n => { GEN_PLAYERS = n; }, gridPath, costFn, get N() { return N; }, get paused() { return paused; }, get gameOver() { return gameOver; } };
 
 </script>
 </body>

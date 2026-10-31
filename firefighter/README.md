@@ -2,7 +2,7 @@
 
 3D fire and rescue dispatch game — send canadairs, water-bombing helicopters and fire engines to forest fires, burning houses and towers, and road accidents.
 
-Part of the [MiniGames](../README.md) collection. Current version: **2026.10.007** — [releases](https://github.com/LostInTheBugs/MiniGames/releases?q=firefighter&expanded=true).
+Part of the [MiniGames](../README.md) collection. Current version: **2026.10.008** — [releases](https://github.com/LostInTheBugs/MiniGames/releases?q=firefighter&expanded=true).
 
 ## 🗺️ Maps
 
@@ -65,7 +65,8 @@ Up to **4 players online**, each with their **own town and fire station**, far a
 2. the others join; the host picks the map and the level — the map is generated with one town per player
 3. each station has its own fleet (fire engines, ladder, light vehicle, forest trucks, helicopter); **Canadairs and the retardant aircraft are shared** at the airfield, first come first served. A « flotte partagée » option lets everyone command everything
 4. alerts fall in turn in each player's sector; anyone can send reinforcements anywhere
-5. **Shift + click** (or **G**) drops a ping everyone sees; **C** recentres on your station; the **mini-map** (bottom left) shows the whole map — click it to move the view; **P** pauses for the whole team; only the host changes the speed and restarts
+5. **B** asks for reinforcements (a vehicle type at a spot: the first teammate who sends one answers the call), **T** opens quick messages, 🔒 reserves a shared aircraft for 60 s; once per mission a **major fire** breaks out between two sectors; the end screen shows a **report per player**; a player who drops out or reloads gets their place back within 2 minutes
+6. **Shift + click** (or **G**) drops a ping everyone sees; **C** recentres on your station; the **mini-map** (bottom left) shows the whole map — click it to move the view; **P** pauses for the whole team; only the host changes the speed and restarts
 
 | Co-op map | Landscape |
 |---|---|
@@ -104,7 +105,7 @@ The co-op mode needs the small WebSocket relay in [`relay/`](relay/) (Node 22 + 
 cd firefighter/relay
 docker compose up -d --build        # listens on 127.0.0.1:8008
 FF_RELAY_PORT=8010 docker compose up -d --build   # other host port
-curl http://127.0.0.1:8008/health   # {"ok":true,"version":"2026.10.007","rooms":0}
+curl http://127.0.0.1:8008/health   # {"ok":true,"version":"2026.10.008","rooms":0}
 ```
 
 | Variable | Default | Meaning |
@@ -113,6 +114,7 @@ curl http://127.0.0.1:8008/health   # {"ok":true,"version":"2026.10.007","rooms"
 | `PORT` | `8008` | listening port inside the container / with `node server.js` |
 | `FF_MAX_PLAYERS` | `4` | players per room |
 | `FF_MAX_ROOMS` | `200` | simultaneous rooms |
+| `FF_AWAY_MS` | `120000` | how long a disconnected player's slot is kept during a game |
 
 The game connects to `wss://<host>/firefighter/ws` (same origin as the page), so the reverse proxy must forward that path, with the WebSocket upgrade headers, to the relay — e.g. nginx:
 

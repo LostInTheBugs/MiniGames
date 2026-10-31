@@ -1,5 +1,5 @@
 {
-  "version": "2026.10.007",
+  "version": "2026.10.008",
   "date": "2026-10-31",
-  "notes": "Co-op: four 192 x 192 maps with one town and fire station per player, shared aircraft, mini-map"
+  "notes": "Co-op: calls for reinforcements, border fire, aircraft reservation, quick messages, per-player report, reconnection"
 }

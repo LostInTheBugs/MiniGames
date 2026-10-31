@@ -2,6 +2,20 @@
 
 All notable changes to Firefighter are documented in this file.
 
+## [2026.10.008] — 2026-10-31
+
+### Added — co-op, first wave
+- **Calls for reinforcements**: **B** (or the 🆘 button) asks for a vehicle type (or « anything ») at a spot on the map; a 🆘 marker in the caller's colour appears for everyone and a chip in the players bar jumps the camera there. The first teammate who sends a matching vehicle there answers the call (+60 points); calls last 2 minutes, 3 open calls per player at most
+- **Border fire**: once per mission (between 30 and 45 % of the time), a large forest fire starts between two players' sectors — « FEU MAJEUR entre Alice et Bob », +300 points when it is put out
+- **Reserving shared aircraft**: 🔒 next to a Canadair or the retardant aircraft keeps it for you for 60 s (or until you send it); the others see who reserved it
+- **Quick messages**: **T** then **1–6** (« OK, j'y vais », « Besoin d'aide ici ! », « Il me faut un avion », « Feu hors de contrôle », « C'est maîtrisé », « Attendez-moi »); help and fire messages also drop a ping where your mouse is. Shown with reinforcements, departures and returns in a feed on the left
+- **Per-player report** at the end of the mission: orders, reinforcements sent to other sectors, people evacuated, accident rescues, buildings saved, fires put out, damage from drops — and 🏅 firefighter of the day
+- **Reconnection**: a player who loses the connection or reloads the page gets their place back within 2 minutes (the relay keeps the slot; the host resends the full state); their vehicles keep working meanwhile
+
+### Changed
+- The players bar now sits under the game panel on the left, with the buttons and open calls
+- Relay: room tokens, away players (`away` / `back`), stable player order
+
 ## [2026.10.007] — 2026-10-31
 
 ### Added
