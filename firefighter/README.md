@@ -2,7 +2,7 @@
 
 3D fire and rescue dispatch game — send canadairs, water-bombing helicopters and fire engines to forest fires, burning houses and towers, and road accidents.
 
-Part of the [MiniGames](../README.md) collection. Current version: **2026.10.001** — [releases](https://github.com/LostInTheBugs/MiniGames/releases?q=firefighter&expanded=true).
+Part of the [MiniGames](../README.md) collection. Current version: **2026.10.002** — [releases](https://github.com/LostInTheBugs/MiniGames/releases?q=firefighter&expanded=true).
 
 ## 🗺️ Maps
 
@@ -46,6 +46,10 @@ Trucks carry water (blue gauge): when empty they refill at the fire station or t
 | ⌨️ **R** | Restart |
 | ⌨️ **M** | Menu |
 
+### 🎲 Aléatoire
+
+The last tile on the home screen starts a map drawn at random (never the same one twice in a row), at the highest level you have unlocked on it.
+
 ## 🎯 Levels
 
 Each map has **10 levels**, unlocked one after the other and saved in the browser. Higher levels bring more frequent alerts, faster spread, stronger wind, shorter accident countdowns and fewer tolerated losses. Level 10 is endless.
@@ -73,6 +77,9 @@ The game checks this repository's `firefighter-` releases every hour (GitHub API
 ## 📋 Release notes
 
 See [CHANGELOG.md](CHANGELOG.md).
+
+### 2026.10.002
+- New **Aléatoire** tile on the home screen: a random map at its highest unlocked level
 
 ### 2026.10.001
 - First release: four maps, six vehicle types, forest/building/road incidents, 10 levels per map

@@ -36,6 +36,12 @@
   .map-card:hover { transform: translateY(-3px); border-color: rgba(255,140,60,0.5); }
   .map-card .art { height: 120px; display: flex; align-items: center; justify-content: center; font-size: 54px; position: relative; overflow: hidden; }
   .map-card .art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .random-art { background: #1a1210; }
+  .random-art .mosaic { position: absolute; inset: 0; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+  .random-art .mosaic img { position: static; width: 100%; height: 100%; object-fit: cover; filter: saturate(0.8) brightness(0.7); }
+  .random-art .dice { position: relative; font-size: 58px; text-shadow: 0 4px 18px rgba(0,0,0,0.6); transition: transform .3s; }
+  .random-card:hover .dice { transform: rotate(-12deg) scale(1.1); }
+  .brnd { background: linear-gradient(90deg, #7e57c2, #ff7a2e); }
   .map-card .body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
   .map-card .top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
   .map-card h3 { font-size: 1.15em; }
@@ -374,7 +380,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 // ─── Version ──────────────────────────────────────────────────
-const GAME_VERSION = "2026.10.001";
+const GAME_VERSION = "2026.10.002";
 document.querySelector("meta[name=version]").setAttribute("content", GAME_VERSION);
 document.getElementById('home-version').textContent = 'v' + GAME_VERSION;
 console.log("Firefighter v" + GAME_VERSION);
@@ -2357,6 +2363,31 @@ function buildHome() {
     card.onclick = () => startGame(id, sel);
     box.appendChild(card);
   }
+
+  // ── Tuile « Aléatoire » : une carte au hasard, à son plus haut niveau débloqué ──
+  const ids = Object.keys(MAPS), lastMap = store.get('last_map', null);
+  const rnd = document.createElement('div');
+  rnd.className = 'map-card glass random-card';
+  rnd.innerHTML = `
+    <div class="art random-art">
+      <div class="mosaic">${ids.map(id => `<img src="assets/map-${id}.jpg" alt="" onerror="this.style.visibility='hidden'">`).join('')}</div>
+      <span class="dice">🎲</span></div>
+    <div class="body">
+      <div class="top"><h3>Aléatoire</h3><span class="badge brnd">🎲 Surprise</span></div>
+      <div class="desc">Une carte tirée au hasard parmi les ${ids.length}, jamais deux fois de suite la même, au plus haut niveau que vous y avez débloqué.</div>
+      <button class="play">▶ Carte au hasard</button>
+    </div>`;
+  const playRandom = e => {
+    if (e) e.stopPropagation();
+    // NATIVE_RANDOM : le tirage ne consomme pas la graine (?seed=N) qui génère la carte
+    const pool = ids.length > 1 ? ids.filter(id => id !== lastMap) : ids;
+    const id = pool[Math.floor(NATIVE_RANDOM() * pool.length)], lvl = unlocked(id);
+    startGame(id, lvl);
+    flash(`🎲 ${MAPS[id].icon} ${MAPS[id].name} — niveau ${lvl}`, 2600);
+  };
+  rnd.querySelector('.play').onclick = playRandom;
+  rnd.onclick = playRandom;
+  box.appendChild(rnd);
 }
 
 // ─── Boucle ────────────────────────────────────────────────────

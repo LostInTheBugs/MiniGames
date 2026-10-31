@@ -2,6 +2,11 @@
 
 All notable changes to Firefighter are documented in this file.
 
+## [2026.10.002] — 2026-10-31
+
+### Added
+- **Aléatoire** tile after the map cards (mosaic of the four map previews and a die): starts a map drawn at random — never the last one played — at its highest unlocked level, and announces the draw. The draw uses the native RNG, so `?seed=N` maps are unchanged
+
 ## [2026.10.001] — 2026-10-27
 
 ### Added

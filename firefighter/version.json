@@ -1,5 +1,5 @@
 {
-  "version": "2026.10.001",
-  "date": "2026-10-27",
-  "notes": "First release: four maps, six fire and rescue vehicles, forest, building and road incidents, 10 levels per map"
+  "version": "2026.10.002",
+  "date": "2026-10-31",
+  "notes": "Random tile on the home screen: a random map at its highest unlocked level"
 }
